@@ -1,0 +1,36 @@
+[package]
+name = "iam-server"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+cim-core = { path = "../../cim-core" }
+
+tokio = { version = "1.22", features = ["full"] }
+axum = "0.6"
+async-trait = "0.1"
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+http = "0.2"
+validator = { version = "0.16", features = ["derive"] }
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tower = { version = "0.4", features = ["full"] }
+tower-http = { version = "0.3", features = ["trace", "cors"] }
+uuid = { version = "1.2", features = ["v4"] }
+metrics = "0.20"
+metrics-exporter-prometheus = "0.11"
+lazy_static = "1.4"
+dotenv = "0.15"
+clap = { version = "4", features = ["derive", "env"] }
+mockall = "0.11"
+sqlx = { version = "0.6", features = [
+    "mysql",
+    "runtime-tokio-rustls",
+    "chrono",
+] }
+regex = "1.7"
+serde_urlencoded = "0.7"

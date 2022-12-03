@@ -1,0 +1,20 @@
+[net]
+retry = 2 
+
+[source]
+
+[source.crates-io]
+
+#replace-with = "tuna"
+
+[source.ustc]
+registry = "https://mirrors.ustc.edu.cn/crates.io-index"
+
+[source.rustcc]
+registry = "git://crates.rustcc.cn/crates.io-index"
+
+[source.tuna]
+registry = "https://mirrors.tuna.tsinghua.edu.cn/git/crates.io-index.git"
+
+[source.sjtu]
+registry = "https://mirrors.sjtug.sjtu.edu.cn/git/crates.io-index"

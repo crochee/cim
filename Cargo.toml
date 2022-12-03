@@ -1,0 +1,4 @@
+[workspace]
+resolver = "2"
+members = ["iam/iam-server", "iam/iam-ctl", "cim-core"]
+default-members = ["iam/iam-server"]

@@ -1,0 +1,22 @@
+cognitive-complexity-threshold = 20
+doc-valid-idents = [
+    "MiB",
+    "GiB",
+    "TiB",
+    "PiB",
+    "EiB",
+    "DirectX",
+    "OpenGL",
+    "TrueType",
+    "GPLv2",
+    "GPLv3",
+    "GitHub",
+    "IPv4",
+    "IPv6",
+    "JavaScript",
+    "NaN",
+    "OAuth",
+    "SQLite",
+    "PostgreSQL",
+    "MySQL",
+]
