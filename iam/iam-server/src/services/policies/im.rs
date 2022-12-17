@@ -3,8 +3,8 @@ use async_trait::async_trait;
 use cim_core::Result;
 
 use crate::{
-    models::{List, Pagination, ID},
-    repositories::policies::DynPoliciesRepository,
+    models::{List, ID},
+    repositories::policies::{Content, DynPoliciesRepository, Opts},
 };
 
 use super::Policy;
@@ -22,27 +22,47 @@ impl IAMPolicies {
 
 #[async_trait]
 impl super::PoliciesService for IAMPolicies {
-    async fn create(&self, policy: &Policy) -> Result<ID> {
-        todo!()
+    async fn create(&self, content: &Content) -> Result<ID> {
+        self.repository.create(None, content).await
     }
-    async fn put(&self, id: &str, policy: &Policy) -> Result<()> {
-        todo!()
+
+    async fn put(&self, id: &str, content: &Content) -> Result<()> {
+        let found = self
+            .repository
+            .exist(id, content.account_id.clone(), true)
+            .await?;
+        if found {
+            return self
+                .repository
+                .update(
+                    id,
+                    content.account_id.clone(),
+                    &Opts {
+                        desc: Some(content.desc.clone()),
+                        version: Some(content.version.clone()),
+                        statement: Some(content.statement.clone()),
+                        unscoped: Some(true),
+                    },
+                )
+                .await;
+        }
+        self.repository.create(Some(id.to_owned()), content).await?;
+        Ok(())
     }
-    async fn get(&self, id: &str) -> Result<Policy> {
-        todo!()
+
+    async fn get(
+        &self,
+        id: &str,
+        account_id: Option<String>,
+    ) -> Result<Policy> {
+        self.repository.get(id, account_id).await
     }
-    async fn delete(&self, id: &str) -> Result<()> {
-        todo!()
+
+    async fn delete(&self, id: &str, account_id: Option<String>) -> Result<()> {
+        self.repository.delete(id, account_id).await
     }
-    async fn list(&self, filter: &super::Filter) -> Result<List<Policy>> {
-        Ok(List {
-            data: Vec::new(),
-            limit: 0,
-            offset: 0,
-            total: 0,
-        })
-    }
-    async fn exist(&self, id: &str) -> Result<()> {
-        todo!()
+
+    async fn list(&self, filter: &super::Querys) -> Result<List<Policy>> {
+        self.repository.list(filter).await
     }
 }

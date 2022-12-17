@@ -46,7 +46,7 @@ impl PartialEq for Error {
 impl IntoResponse for Error {
     fn into_response(self) -> Response {
         let content: Message = self.into();
-        tracing::error!("{:?}", content.result);
+        tracing::error!("{:?}", content);
         let code = match content.status_code() {
             Ok(v) => v,
             Err(err) => {

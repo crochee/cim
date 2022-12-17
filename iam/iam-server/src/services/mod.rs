@@ -1,5 +1,5 @@
-pub mod policies;
 pub mod authz;
+pub mod policies;
 pub mod req;
 
 use std::sync::Arc;

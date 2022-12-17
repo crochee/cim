@@ -8,7 +8,7 @@ pub struct Request {
     pub resource: String,
     pub action: String,
     pub subject: String,
-    pub env: HashMap<String, Vec<u8>>,
+    pub context: HashMap<String, Vec<u8>>,
 }
 
 #[derive(Debug, Validate)]

@@ -3,7 +3,7 @@ use std::ops::Deref;
 use async_trait::async_trait;
 use axum::{
     body::HttpBody,
-    extract::{FromRequest, FromRequestParts, Query},
+    extract::{FromRequest, FromRequestParts},
     Json,
 };
 use http::{request::Parts, Request};
@@ -15,7 +15,7 @@ use cim_core::Error;
 pub struct Valid<T>(pub T);
 
 #[async_trait]
-impl<S, T> FromRequestParts<S> for Valid<Query<T>>
+impl<S, T> FromRequestParts<S> for Valid<T>
 where
     S: Send + Sync,
     T: DeserializeOwned + Validate,
@@ -23,12 +23,12 @@ where
     type Rejection = Error;
     async fn from_request_parts(
         parts: &mut Parts,
-        state: &S,
+        _state: &S,
     ) -> Result<Self, Self::Rejection> {
-        let value = Query::<T>::from_request_parts(parts, state)
-            .await
+        let query = parts.uri.query().unwrap_or_default();
+        let value: T = serde_urlencoded::from_str(query)
             .map_err(|err| Error::BadRequest(err.to_string()))?;
-        value.deref().validate().map_err(Error::Validates)?;
+        value.validate().map_err(Error::Validates)?;
         Ok(Self(value))
     }
 }
@@ -56,47 +56,56 @@ where
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Validate)]
 pub struct Header {
+    #[validate(length(min = 1))]
     pub account_id: String,
+    #[validate(length(min = 1))]
     pub user_id: String,
+    #[validate(length(min = 1))]
     pub source: Option<String>,
 }
 
 #[async_trait]
-impl<S, B> FromRequest<S, B> for Header
+impl<S> FromRequestParts<S> for Header
 where
     S: Send + Sync,
-    B: Send + 'static,
 {
     type Rejection = Error;
-
-    async fn from_request(
-        req: Request<B>,
+    async fn from_request_parts(
+        parts: &mut Parts,
         _state: &S,
     ) -> Result<Self, Self::Rejection> {
-        let mut result = Header::default();
-        let header = req.headers();
-        result.account_id = header
-            .get("X-Account-ID")
-            .ok_or_else(|| {
-                Error::Forbidden("miss request header X-Account-ID".to_string())
-            })?
-            .to_str()
-            .unwrap_or_default()
-            .to_string();
-        result.user_id = header
-            .get("X-User-ID")
-            .ok_or_else(|| {
-                Error::Forbidden("miss request header X-User-ID".to_string())
-            })?
-            .to_str()
-            .unwrap_or_default()
-            .to_string();
+        let mut result = Header {
+            account_id: parts
+                .headers
+                .get("X-Account-ID")
+                .ok_or_else(|| {
+                    Error::Forbidden(
+                        "miss request header X-Account-ID".to_string(),
+                    )
+                })?
+                .to_str()
+                .unwrap_or_default()
+                .to_string(),
+            user_id: parts
+                .headers
+                .get("X-User-ID")
+                .ok_or_else(|| {
+                    Error::Forbidden(
+                        "miss request header X-User-ID".to_string(),
+                    )
+                })?
+                .to_str()
+                .unwrap_or_default()
+                .to_string(),
+            ..Default::default()
+        };
 
-        if let Some(v) = header.get("X-Source") {
+        if let Some(v) = parts.headers.get("X-Source") {
             result.source = Some(v.to_str().unwrap_or_default().to_owned());
         };
+        result.validate().map_err(Error::Validates)?;
         Ok(result)
     }
 }
