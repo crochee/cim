@@ -12,7 +12,8 @@ use axum::{
     routing::get,
     Router, Server,
 };
-use http::{header::HeaderName, HeaderValue, Request};
+use cim_core::Error;
+use http::{header::HeaderName, HeaderValue, Request, Uri};
 use metrics_exporter_prometheus::{Matcher, PrometheusBuilder};
 use tower::ServiceBuilder;
 use tower_http::{
@@ -23,7 +24,8 @@ use tower_http::{
 use tracing::Level;
 
 use crate::{
-    controllers::policies::PoliciesRouter, middlewares::MakeSpanWithTrace,
+    controllers::{authz::AuthzRouter, policies::PoliciesRouter},
+    middlewares::MakeSpanWithTrace,
     ServiceRegister,
 };
 
@@ -49,7 +51,12 @@ impl ApplicationController {
             .context("could not install metrics recorder")?;
 
         let router = Router::new()
-            .nest("/v1", PoliciesRouter::new_router(service_register.clone()))
+            .nest(
+                "/v1",
+                Router::new()
+                    .merge(PoliciesRouter::new_router(service_register.clone()))
+                    .merge(AuthzRouter::new_router(service_register.clone())),
+            )
             .layer(
                 ServiceBuilder::new().layer(
                     TraceLayer::new_for_http()
@@ -64,6 +71,7 @@ impl ApplicationController {
                 ),
             )
             .layer(middleware::from_fn(Self::trace))
+            .fallback(Self::not_found)
             .layer(
                 CorsLayer::new()
                     .expose_headers(ExposeHeaders::list(vec![
@@ -151,5 +159,9 @@ impl ApplicationController {
         metrics::histogram!("http_requests_duration_seconds", latency, &labels);
 
         response
+    }
+
+    async fn not_found(uri: Uri) -> impl IntoResponse {
+        Error::NotFound(format!("no route for {}", uri))
     }
 }

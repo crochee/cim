@@ -3,6 +3,7 @@ mod mariadb;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use mockall::automock;
 
 pub type DynPoliciesRepository = Arc<dyn PoliciesRepository + Send + Sync>;
 use cim_core::Result;
@@ -15,6 +16,7 @@ use crate::models::{
     List, Pagination, ID,
 };
 
+#[automock]
 #[async_trait]
 pub trait PoliciesRepository {
     async fn create(&self, id: Option<String>, content: &Content)

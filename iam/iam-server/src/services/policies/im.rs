@@ -4,12 +4,11 @@ use cim_core::Result;
 
 use crate::{
     models::{List, ID},
-    repositories::policies::{Content, DynPoliciesRepository, Opts},
+    repo::policies::{Content, DynPoliciesRepository, Opts},
 };
 
 use super::Policy;
 
-#[derive(Clone)]
 pub struct IAMPolicies {
     repository: DynPoliciesRepository,
 }

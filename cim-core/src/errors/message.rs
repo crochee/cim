@@ -26,32 +26,32 @@ impl From<Error> for Message {
     fn from(val: Error) -> Self {
         match val {
             Error::Any(err) => Message {
-                code: "kuth.500.1010001".to_string(),
-                message: "服务器内部错误".to_string(),
+                code: "CIM.500.1010001".to_string(),
+                message: "Internal Server Error".to_string(),
                 result: Some(err.to_string()),
             },
             Error::NotFound(err) => Message {
-                code: "kuth.404.1010002".to_string(),
-                message: "资源不存在".to_string(),
+                code: "CIM.404.1010002".to_string(),
+                message: "Not Found".to_string(),
                 result: Some(err),
             },
             Error::Forbidden(err) => Message {
-                code: "kuth.403.1010003".to_string(),
-                message: "非法操作".to_string(),
+                code: "CIM.403.1010003".to_string(),
+                message: "Forbidden".to_string(),
                 result: Some(err),
             },
             Error::Unauthorized => Message {
-                code: "kuth.401.1010004".to_string(),
+                code: "CIM.401.1010004".to_string(),
                 message: Error::Unauthorized.to_string(),
                 result: None,
             },
             Error::Validates(err) => Message {
-                code: "kuth.422.1010005".to_string(),
-                message: "请求参数不正确".to_string(),
+                code: "CIM.422.1010005".to_string(),
+                message: "Unprocessable Entity".to_string(),
                 result: Some(err.to_string()),
             },
             Error::BadRequest(err) => Message {
-                code: "kuth.400.1010007".to_string(),
+                code: "CIM.400.1010007".to_string(),
                 message: err,
                 result: None,
             },

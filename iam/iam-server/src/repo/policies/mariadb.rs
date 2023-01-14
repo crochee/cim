@@ -225,7 +225,7 @@ impl super::PoliciesRepository for MariadbPolicies {
                 wheres.push_str(" AND ");
             }
             wheres.push_str(
-                format!(r#"`account_id` = {}"#, account_id_u64).as_str(),
+                format!(r#"`account_id` IN (0,{})"#, account_id_u64).as_str(),
             );
         };
         if !wheres.is_empty() {

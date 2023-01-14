@@ -9,7 +9,7 @@ use tracing::info;
 
 use crate::{
     models::{self, policy::Policy},
-    repositories::policies::{Content, Querys},
+    repo::policies::{Content, Querys},
     services::policies::DynPoliciesService,
     valid::{Header, Valid},
     var::SOURCE_SYSTEM,

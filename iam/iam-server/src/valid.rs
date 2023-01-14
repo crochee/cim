@@ -37,8 +37,7 @@ where
 impl<S, B, T> FromRequest<S, B> for Valid<Json<T>>
 where
     S: Send + Sync,
-    B: Send + 'static,
-    B: HttpBody + Send,
+    B: HttpBody + Send + 'static,
     B::Data: Send,
     B::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
     T: DeserializeOwned + Validate,

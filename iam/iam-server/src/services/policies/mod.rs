@@ -3,6 +3,7 @@ mod im;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+
 use cim_core::Result;
 
 pub type DynPoliciesService = Arc<dyn PoliciesService + Send + Sync>;
@@ -10,7 +11,7 @@ pub use im::IAMPolicies;
 
 use crate::{
     models::{policy::Policy, List, ID},
-    repositories::policies::{Content, Querys},
+    repo::policies::{Content, Querys},
 };
 
 #[async_trait]

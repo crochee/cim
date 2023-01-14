@@ -31,7 +31,7 @@ async fn main() -> anyhow::Result<()> {
     .context("could not initialize the database connection pool")?;
 
     let port = config.port;
-    let service_register = ServiceRegister::new(pool, config.clone());
+    let service_register = ServiceRegister::new(pool, config.clone())?;
 
     info!("migrations successfully ran, initializing axum server...");
     ApplicationController::serve(port, &config.cors_origin, service_register)

@@ -14,4 +14,6 @@ pub struct AppConfig {
     pub port: u16,
     #[clap(long, env)]
     pub cors_origin: String,
+    #[clap(long, env)]
+    pub cache_size: usize,
 }

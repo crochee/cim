@@ -1,30 +1,50 @@
-pub mod authz;
+pub mod authorization;
 pub mod policies;
-pub mod req;
 
-use std::sync::Arc;
+use std::{
+    num::NonZeroUsize,
+    sync::{Arc, Mutex},
+};
 
-use regex::Regex;
-use serde::Deserialize;
 use sqlx::MySqlPool;
 
-use policies::DynPoliciesService;
-use validator::{Validate, ValidationError};
-
 use crate::{
-    config::AppConfig, repositories::policies::MariadbPolicies,
+    config::AppConfig, repo::policies::MariadbPolicies,
     services::policies::IAMPolicies,
+};
+
+use self::{
+    authorization::{auth::Auth, matcher::reg::Regexp, DynAuthorizer},
+    policies::DynPoliciesService,
 };
 
 #[derive(Clone)]
 pub struct ServiceRegister {
     pub policies_service: DynPoliciesService,
+    pub authorizer: DynAuthorizer,
 }
 
 impl ServiceRegister {
-    pub fn new(pool: MySqlPool, config: Arc<AppConfig>) -> Self {
+    pub fn new(
+        pool: MySqlPool,
+        config: Arc<AppConfig>,
+    ) -> anyhow::Result<Self> {
         let policies_repository = Arc::new(MariadbPolicies::new(pool));
-        let policies_service = Arc::new(IAMPolicies::new(policies_repository));
-        Self { policies_service }
+        let policies_service =
+            Arc::new(IAMPolicies::new(policies_repository.clone()));
+        let authorizer = Arc::new(Auth::new(
+            policies_repository,
+            Regexp {
+                lru: Arc::new(Mutex::new(lru::LruCache::new(
+                    NonZeroUsize::new(config.cache_size).ok_or_else(|| {
+                        anyhow::anyhow!("panic on {}", config.cache_size)
+                    })?,
+                ))),
+            },
+        ));
+        Ok(Self {
+            policies_service,
+            authorizer,
+        })
     }
 }

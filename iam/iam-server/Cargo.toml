@@ -34,3 +34,6 @@ sqlx = { version = "0.6", features = [
 regex = "1.7"
 serde_urlencoded = "0.7"
 chrono = { version = "0.4", features = ["serde"] }
+lru = "0.9"
+cidr-utils = "0.5"
+mockall = "0.11"

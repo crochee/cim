@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
+use serde_json::value::RawValue;
 use validator::Validate;
 
 use super::condition;
@@ -9,11 +10,21 @@ use super::condition;
 pub struct Statement {
     pub sid: Option<String>,
     pub effect: Effect,
-    pub subject: Vec<String>,
-    pub action: Vec<String>,
-    pub resource: Vec<String>,
-    pub condition: Option<HashMap<String, condition::JsonCondition>>,
-    pub meta: Option<Vec<u8>>,
+    pub subjects: Vec<String>,
+    pub actions: Vec<String>,
+    pub resources: Vec<String>,
+    pub conditions: Option<HashMap<String, condition::JsonCondition>>,
+    pub meta: Option<Box<RawValue>>,
+}
+
+impl Statement {
+    pub fn get_start_delimiter(&self) -> char {
+        '<'
+    }
+
+    pub fn get_end_delimiter(&self) -> char {
+        '>'
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize, Validate)]
@@ -38,49 +49,55 @@ pub enum Effect {
 mod tests {
     use serde_json::json;
 
-    use crate::models::condition::JsonCondition;
-
     use super::*;
 
     #[test]
     fn test_effect() {
-        let r = serde_json::to_string(&Statement {
-            sid: None,
-            effect: Effect::Allow,
-            subject: vec!["*".to_string()],
-            action: vec!["*".to_string()],
-            resource: vec!["*".to_string()],
-            condition: Some(HashMap::from([(
-                "Mercury".to_owned(),
-                JsonCondition {
-                    jtype: "vv".to_owned(),
-                    options: vec![],
-                },
-            )])),
-            meta: None,
-        })
-        .unwrap();
-        println!("{}", r);
         let v: Policy = serde_json::from_value(json!(
             {
-                "id": "ss",
-                "desc": "FullAccess",
-                "version": "v1.0.0",
+                "id": "123",
+                "desc": "This policy allows max, peter, zac and ken to create, delete and get the listed resources,but only if the client ip matches and the request states that they are the owner of those resources as well.",
+                "version": "20230114",
                 "statement": [
                     {
                         "effect": "Allow",
                         "subject": [
-                            "user:*",
-                            "account:*"
+                            "max",
+                            "peter",
+                            "<zac|ken>"
                         ],
                         "action": [
-                            "*"
+                            "<create|delete>",
+                            "get"
                         ],
                         "resource": [
-                            "*"
+                            "myrn:some.domain.com:resource:<d+>"
                         ],
-                        "collection": null,
-                        "meta":null
+                        "condition": {
+                            "owner": {
+                                "type": "EqualsSubjectCondition",
+                                "options": {}
+                            },
+                            "clientIP": {
+                                "type": "CIDRCondition",
+                                "options": {
+                                    "cidr": "192.168.1.0/24"
+                                }
+                            },
+                            "year": {
+                                "type": "StringEqualCondition",
+                                "options": {
+                                    "equals": "2023"
+                                }
+                            },
+                            "password": {
+                                "type": "StringMatchCondition",
+                                "options": {
+                                    "matches": "^[a-zA-Z][a-zA-Z0-9_#@\\\\$]{14,254}$"
+                                }
+                            }
+                        },
+                        "meta": null
                     }
                 ]
             }
