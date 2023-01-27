@@ -4,6 +4,7 @@ pub mod req;
 pub mod role;
 pub mod tag;
 pub mod user;
+pub mod usergroup;
 
 use serde::{Deserialize, Serialize};
 use validator::Validate;

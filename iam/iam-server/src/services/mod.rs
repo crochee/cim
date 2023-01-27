@@ -1,6 +1,7 @@
 pub mod authorization;
 pub mod policies;
 pub mod roles;
+pub mod usergroups;
 pub mod users;
 
 use std::{
@@ -13,7 +14,8 @@ use sqlx::MySqlPool;
 use crate::{
     config::AppConfig,
     repo::{
-        policies::MariadbPolicies, roles::MariadbRoles, users::MariadbUsers,
+        policies::MariadbPolicies, roles::MariadbRoles,
+        usergroups::MariadbUserGroups, users::MariadbUsers,
     },
     services::policies::IAMPolicies,
 };
@@ -22,6 +24,7 @@ use self::{
     authorization::{auth::Auth, matcher::reg::Regexp, DynAuthorizer},
     policies::DynPoliciesService,
     roles::{DynRolesService, IAMRoles},
+    usergroups::{DynUserGroupsService, IAMUserGroups},
     users::{DynUsersService, IAMUsers},
 };
 
@@ -31,6 +34,7 @@ pub struct ServiceRegister {
     pub authorizer: DynAuthorizer,
     pub users_service: DynUsersService,
     pub roles_service: DynRolesService,
+    pub user_groups_service: DynUserGroupsService,
 }
 
 impl ServiceRegister {
@@ -58,15 +62,21 @@ impl ServiceRegister {
 
         let users_service = Arc::new(IAMUsers::new(users_repository));
 
-        let roles_repository = Arc::new(MariadbRoles::new(pool));
+        let roles_repository = Arc::new(MariadbRoles::new(pool.clone()));
 
         let roles_service = Arc::new(IAMRoles::new(roles_repository));
+
+        let user_groups_repository = Arc::new(MariadbUserGroups::new(pool));
+
+        let user_groups_service =
+            Arc::new(IAMUserGroups::new(user_groups_repository));
 
         Ok(Self {
             policies_service,
             authorizer,
             users_service,
             roles_service,
+            user_groups_service,
         })
     }
 }
