@@ -1,5 +1,6 @@
 pub mod authorization;
 pub mod policies;
+pub mod rolebindings;
 pub mod roles;
 pub mod usergroups;
 pub mod users;
@@ -14,8 +15,9 @@ use sqlx::MySqlPool;
 use crate::{
     config::AppConfig,
     repo::{
-        policies::MariadbPolicies, roles::MariadbRoles,
-        usergroups::MariadbUserGroups, users::MariadbUsers,
+        policies::MariadbPolicies, rolebindings::MariadbRoleBindings,
+        roles::MariadbRoles, usergroups::MariadbUserGroups,
+        users::MariadbUsers,
     },
     services::policies::IAMPolicies,
 };
@@ -23,6 +25,7 @@ use crate::{
 use self::{
     authorization::{auth::Auth, matcher::reg::Regexp, DynAuthorizer},
     policies::DynPoliciesService,
+    rolebindings::{DynRoleBindingsService, IAMRoleBindings},
     roles::{DynRolesService, IAMRoles},
     usergroups::{DynUserGroupsService, IAMUserGroups},
     users::{DynUsersService, IAMUsers},
@@ -35,6 +38,7 @@ pub struct ServiceRegister {
     pub users_service: DynUsersService,
     pub roles_service: DynRolesService,
     pub user_groups_service: DynUserGroupsService,
+    pub rolebindings_service: DynRoleBindingsService,
 }
 
 impl ServiceRegister {
@@ -66,17 +70,23 @@ impl ServiceRegister {
 
         let roles_service = Arc::new(IAMRoles::new(roles_repository));
 
-        let user_groups_repository = Arc::new(MariadbUserGroups::new(pool));
+        let user_groups_repository =
+            Arc::new(MariadbUserGroups::new(pool.clone()));
 
         let user_groups_service =
             Arc::new(IAMUserGroups::new(user_groups_repository));
 
+        let rolebindings_repository = Arc::new(MariadbRoleBindings::new(pool));
+
+        let rolebindings_service =
+            Arc::new(IAMRoleBindings::new(rolebindings_repository));
         Ok(Self {
             policies_service,
             authorizer,
             users_service,
             roles_service,
             user_groups_service,
+            rolebindings_service,
         })
     }
 }
