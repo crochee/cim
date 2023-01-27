@@ -5,8 +5,8 @@ use http::StatusCode;
 use tracing::info;
 
 use crate::{
-    models::req::Request, services::authorization::DynAuthorizer, valid::Valid,
-    ServiceRegister,
+    models::req::Request, pkg::valid::Valid,
+    services::authorization::DynAuthorizer, ServiceRegister,
 };
 
 pub struct AuthzRouter;

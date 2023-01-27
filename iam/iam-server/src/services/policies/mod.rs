@@ -6,13 +6,14 @@ use async_trait::async_trait;
 
 use cim_core::Result;
 
-pub type DynPoliciesService = Arc<dyn PoliciesService + Send + Sync>;
-pub use im::IAMPolicies;
-
 use crate::{
     models::{policy::Policy, List, ID},
     repo::policies::{Content, Querys},
 };
+
+pub use im::IAMPolicies;
+
+pub type DynPoliciesService = Arc<dyn PoliciesService + Send + Sync>;
 
 #[async_trait]
 pub trait PoliciesService {

@@ -24,7 +24,9 @@ use tower_http::{
 use tracing::Level;
 
 use crate::{
-    controllers::{authz::AuthzRouter, policies::PoliciesRouter},
+    controllers::{
+        authz::AuthzRouter, policies::PoliciesRouter, users::UsersRouter,
+    },
     middlewares::MakeSpanWithTrace,
     ServiceRegister,
 };
@@ -55,7 +57,8 @@ impl ApplicationController {
                 "/v1",
                 Router::new()
                     .merge(PoliciesRouter::new_router(service_register.clone()))
-                    .merge(AuthzRouter::new_router(service_register.clone())),
+                    .merge(AuthzRouter::new_router(service_register.clone()))
+                    .merge(UsersRouter::new_router(service_register.clone())),
             )
             .layer(
                 ServiceBuilder::new().layer(

@@ -1,77 +1,82 @@
 use async_trait::async_trait;
 use chrono::Utc;
+use rand::Rng;
 use sqlx::{MySqlPool, Row};
 
 use cim_core::{next_id, Error, Result};
 
-use crate::models::{
-    policy::{Policy, Statement},
-    List, ID,
+use crate::{
+    models::{user::User, List, ID},
+    pkg::security::encrypt,
 };
 
 #[derive(Clone)]
-pub struct MariadbPolicies {
+pub struct MariadbUsers {
     pool: MySqlPool,
 }
 
-impl MariadbPolicies {
+impl MariadbUsers {
     pub fn new(pool: MySqlPool) -> Self {
         Self { pool }
     }
 }
 
 #[async_trait]
-impl super::PoliciesRepository for MariadbPolicies {
+impl super::UsersRepository for MariadbUsers {
     async fn create(
         &self,
         id: Option<String>,
         content: &super::Content,
     ) -> Result<ID> {
-        let account_id: u64 = content
-            .account_id
-            .clone()
-            .unwrap_or_else(|| "0".to_owned())
-            .parse()
-            .map_err(|err| Error::BadRequest(format!("{}", err)))?;
-
-        let mut user_id: u64 = 0;
-        if account_id > 0 {
-            user_id = content
-                .user_id
-                .clone()
-                .unwrap_or_else(|| "0".to_owned())
-                .parse()
-                .map_err(|err| Error::BadRequest(format!("{}", err)))?;
-        };
-
         let uid = match id {
             Some(v) => v
                 .parse()
                 .map_err(|err| Error::BadRequest(format!("{}", err)))?,
             None => next_id().map_err(Error::any)?,
         };
-
-        let statement =
-            serde_json::to_string(&content.statement).map_err(Error::any)?;
-
+        let account_id = match &content.account_id {
+            Some(v) => v
+                .parse()
+                .map_err(|err| Error::BadRequest(format!("{}", err)))?,
+            None => uid,
+        };
+        let nick_name = match &content.nick_name {
+            Some(v) => v.to_owned(),
+            None => {
+                format!("用户{}", uid)
+            }
+        };
+        let secret = rand::thread_rng()
+            .sample_iter(&rand::distributions::Alphanumeric)
+            .take(64)
+            .map(char::from)
+            .collect::<String>();
+        let password = encrypt(&content.password, &secret)?;
         sqlx::query!(
-            r#"INSERT INTO `policy`
-            (`id`,`account_id`,`user_id`,`desc`,`version`,`content`)
-            VALUES(?,?,?,?,?,?);"#,
+            r#"INSERT INTO `user`
+            (`id`,`account_id`,`name`,`nick_name`,`desc`,`email`,`mobile`,`sex`,`image`,`secret`,`password`)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?);"#,
             uid,
             account_id,
-            user_id,
+            content.name,
+            nick_name,
             content.desc,
-            content.version,
-            statement,
+            content.email,
+            content.mobile,
+            content.sex,
+            content.image,
+            secret,
+            password,
         )
         .execute(&self.pool)
         .await
         .map_err(Error::any)?;
+
         Ok(ID {
             id: uid.to_string(),
         })
     }
+
     async fn update(
         &self,
         id: &str,
@@ -79,26 +84,68 @@ impl super::PoliciesRepository for MariadbPolicies {
         opts: &super::Opts,
     ) -> Result<()> {
         let mut update_content = String::from("");
+        if let Some(name) = &opts.name {
+            update_content.push_str(format!(r#"`name` = '{}'"#, name).as_str());
+        };
+        if let Some(nick_name) = &opts.nick_name {
+            if !update_content.is_empty() {
+                update_content.push_str(" , ");
+            }
+            update_content
+                .push_str(format!(r#"`nick_name` = '{}'"#, nick_name).as_str());
+        };
         if let Some(desc) = &opts.desc {
+            if !update_content.is_empty() {
+                update_content.push_str(" , ");
+            }
             update_content.push_str(format!(r#"`desc` = '{}'"#, desc).as_str());
         };
-        if let Some(version) = &opts.version {
+        if let Some(email) = &opts.email {
             if !update_content.is_empty() {
                 update_content.push_str(" , ");
             }
             update_content
-                .push_str(format!(r#"`version` = '{}'"#, version).as_str());
+                .push_str(format!(r#"`email` = '{}'"#, email).as_str());
         };
-        if let Some(statement) = &opts.statement {
+        if let Some(mobile) = &opts.mobile {
             if !update_content.is_empty() {
                 update_content.push_str(" , ");
             }
-            let content =
-                serde_json::to_string(statement).map_err(Error::any)?;
             update_content
-                .push_str(format!(r#"`content` = '{}'"#, content).as_str());
+                .push_str(format!(r#"`mobile` = '{}'"#, mobile).as_str());
         };
+        if let Some(sex) = &opts.sex {
+            if !update_content.is_empty() {
+                update_content.push_str(" , ");
+            }
+            update_content.push_str(format!(r#"`sex` = '{}'"#, sex).as_str());
+        };
+        if let Some(image) = &opts.image {
+            if !update_content.is_empty() {
+                update_content.push_str(" , ");
+            }
+            update_content
+                .push_str(format!(r#"`image` = '{}'"#, image).as_str());
+        };
+        if let Some(password_value) = &opts.password {
+            if !update_content.is_empty() {
+                update_content.push_str(" , ");
+            }
+            let secret = rand::thread_rng()
+                .sample_iter(&rand::distributions::Alphanumeric)
+                .take(64)
+                .map(char::from)
+                .collect::<String>();
+            let password = encrypt(password_value, &secret)?;
 
+            update_content.push_str(
+                format!(
+                    r#"`secret` = '{}' , `password` = '{}'"#,
+                    secret, password
+                )
+                .as_str(),
+            );
+        };
         if update_content.is_empty() {
             return Ok(());
         }
@@ -121,11 +168,11 @@ impl super::PoliciesRepository for MariadbPolicies {
             if !update_content.is_empty() {
                 update_content.push_str(" , ");
             }
-            update_content.push_str(r#"`deleted` = 0 , `deleted_at` = NULL"#);
+            update_content.push_str(r#"`deleted` = 0,`deleted_at`=NULL"#);
         };
         sqlx::query(
             format!(
-                r#"UPDATE `policy` SET {}
+                r#"UPDATE `user` SET {}
                 WHERE {};"#,
                 update_content, wheres,
             )
@@ -136,11 +183,8 @@ impl super::PoliciesRepository for MariadbPolicies {
         .map_err(Error::any)?;
         Ok(())
     }
-    async fn get(
-        &self,
-        id: &str,
-        account_id: Option<String>,
-    ) -> Result<Policy> {
+
+    async fn get(&self, id: &str, account_id: Option<String>) -> Result<User> {
         let mut wheres = format!(r#"`id` = {}"#, id);
         if let Some(v) = account_id {
             let account_id_u64: u64 = v
@@ -153,8 +197,8 @@ impl super::PoliciesRepository for MariadbPolicies {
         }
 
         let row = match sqlx::query(
-            format!(r#"SELECT `id`,`account_id`,`user_id`,`desc`,`version`,`content`,`created_at`,`updated_at`
-            FROM `policy`
+            format!(r#"SELECT `id`,`account_id`,`name`,`nick_name`,`desc`,`email`,`mobile`,`sex`,`image`,`created_at`,`updated_at`
+            FROM `user`
             WHERE {} AND `deleted` = 0;"#,
             wheres)
             .as_str()
@@ -168,21 +212,19 @@ impl super::PoliciesRepository for MariadbPolicies {
             },
             Err(err) => Err(Error::any(err)),
         }?;
-
-        let v = row.try_get::<u64, _>("account_id").map_err(Error::any)?;
-        let account_id_str = if v == 0 { None } else { Some(v.to_string()) };
-        let v = row.try_get::<u64, _>("user_id").map_err(Error::any)?;
-        let user_id_str = if v == 0 { None } else { Some(v.to_string()) };
-        let v = row.try_get::<String, _>("content").map_err(Error::any)?;
-        let statement: Vec<Statement> =
-            serde_json::from_str(&v).map_err(Error::any)?;
-        Ok(Policy {
+        Ok(User {
             id: row.try_get::<u64, _>("id").map_err(Error::any)?.to_string(),
-            account_id: account_id_str,
-            user_id: user_id_str,
+            account_id: row
+                .try_get::<u64, _>("account_id")
+                .map_err(Error::any)?
+                .to_string(),
+            name: row.try_get("name").map_err(Error::any)?,
+            nick_name: row.try_get("nick_name").map_err(Error::any)?,
             desc: row.try_get("desc").map_err(Error::any)?,
-            version: row.try_get("version").map_err(Error::any)?,
-            statement,
+            email: row.try_get("email").map_err(Error::any)?,
+            mobile: row.try_get("mobile").map_err(Error::any)?,
+            sex: row.try_get("sex").map_err(Error::any)?,
+            image: row.try_get("image").map_err(Error::any)?,
         })
     }
 
@@ -199,7 +241,7 @@ impl super::PoliciesRepository for MariadbPolicies {
         }
         sqlx::query(
             format!(
-                r#"UPDATE `policy` SET `deleted` = `id`,`deleted_at`= '{}'
+                r#"UPDATE `user` SET `deleted` = `id`,`deleted_at`= '{}'
             WHERE {} AND `deleted` = 0;"#,
                 Utc::now().naive_utc(),
                 wheres
@@ -212,10 +254,10 @@ impl super::PoliciesRepository for MariadbPolicies {
         Ok(())
     }
 
-    async fn list(&self, filter: &super::Querys) -> Result<List<Policy>> {
+    async fn list(&self, filter: &super::Querys) -> Result<List<User>> {
         let mut wheres = String::from("");
-        if let Some(version) = &filter.version {
-            wheres.push_str(format!(r#"`version` = {}"#, version).as_str());
+        if let Some(sex) = &filter.sex {
+            wheres.push_str(format!(r#"`sex` = {}"#, sex).as_str());
         };
         if let Some(account_id) = &filter.account_id {
             let account_id_u64: u64 = account_id
@@ -225,7 +267,7 @@ impl super::PoliciesRepository for MariadbPolicies {
                 wheres.push_str(" AND ");
             }
             wheres.push_str(
-                format!(r#"`account_id` IN (0,{})"#, account_id_u64).as_str(),
+                format!(r#"`account_id` = {}"#, account_id_u64).as_str(),
             );
         };
         if !wheres.is_empty() {
@@ -235,7 +277,7 @@ impl super::PoliciesRepository for MariadbPolicies {
         // 查询total
         let policy_result = sqlx::query(
             format!(
-                r#"SELECT COUNT(*) as count FROM `policy`
+                r#"SELECT COUNT(*) as count FROM `user`
             WHERE {};"#,
                 wheres,
             )
@@ -251,8 +293,8 @@ impl super::PoliciesRepository for MariadbPolicies {
         }
         let rows = sqlx::query(
             format!(
-                r#"SELECT `id`,`account_id`,`user_id`,`desc`,`version`,`content`,`created_at`,`updated_at`
-                FROM `policy`
+                r#"SELECT `id`,`account_id`,`name`,`nick_name`,`desc`,`email`,`mobile`,`sex`,`image`,`created_at`,`updated_at`
+                FROM `user`
                 WHERE {};"#,
                 wheres,
             )
@@ -268,29 +310,27 @@ impl super::PoliciesRepository for MariadbPolicies {
             total: policy_result.try_get("count").map_err(Error::any)?,
         };
         for row in rows.iter() {
-            let v = row.try_get::<u64, _>("account_id").map_err(Error::any)?;
-            let account_id_str =
-                if v == 0 { None } else { Some(v.to_string()) };
-            let v = row.try_get::<u64, _>("user_id").map_err(Error::any)?;
-            let user_id_str = if v == 0 { None } else { Some(v.to_string()) };
-            let v = row.try_get::<String, _>("content").map_err(Error::any)?;
-            let statement: Vec<Statement> =
-                serde_json::from_str(&v).map_err(Error::any)?;
-
-            result.data.push(Policy {
+            result.data.push(User {
                 id: row
                     .try_get::<u64, _>("id")
                     .map_err(Error::any)?
                     .to_string(),
-                account_id: account_id_str,
-                user_id: user_id_str,
+                account_id: row
+                    .try_get::<u64, _>("account_id")
+                    .map_err(Error::any)?
+                    .to_string(),
+                name: row.try_get("name").map_err(Error::any)?,
+                nick_name: row.try_get("nick_name").map_err(Error::any)?,
                 desc: row.try_get("desc").map_err(Error::any)?,
-                version: row.try_get("version").map_err(Error::any)?,
-                statement,
+                email: row.try_get("email").map_err(Error::any)?,
+                mobile: row.try_get("mobile").map_err(Error::any)?,
+                sex: row.try_get("sex").map_err(Error::any)?,
+                image: row.try_get("image").map_err(Error::any)?,
             })
         }
         Ok(result)
     }
+
     async fn exist(
         &self,
         id: &str,
@@ -313,7 +353,7 @@ impl super::PoliciesRepository for MariadbPolicies {
         }
         let result = sqlx::query(
             format!(
-                r#"SELECT COUNT(*) as count FROM `policy`
+                r#"SELECT COUNT(*) as count FROM `user`
             WHERE {} LIMIT 1;"#,
                 wheres,
             )

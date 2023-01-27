@@ -4,17 +4,19 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use mockall::automock;
-
-pub type DynPoliciesRepository = Arc<dyn PoliciesRepository + Send + Sync>;
-use cim_core::Result;
-pub use mariadb::MariadbPolicies;
 use serde::Deserialize;
 use validator::Validate;
+
+use cim_core::Result;
 
 use crate::models::{
     policy::{Policy, Statement},
     List, Pagination, ID,
 };
+
+pub use mariadb::MariadbPolicies;
+
+pub type DynPoliciesRepository = Arc<dyn PoliciesRepository + Send + Sync>;
 
 #[automock]
 #[async_trait]
@@ -50,10 +52,12 @@ pub struct Content {
     pub account_id: Option<String>,
     #[validate(length(min = 1))]
     pub user_id: Option<String>,
-    #[validate(length(min = 1))]
+    #[validate(length(min = 1, max = 255))]
     pub desc: String,
     // 指定要使用的策略语言版本
+    #[validate(length(min = 1, max = 255))]
     pub version: String,
+    #[validate]
     pub statement: Vec<Statement>,
 }
 
@@ -64,6 +68,7 @@ pub struct Opts {
     #[validate(length(min = 1))]
     pub version: Option<String>,
     pub statement: Option<Vec<Statement>>,
+    #[serde(skip)]
     pub unscoped: Option<bool>,
 }
 

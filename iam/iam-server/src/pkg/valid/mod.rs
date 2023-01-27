@@ -1,3 +1,5 @@
+pub mod field;
+
 use std::ops::Deref;
 
 use async_trait::async_trait;

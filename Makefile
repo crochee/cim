@@ -1,5 +1,5 @@
 .PHONY: all
-all: fmt ci
+all: fmt ci run
 
 .PHONY: fmt
 fmt:
@@ -7,3 +7,7 @@ fmt:
 .PHONY: ci
 ci:
 	cargo clippy
+
+.PHONY: run
+run:
+	cargo run --release
