@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
 use validator::Validate;
@@ -37,6 +38,8 @@ pub struct Policy {
     // 指定要使用的策略语言版本
     pub version: String,
     pub statement: Vec<Statement>,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

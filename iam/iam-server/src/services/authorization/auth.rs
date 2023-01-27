@@ -119,7 +119,7 @@ mod tests {
         sync::{Arc, Mutex},
     };
 
-    use chrono::Local;
+    use chrono::{Local, NaiveDate};
 
     use crate::{
         models::condition::{
@@ -189,8 +189,11 @@ mod tests {
                     meta: None,
                 },
             ],
+            created_at:NaiveDate::from_ymd_opt(2016, 7, 8).unwrap().and_hms_opt(9, 10, 11).unwrap(),
+            updated_at:NaiveDate::from_ymd_opt(2016, 7, 8).unwrap().and_hms_opt(9, 10, 11).unwrap(),
         },
         ];
+
         let p = policies::MockPoliciesRepository::new();
         let a = Auth::new(
             Arc::new(p),

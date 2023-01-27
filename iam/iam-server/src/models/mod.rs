@@ -1,6 +1,7 @@
 pub mod condition;
 pub mod policy;
 pub mod req;
+pub mod role;
 pub mod tag;
 pub mod user;
 

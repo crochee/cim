@@ -183,6 +183,8 @@ impl super::PoliciesRepository for MariadbPolicies {
             desc: row.try_get("desc").map_err(Error::any)?,
             version: row.try_get("version").map_err(Error::any)?,
             statement,
+            created_at: row.try_get("created_at").map_err(Error::any)?,
+            updated_at: row.try_get("updated_at").map_err(Error::any)?,
         })
     }
 
@@ -287,6 +289,8 @@ impl super::PoliciesRepository for MariadbPolicies {
                 desc: row.try_get("desc").map_err(Error::any)?,
                 version: row.try_get("version").map_err(Error::any)?,
                 statement,
+                created_at: row.try_get("created_at").map_err(Error::any)?,
+                updated_at: row.try_get("updated_at").map_err(Error::any)?,
             })
         }
         Ok(result)
