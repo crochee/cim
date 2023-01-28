@@ -44,6 +44,8 @@ pub trait PoliciesRepository {
         account_id: Option<String>,
         unscoped: bool,
     ) -> Result<bool>;
+
+    async fn get_by_user(&self, user_id: &str) -> Result<Vec<Policy>>;
 }
 
 #[derive(Debug, Deserialize, Validate)]

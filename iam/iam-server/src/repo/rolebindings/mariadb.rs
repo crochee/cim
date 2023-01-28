@@ -42,7 +42,7 @@ impl RoleBindingsRepository for MariadbRoleBindings {
             if !temp_exist.contains(&value.0) {
                 temp_exist.insert(value.0.clone());
                 if sqlx::query!(
-                    r#"SELECT `id` as count FROM `role`
+                    r#"SELECT `id` FROM `role`
                     WHERE `id` = ? AND `account_id` = ? AND `deleted` = 0 LIMIT 1;"#,
                     value.0,
                     account_id,
@@ -64,7 +64,7 @@ impl RoleBindingsRepository for MariadbRoleBindings {
                     if !temp_exist.contains(&value.1) {
                         temp_exist.insert(value.1.clone());
                         if sqlx::query!(
-                            r#"SELECT `id` as count FROM `user`
+                            r#"SELECT `id` FROM `user`
                             WHERE `id` = ? AND `account_id` = ? AND `deleted` = 0 LIMIT 1;"#,
                             value.1,
                             account_id,
@@ -97,7 +97,7 @@ impl RoleBindingsRepository for MariadbRoleBindings {
                     if !temp_exist.contains(&value.1) {
                         temp_exist.insert(value.1.clone());
                         if sqlx::query!(
-                            r#"SELECT `id` as count FROM `policy`
+                            r#"SELECT `id` FROM `policy`
                             WHERE `id` = ? AND `account_id` IN(0,?) AND `deleted` = 0 LIMIT 1;"#,
                             value.1,
                             account_id,

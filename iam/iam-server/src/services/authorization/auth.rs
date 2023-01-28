@@ -6,9 +6,8 @@ use crate::{
     models::{
         policy::{Effect, Policy, Statement},
         req::Request,
-        Pagination,
     },
-    repo::policies::{DynPoliciesRepository, Querys},
+    repo::policies::DynPoliciesRepository,
 };
 
 pub struct Auth<M> {
@@ -29,15 +28,9 @@ impl<M> Auth<M> {
 impl<M: super::Matcher + Send + Sync> super::Authorizer for Auth<M> {
     /// authorize return  ok or error
     async fn authorize(&self, input: &Request) -> Result<()> {
-        let list = self
-            .repository
-            .list(&Querys {
-                version: None,
-                account_id: None,
-                pagination: Pagination::default(),
-            })
-            .await?;
-        self.match_policies(list.data, input)
+        let list = self.repository.get_by_user(&input.subject).await?;
+        tracing::debug!("{:#?}", list);
+        self.match_policies(list, input)
     }
 }
 
@@ -78,7 +71,7 @@ impl<M: super::Matcher + Send + Sync> Auth<M> {
                     continue;
                 }
                 if let Effect::Deny = statement.effect {
-                    return Err(Error::Forbidden("The request was denied because a policy denied request.".to_owned()));
+                    return Err(Error::Forbidden(format!("The request was denied because a policy denied request.Please proofread the policy {}",policy.id)));
                 }
                 allowed = true;
             }
