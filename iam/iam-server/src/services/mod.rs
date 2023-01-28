@@ -2,6 +2,7 @@ pub mod authorization;
 pub mod policies;
 pub mod rolebindings;
 pub mod roles;
+pub mod usergroupbindings;
 pub mod usergroups;
 pub mod users;
 
@@ -16,8 +17,8 @@ use crate::{
     config::AppConfig,
     repo::{
         policies::MariadbPolicies, rolebindings::MariadbRoleBindings,
-        roles::MariadbRoles, usergroups::MariadbUserGroups,
-        users::MariadbUsers,
+        roles::MariadbRoles, usergroupbindings::MariadbUserGroupBindings,
+        usergroups::MariadbUserGroups, users::MariadbUsers,
     },
     services::policies::IAMPolicies,
 };
@@ -27,6 +28,7 @@ use self::{
     policies::DynPoliciesService,
     rolebindings::{DynRoleBindingsService, IAMRoleBindings},
     roles::{DynRolesService, IAMRoles},
+    usergroupbindings::{DynUserGroupBindingsService, IAMUserGroupBindings},
     usergroups::{DynUserGroupsService, IAMUserGroups},
     users::{DynUsersService, IAMUsers},
 };
@@ -37,8 +39,9 @@ pub struct ServiceRegister {
     pub authorizer: DynAuthorizer,
     pub users_service: DynUsersService,
     pub roles_service: DynRolesService,
-    pub user_groups_service: DynUserGroupsService,
+    pub usergroups_service: DynUserGroupsService,
     pub rolebindings_service: DynRoleBindingsService,
+    pub usergroupbindings_service: DynUserGroupBindingsService,
 }
 
 impl ServiceRegister {
@@ -73,20 +76,29 @@ impl ServiceRegister {
         let user_groups_repository =
             Arc::new(MariadbUserGroups::new(pool.clone()));
 
-        let user_groups_service =
+        let usergroups_service =
             Arc::new(IAMUserGroups::new(user_groups_repository));
 
-        let rolebindings_repository = Arc::new(MariadbRoleBindings::new(pool));
+        let rolebindings_repository =
+            Arc::new(MariadbRoleBindings::new(pool.clone()));
 
         let rolebindings_service =
             Arc::new(IAMRoleBindings::new(rolebindings_repository));
+
+        let usergroupbindings_repository =
+            Arc::new(MariadbUserGroupBindings::new(pool));
+
+        let usergroupbindings_service =
+            Arc::new(IAMUserGroupBindings::new(usergroupbindings_repository));
+
         Ok(Self {
             policies_service,
             authorizer,
             users_service,
             roles_service,
-            user_groups_service,
+            usergroups_service,
             rolebindings_service,
+            usergroupbindings_service,
         })
     }
 }

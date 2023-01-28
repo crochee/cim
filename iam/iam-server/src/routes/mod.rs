@@ -27,6 +27,7 @@ use crate::{
     controllers::{
         authz::AuthzRouter, policies::PoliciesRouter,
         rolebindings::RoleBindingsRouter, roles::RolesRouter,
+        usergroupbindings::UserGroupBindingsRouter,
         usergroups::UserGroupsRouter, users::UsersRouter,
     },
     middlewares::MakeSpanWithTrace,
@@ -66,6 +67,9 @@ impl ApplicationController {
                         service_register.clone(),
                     ))
                     .merge(RoleBindingsRouter::new_router(
+                        service_register.clone(),
+                    ))
+                    .merge(UserGroupBindingsRouter::new_router(
                         service_register.clone(),
                     )),
             )

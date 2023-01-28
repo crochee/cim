@@ -6,6 +6,7 @@ pub mod rolebinding;
 pub mod tag;
 pub mod user;
 pub mod usergroup;
+pub mod usergroupbinding;
 
 use serde::{Deserialize, Serialize};
 use validator::Validate;

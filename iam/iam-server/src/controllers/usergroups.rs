@@ -27,7 +27,7 @@ impl UserGroupsRouter {
             .route("/groups/:id", get(Self::get))
             .route("/groups/:id", delete(Self::delete))
             .route("/groups/:id", put(Self::put))
-            .layer(axum::Extension(service_register.user_groups_service))
+            .layer(axum::Extension(service_register.usergroups_service))
     }
 
     async fn create(
