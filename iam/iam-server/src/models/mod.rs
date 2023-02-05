@@ -1,12 +1,14 @@
+pub mod auth_code;
+pub mod auth_request;
+pub mod claim;
 pub mod condition;
 pub mod policy;
+pub mod provider;
 pub mod req;
 pub mod role;
-pub mod rolebinding;
 pub mod tag;
 pub mod user;
 pub mod usergroup;
-pub mod usergroupbinding;
 
 use serde::{Deserialize, Serialize};
 use validator::Validate;

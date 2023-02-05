@@ -9,15 +9,18 @@ use validator::Validate;
 
 use cim_core::Result;
 
-use crate::models::{role::Role, List, Pagination, ID};
+use crate::models::{
+    role::{Role, RoleBindings},
+    List, Pagination, ID,
+};
 
 pub use mariadb::MariadbRoles;
 
-pub type DynRolesRepository = Arc<dyn RolesRepository + Send + Sync>;
+pub type DynRoles = Arc<dyn RolesRep + Send + Sync>;
 
 #[automock]
 #[async_trait]
-pub trait RolesRepository {
+pub trait RolesRep {
     async fn create(&self, id: Option<String>, content: &Content)
         -> Result<ID>;
 
@@ -28,7 +31,7 @@ pub trait RolesRepository {
         opts: &Opts,
     ) -> Result<()>;
 
-    async fn get(&self, id: &str, account_id: Option<String>) -> Result<Role>;
+    async fn get(&self, id: &str, filter: &Querys) -> Result<RoleBindings>;
 
     async fn delete(&self, id: &str, account_id: Option<String>) -> Result<()>;
 
@@ -40,6 +43,21 @@ pub trait RolesRepository {
         account_id: Option<String>,
         unscoped: bool,
     ) -> Result<bool>;
+
+    async fn add_user(
+        &self,
+        id: &str,
+        account_id: &str,
+        user_id: &str,
+    ) -> Result<()>;
+    async fn delete_user(&self, id: &str, user_id: &str) -> Result<()>;
+    async fn add_policy(
+        &self,
+        id: &str,
+        account_id: &str,
+        policy_id: &str,
+    ) -> Result<()>;
+    async fn delete_policy(&self, id: &str, policy_id: &str) -> Result<()>;
 }
 
 #[derive(Debug, Deserialize, Validate)]

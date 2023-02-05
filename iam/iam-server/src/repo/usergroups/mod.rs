@@ -9,15 +9,18 @@ use validator::Validate;
 
 use cim_core::Result;
 
-use crate::models::{usergroup::UserGroup, List, Pagination, ID};
+use crate::models::{
+    usergroup::{UserGroup, UserGroupBindings},
+    List, Pagination, ID,
+};
 
 pub use mariadb::MariadbUserGroups;
 
-pub type DynUserGroupsRepository = Arc<dyn UserGroupsRepository + Send + Sync>;
+pub type DynUserGroups = Arc<dyn UserGroupsRep + Send + Sync>;
 
 #[automock]
 #[async_trait]
-pub trait UserGroupsRepository {
+pub trait UserGroupsRep {
     async fn create(&self, id: Option<String>, content: &Content)
         -> Result<ID>;
 
@@ -28,11 +31,8 @@ pub trait UserGroupsRepository {
         opts: &Opts,
     ) -> Result<()>;
 
-    async fn get(
-        &self,
-        id: &str,
-        account_id: Option<String>,
-    ) -> Result<UserGroup>;
+    async fn get(&self, id: &str, filter: &Querys)
+        -> Result<UserGroupBindings>;
 
     async fn delete(&self, id: &str, account_id: Option<String>) -> Result<()>;
 
@@ -44,6 +44,21 @@ pub trait UserGroupsRepository {
         account_id: Option<String>,
         unscoped: bool,
     ) -> Result<bool>;
+
+    async fn add_user(
+        &self,
+        id: &str,
+        account_id: &str,
+        user_id: &str,
+    ) -> Result<()>;
+    async fn delete_user(&self, id: &str, user_id: &str) -> Result<()>;
+    async fn add_role(
+        &self,
+        id: &str,
+        account_id: &str,
+        role_id: &str,
+    ) -> Result<()>;
+    async fn delete_role(&self, id: &str, role_id: &str) -> Result<()>;
 }
 
 #[derive(Debug, Deserialize, Validate)]

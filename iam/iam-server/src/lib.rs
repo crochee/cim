@@ -11,4 +11,4 @@ mod var;
 pub use config::AppConfig;
 pub use repo::pool::connection_manager;
 pub use routes::ApplicationController;
-pub use services::ServiceRegister;
+pub use services::{DynService, ServiceRegister};

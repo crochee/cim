@@ -16,11 +16,11 @@ use crate::{
 
 pub use mariadb::MariadbUsers;
 
-pub type DynUsersRepository = Arc<dyn UsersRepository + Send + Sync>;
+pub type DynUsers = Arc<dyn UsersRep + Send + Sync>;
 
 #[automock]
 #[async_trait]
-pub trait UsersRepository {
+pub trait UsersRep {
     async fn create(&self, id: Option<String>, content: &Content)
         -> Result<ID>;
 
@@ -43,6 +43,7 @@ pub trait UsersRepository {
         account_id: Option<String>,
         unscoped: bool,
     ) -> Result<bool>;
+    async fn get_password(&self, id: &UserSubject) -> Result<Password>;
 }
 
 #[derive(Debug, Deserialize, Validate)]
@@ -97,4 +98,22 @@ pub struct Querys {
     #[serde(flatten)]
     #[validate]
     pub pagination: Pagination,
+}
+
+#[derive(Debug)]
+pub enum UserSubject {
+    UserID(String),
+    Email(String),
+    Mobile(String),
+}
+
+#[derive(Debug)]
+pub struct Password {
+    pub user_id: String,
+    pub user_name: String,
+    pub nick_name: String,
+    pub email: String,
+    pub mobile: String,
+    pub hash: String,
+    pub secret: String,
 }

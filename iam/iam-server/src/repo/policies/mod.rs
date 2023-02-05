@@ -16,11 +16,11 @@ use crate::models::{
 
 pub use mariadb::MariadbPolicies;
 
-pub type DynPoliciesRepository = Arc<dyn PoliciesRepository + Send + Sync>;
+pub type DynPolicies = Arc<dyn PoliciesRep + Send + Sync>;
 
 #[automock]
 #[async_trait]
-pub trait PoliciesRepository {
+pub trait PoliciesRep {
     async fn create(&self, id: Option<String>, content: &Content)
         -> Result<ID>;
 

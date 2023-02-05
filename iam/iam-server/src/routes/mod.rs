@@ -1,5 +1,6 @@
 use std::{
     future::ready,
+    io,
     net::SocketAddr,
     time::{Duration, Instant},
 };
@@ -9,8 +10,8 @@ use axum::{
     extract::MatchedPath,
     middleware::{self, Next},
     response::IntoResponse,
-    routing::get,
-    Router, Server,
+    routing::{get, get_service},
+    Router, Server, Extension,
 };
 use cim_core::Error;
 use http::{header::HeaderName, HeaderValue, Request, Uri};
@@ -18,6 +19,7 @@ use metrics_exporter_prometheus::{Matcher, PrometheusBuilder};
 use tower::ServiceBuilder;
 use tower_http::{
     cors::{AllowHeaders, AllowMethods, CorsLayer, ExposeHeaders},
+    services::ServeDir,
     trace::{DefaultOnResponse, TraceLayer},
     LatencyUnit,
 };
@@ -25,13 +27,11 @@ use tracing::Level;
 
 use crate::{
     controllers::{
-        authz::AuthzRouter, policies::PoliciesRouter,
-        rolebindings::RoleBindingsRouter, roles::RolesRouter,
-        usergroupbindings::UserGroupBindingsRouter,
+        auth::AuthRouter, policies::PoliciesRouter, roles::RolesRouter,
         usergroups::UserGroupsRouter, users::UsersRouter,
     },
     middlewares::MakeSpanWithTrace,
-    ServiceRegister,
+    DynService,
 };
 
 lazy_static::lazy_static! {
@@ -44,7 +44,7 @@ impl ApplicationController {
     pub async fn serve(
         port: u16,
         cors_origin: &str,
-        service_register: ServiceRegister,
+        srv: DynService,
     ) -> anyhow::Result<()> {
         let recorder_handle = PrometheusBuilder::new()
             .set_buckets_for_metric(
@@ -56,23 +56,26 @@ impl ApplicationController {
             .context("could not install metrics recorder")?;
 
         let router = Router::new()
+            .nest_service(
+                "/static",
+                get_service(ServeDir::new("static"))
+                    .handle_error(Self::handle_fs_error),
+            )
+            .nest_service(
+                "/theme",
+                get_service(ServeDir::new("theme"))
+                    .handle_error(Self::handle_fs_error),
+            )
             .nest(
                 "/v1",
                 Router::new()
-                    .merge(PoliciesRouter::new_router(service_register.clone()))
-                    .merge(AuthzRouter::new_router(service_register.clone()))
-                    .merge(UsersRouter::new_router(service_register.clone()))
-                    .merge(RolesRouter::new_router(service_register.clone()))
-                    .merge(UserGroupsRouter::new_router(
-                        service_register.clone(),
-                    ))
-                    .merge(RoleBindingsRouter::new_router(
-                        service_register.clone(),
-                    ))
-                    .merge(UserGroupBindingsRouter::new_router(
-                        service_register.clone(),
-                    )),
+                    .merge(PoliciesRouter::new_router())
+                    .merge(AuthRouter::new_router())
+                    .merge(UsersRouter::new_router())
+                    .merge(RolesRouter::new_router())
+                    .merge(UserGroupsRouter::new_router()),
             )
+            .layer(Extension(srv))
             .layer(
                 ServiceBuilder::new().layer(
                     TraceLayer::new_for_http()
@@ -179,5 +182,9 @@ impl ApplicationController {
 
     async fn not_found(uri: Uri) -> impl IntoResponse {
         Error::NotFound(format!("no route for {}", uri))
+    }
+
+    async fn handle_fs_error(err: io::Error) -> impl IntoResponse {
+        Error::any(err)
     }
 }

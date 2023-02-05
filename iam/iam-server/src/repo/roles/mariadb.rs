@@ -4,7 +4,10 @@ use sqlx::{MySqlPool, Row};
 
 use cim_core::{next_id, Error, Result};
 
-use crate::models::{List, ID};
+use crate::models::{
+    role::{Kind, RoleBinding, RoleBindings},
+    List, ID,
+};
 
 #[derive(Clone)]
 pub struct MariadbRoles {
@@ -18,7 +21,7 @@ impl MariadbRoles {
 }
 
 #[async_trait]
-impl super::RolesRepository for MariadbRoles {
+impl super::RolesRep for MariadbRoles {
     async fn create(
         &self,
         id: Option<String>,
@@ -115,10 +118,10 @@ impl super::RolesRepository for MariadbRoles {
     async fn get(
         &self,
         id: &str,
-        account_id: Option<String>,
-    ) -> Result<super::Role> {
+        filter: &super::Querys,
+    ) -> Result<RoleBindings> {
         let mut wheres = format!(r#"`id` = {}"#, id);
-        if let Some(v) = account_id {
+        if let Some(v) = &filter.account_id {
             let account_id_u64: u64 = v
                 .parse()
                 .map_err(|err| Error::BadRequest(format!("{}", err)))?;
@@ -144,7 +147,7 @@ impl super::RolesRepository for MariadbRoles {
             },
             Err(err) => Err(Error::any(err)),
         }?;
-        Ok(super::Role {
+        let mut data = RoleBindings {
             id: row.try_get::<u64, _>("id").map_err(Error::any)?.to_string(),
             account_id: row
                 .try_get::<u64, _>("account_id")
@@ -156,9 +159,20 @@ impl super::RolesRepository for MariadbRoles {
                 .to_string(),
             name: row.try_get("name").map_err(Error::any)?,
             desc: row.try_get("desc").map_err(Error::any)?,
+            links: Vec::new(),
             created_at: row.try_get("created_at").map_err(Error::any)?,
             updated_at: row.try_get("updated_at").map_err(Error::any)?,
-        })
+        };
+        let f = format!(
+            "`id` = {} AND `deleted` = 0 {}",
+            id,
+            filter.pagination.to_string()
+        );
+        data.links
+            .append(&mut self.list_role_policy(f.as_str()).await?);
+        data.links
+            .append(&mut self.list_user_role(f.as_str()).await?);
+        Ok(data)
     }
 
     async fn delete(&self, id: &str, account_id: Option<String>) -> Result<()> {
@@ -295,5 +309,174 @@ impl super::RolesRepository for MariadbRoles {
         .map_err(Error::any)?;
         let count: i64 = result.try_get("count").map_err(Error::any)?;
         Ok(count != 0)
+    }
+
+    async fn add_user(
+        &self,
+        id: &str,
+        account_id: &str,
+        user_id: &str,
+    ) -> Result<()> {
+        if sqlx::query!(
+            r#"SELECT `id` FROM `role`
+            WHERE `id` = ? AND `account_id` = ? AND `deleted` = 0 LIMIT 1;"#,
+            id,
+            account_id,
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(Error::any)?
+        .is_none()
+        {
+            return Err(Error::NotFound(format!("not found role {}", id,)));
+        }
+        if sqlx::query!(
+            r#"SELECT `id` FROM `user`
+            WHERE `id` = ? AND `account_id` = ? AND `deleted` = 0 LIMIT 1;"#,
+            user_id,
+            account_id,
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(Error::any)?
+        .is_none()
+        {
+            return Err(Error::NotFound(format!("not found user {}", user_id)));
+        }
+        sqlx::query!(
+            r#"INSERT INTO `user_role`
+            (`id`,`user_id`,`role_id`)
+            VALUES(?,?,?);"#,
+            next_id().map_err(Error::any)?,
+            user_id,
+            id,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(Error::any)?;
+        Ok(())
+    }
+    async fn delete_user(&self, id: &str, user_id: &str) -> Result<()> {
+        sqlx::query!(
+            r#"UPDATE `user_role` SET `deleted` = `id`,`deleted_at`= ?
+            WHERE `user_id` = ? AND `role_id` = ? AND `deleted` = 0;"#,
+            Utc::now().naive_utc(),
+            user_id,
+            id,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(Error::any)?;
+        Ok(())
+    }
+    async fn add_policy(
+        &self,
+        id: &str,
+        account_id: &str,
+        policy_id: &str,
+    ) -> Result<()> {
+        if sqlx::query!(
+            r#"SELECT `id` FROM `role`
+            WHERE `id` = ? AND `account_id` = ? AND `deleted` = 0 LIMIT 1;"#,
+            id,
+            account_id,
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(Error::any)?
+        .is_none()
+        {
+            return Err(Error::NotFound(format!("not found role {}", id,)));
+        }
+        if sqlx::query!(
+            r#"SELECT `id` FROM `policy`
+            WHERE `id` = ? AND `account_id` IN(0,?) AND `deleted` = 0 LIMIT 1;"#,
+            policy_id,
+            account_id,
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(Error::any)?
+        .is_none()
+        {
+            return Err(Error::NotFound(format!(
+                "not found policy {}",
+                policy_id
+            )));
+        }
+        sqlx::query!(
+            r#"INSERT INTO `role_policy`
+            (`id`,`role_id`,`policy_id`)
+            VALUES(?,?,?);"#,
+            next_id().map_err(Error::any)?,
+            id,
+            policy_id,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(Error::any)?;
+        Ok(())
+    }
+    async fn delete_policy(&self, id: &str, policy_id: &str) -> Result<()> {
+        sqlx::query!(
+            r#"UPDATE `role_policy` SET `deleted` = `id`,`deleted_at`= ?
+            WHERE `role_id` = ? AND `policy_id` = ? AND `deleted` = 0;"#,
+            Utc::now().naive_utc(),
+            id,
+            policy_id,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(Error::any)?;
+        Ok(())
+    }
+}
+
+impl MariadbRoles {
+    async fn list_user_role(&self, wheres: &str) -> Result<Vec<RoleBinding>> {
+        let rows = sqlx::query(
+            format!(
+                r#"SELECT `user_id`
+                FROM `user_role`
+                WHERE {};"#,
+                wheres,
+            )
+            .as_str(),
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(Error::any)?;
+
+        let mut data = Vec::with_capacity(rows.len());
+        for row in rows.iter() {
+            data.push(RoleBinding {
+                kind: Kind::User,
+                subject_id: row.try_get("user_id").map_err(Error::any)?,
+            })
+        }
+        Ok(data)
+    }
+    async fn list_role_policy(&self, wheres: &str) -> Result<Vec<RoleBinding>> {
+        let rows = sqlx::query(
+            format!(
+                r#"SELECT `policy_id`
+                FROM `role_policy`
+                WHERE {};"#,
+                wheres,
+            )
+            .as_str(),
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(Error::any)?;
+
+        let mut data = Vec::with_capacity(rows.len());
+        for row in rows.iter() {
+            data.push(RoleBinding {
+                kind: Kind::Policy,
+                subject_id: row.try_get("policy_id").map_err(Error::any)?,
+            })
+        }
+        Ok(data)
     }
 }

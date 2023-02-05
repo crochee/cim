@@ -7,16 +7,18 @@ use crate::{
         policy::{Effect, Policy, Statement},
         req::Request,
     },
-    repo::policies::DynPoliciesRepository,
+    repo::DynRepository,
 };
 
-pub struct Auth<M> {
-    repository: DynPoliciesRepository,
-    matcher: M,
+use super::{Authorizer, DynMatcher};
+
+pub struct Auth {
+    repository: DynRepository,
+    matcher: DynMatcher,
 }
 
-impl<M> Auth<M> {
-    pub fn new(repository: DynPoliciesRepository, matcher: M) -> Self {
+impl Auth {
+    pub fn new(repository: DynRepository, matcher: DynMatcher) -> Self {
         Self {
             repository,
             matcher,
@@ -25,16 +27,16 @@ impl<M> Auth<M> {
 }
 
 #[async_trait]
-impl<M: super::Matcher + Send + Sync> super::Authorizer for Auth<M> {
+impl Authorizer for Auth {
     /// authorize return  ok or error
     async fn authorize(&self, input: &Request) -> Result<()> {
-        let list = self.repository.get_by_user(&input.subject).await?;
+        let list = self.repository.policy().get_by_user(&input.subject).await?;
         tracing::debug!("{:#?}", list);
         self.match_policies(list, input)
     }
 }
 
-impl<M: super::Matcher + Send + Sync> Auth<M> {
+impl Auth {
     fn match_policies(&self, list: Vec<Policy>, input: &Request) -> Result<()> {
         let mut allowed = false;
         for policy in list.iter() {
@@ -119,7 +121,7 @@ mod tests {
             Boolean, Cidr, EqualsSubject, JsonCondition, NumericCmp, StringCmp,
             StringCmpInner, StringMatch, TimeCmp, TimeCmpInner,
         },
-        repo::policies,
+        repo,
         services::authorization::matcher::reg::Regexp,
     };
 
@@ -187,14 +189,14 @@ mod tests {
         },
         ];
 
-        let p = policies::MockPoliciesRepository::new();
+        let p = repo::MockRepository::new();
         let a = Auth::new(
             Arc::new(p),
-            Regexp {
-                lru: Arc::new(Mutex::new(lru::LruCache::new(
+            Arc::new(Regexp {
+                lru: Mutex::new(lru::LruCache::new(
                     NonZeroUsize::new(256).unwrap(),
-                ))),
-            },
+                )),
+            }),
         );
         a.match_policies(
             pols,

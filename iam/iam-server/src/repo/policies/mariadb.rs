@@ -21,7 +21,7 @@ impl MariadbPolicies {
 }
 
 #[async_trait]
-impl super::PoliciesRepository for MariadbPolicies {
+impl super::PoliciesRep for MariadbPolicies {
     async fn create(
         &self,
         id: Option<String>,

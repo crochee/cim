@@ -19,7 +19,7 @@ anyhow = { version = "1.0", features = ["backtrace"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tower = { version = "0.4", features = ["full"] }
-tower-http = { version = "0.3", features = ["trace", "cors"] }
+tower-http = { version = "0.3", features = ["trace", "cors", "fs"] }
 uuid = { version = "1.2", features = ["v4"] }
 metrics = "0.20"
 metrics-exporter-prometheus = "0.11"
@@ -39,3 +39,4 @@ cidr-utils = "0.5"
 mockall = "0.11"
 rust-argon2 = "1.0"
 rand = "0.8"
+askama = "0.11"

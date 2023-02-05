@@ -13,7 +13,7 @@ use crate::{
 
 pub use im::IAMUsers;
 
-pub type DynUsersService = Arc<dyn UsersService + Send + Sync>;
+pub type DynUsers = Arc<dyn UsersService + Send + Sync>;
 
 #[async_trait]
 pub trait UsersService {

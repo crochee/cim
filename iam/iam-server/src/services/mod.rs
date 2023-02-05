@@ -1,8 +1,8 @@
+pub mod authentication;
 pub mod authorization;
 pub mod policies;
-pub mod rolebindings;
 pub mod roles;
-pub mod usergroupbindings;
+pub mod templates;
 pub mod usergroups;
 pub mod users;
 
@@ -11,37 +11,58 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use mockall::automock;
 use sqlx::MySqlPool;
 
 use crate::{
     config::AppConfig,
-    repo::{
-        policies::MariadbPolicies, rolebindings::MariadbRoleBindings,
-        roles::MariadbRoles, usergroupbindings::MariadbUserGroupBindings,
-        usergroups::MariadbUserGroups, users::MariadbUsers,
-    },
-    services::policies::IAMPolicies,
+    repo::{DynRepository, MariadbRepo},
 };
 
-use self::{
-    authorization::{auth::Auth, matcher::reg::Regexp, DynAuthorizer},
-    policies::DynPoliciesService,
-    rolebindings::{DynRoleBindingsService, IAMRoleBindings},
-    roles::{DynRolesService, IAMRoles},
-    usergroupbindings::{DynUserGroupBindingsService, IAMUserGroupBindings},
-    usergroups::{DynUserGroupsService, IAMUserGroups},
-    users::{DynUsersService, IAMUsers},
-};
+use self::authorization::{matcher::reg::Regexp, DynMatcher, IAMAuth};
+
+pub type DynService = Arc<dyn Service + Send + Sync>;
+
+#[automock]
+pub trait Service {
+    fn user(&self) -> users::DynUsers;
+    fn user_group(&self) -> usergroups::DynUserGroups;
+    fn role(&self) -> roles::DynRoles;
+    fn policy(&self) -> policies::DynPolicies;
+    fn authorization(&self) -> authorization::DynAuthorizer;
+    fn authentication(&self) -> authentication::DynAuthenticator;
+}
 
 #[derive(Clone)]
 pub struct ServiceRegister {
-    pub policies_service: DynPoliciesService,
-    pub authorizer: DynAuthorizer,
-    pub users_service: DynUsersService,
-    pub roles_service: DynRolesService,
-    pub usergroups_service: DynUserGroupsService,
-    pub rolebindings_service: DynRoleBindingsService,
-    pub usergroupbindings_service: DynUserGroupBindingsService,
+    pub repo: DynRepository,
+    pub matcher: DynMatcher,
+}
+
+impl Service for ServiceRegister {
+    fn user(&self) -> users::DynUsers {
+        Arc::new(users::IAMUsers::new(self.repo.clone()))
+    }
+
+    fn user_group(&self) -> usergroups::DynUserGroups {
+        Arc::new(usergroups::IAMUserGroups::new(self.repo.clone()))
+    }
+
+    fn role(&self) -> roles::DynRoles {
+        Arc::new(roles::IAMRoles::new(self.repo.clone()))
+    }
+
+    fn policy(&self) -> policies::DynPolicies {
+        Arc::new(policies::IAMPolicies::new(self.repo.clone()))
+    }
+
+    fn authorization(&self) -> authorization::DynAuthorizer {
+        Arc::new(IAMAuth::new(self.repo.clone(), self.matcher.clone()))
+    }
+
+    fn authentication(&self) -> authentication::DynAuthenticator {
+        Arc::new(authentication::IAMAuthenticator::new(self.repo.clone()))
+    }
 }
 
 impl ServiceRegister {
@@ -49,56 +70,15 @@ impl ServiceRegister {
         pool: MySqlPool,
         config: Arc<AppConfig>,
     ) -> anyhow::Result<Self> {
-        let policies_repository = Arc::new(MariadbPolicies::new(pool.clone()));
+        let repo = Arc::new(MariadbRepo::new(pool));
+        let matcher = Arc::new(Regexp {
+            lru: Mutex::new(lru::LruCache::new(
+                NonZeroUsize::new(config.cache_size).ok_or_else(|| {
+                    anyhow::anyhow!("panic on {}", config.cache_size)
+                })?,
+            )),
+        });
 
-        let policies_service =
-            Arc::new(IAMPolicies::new(policies_repository.clone()));
-
-        let authorizer = Arc::new(Auth::new(
-            policies_repository,
-            Regexp {
-                lru: Arc::new(Mutex::new(lru::LruCache::new(
-                    NonZeroUsize::new(config.cache_size).ok_or_else(|| {
-                        anyhow::anyhow!("panic on {}", config.cache_size)
-                    })?,
-                ))),
-            },
-        ));
-
-        let users_repository = Arc::new(MariadbUsers::new(pool.clone()));
-
-        let users_service = Arc::new(IAMUsers::new(users_repository));
-
-        let roles_repository = Arc::new(MariadbRoles::new(pool.clone()));
-
-        let roles_service = Arc::new(IAMRoles::new(roles_repository));
-
-        let user_groups_repository =
-            Arc::new(MariadbUserGroups::new(pool.clone()));
-
-        let usergroups_service =
-            Arc::new(IAMUserGroups::new(user_groups_repository));
-
-        let rolebindings_repository =
-            Arc::new(MariadbRoleBindings::new(pool.clone()));
-
-        let rolebindings_service =
-            Arc::new(IAMRoleBindings::new(rolebindings_repository));
-
-        let usergroupbindings_repository =
-            Arc::new(MariadbUserGroupBindings::new(pool));
-
-        let usergroupbindings_service =
-            Arc::new(IAMUserGroupBindings::new(usergroupbindings_repository));
-
-        Ok(Self {
-            policies_service,
-            authorizer,
-            users_service,
-            roles_service,
-            usergroups_service,
-            rolebindings_service,
-            usergroupbindings_service,
-        })
+        Ok(Self { repo, matcher })
     }
 }

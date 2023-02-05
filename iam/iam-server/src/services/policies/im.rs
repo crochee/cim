@@ -4,17 +4,20 @@ use cim_core::Result;
 
 use crate::{
     models::{List, ID},
-    repo::policies::{Content, DynPoliciesRepository, Opts},
+    repo::{
+        policies::{Content, Opts},
+        DynRepository,
+    },
 };
 
 use super::Policy;
 
 pub struct IAMPolicies {
-    repository: DynPoliciesRepository,
+    repository: DynRepository,
 }
 
 impl IAMPolicies {
-    pub fn new(repository: DynPoliciesRepository) -> Self {
+    pub fn new(repository: DynRepository) -> Self {
         Self { repository }
     }
 }
@@ -22,17 +25,19 @@ impl IAMPolicies {
 #[async_trait]
 impl super::PoliciesService for IAMPolicies {
     async fn create(&self, content: &Content) -> Result<ID> {
-        self.repository.create(None, content).await
+        self.repository.policy().create(None, content).await
     }
 
     async fn put(&self, id: &str, content: &Content) -> Result<()> {
         let found = self
             .repository
+            .policy()
             .exist(id, content.account_id.clone(), true)
             .await?;
         if found {
             return self
                 .repository
+                .policy()
                 .update(
                     id,
                     content.account_id.clone(),
@@ -45,7 +50,10 @@ impl super::PoliciesService for IAMPolicies {
                 )
                 .await;
         }
-        self.repository.create(Some(id.to_owned()), content).await?;
+        self.repository
+            .policy()
+            .create(Some(id.to_owned()), content)
+            .await?;
         Ok(())
     }
 
@@ -54,14 +62,14 @@ impl super::PoliciesService for IAMPolicies {
         id: &str,
         account_id: Option<String>,
     ) -> Result<Policy> {
-        self.repository.get(id, account_id).await
+        self.repository.policy().get(id, account_id).await
     }
 
     async fn delete(&self, id: &str, account_id: Option<String>) -> Result<()> {
-        self.repository.delete(id, account_id).await
+        self.repository.policy().delete(id, account_id).await
     }
 
     async fn list(&self, filter: &super::Querys) -> Result<List<Policy>> {
-        self.repository.list(filter).await
+        self.repository.policy().list(filter).await
     }
 }

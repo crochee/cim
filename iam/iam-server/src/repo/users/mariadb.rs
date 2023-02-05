@@ -10,6 +10,8 @@ use crate::{
     pkg::security::encrypt,
 };
 
+use super::{Password, UserSubject};
+
 #[derive(Clone)]
 pub struct MariadbUsers {
     pool: MySqlPool,
@@ -22,7 +24,7 @@ impl MariadbUsers {
 }
 
 #[async_trait]
-impl super::UsersRepository for MariadbUsers {
+impl super::UsersRep for MariadbUsers {
     async fn create(
         &self,
         id: Option<String>,
@@ -368,5 +370,44 @@ impl super::UsersRepository for MariadbUsers {
         .map_err(Error::any)?;
         let count: i64 = result.try_get("count").map_err(Error::any)?;
         Ok(count != 0)
+    }
+
+    async fn get_password(&self, value: &UserSubject) -> Result<Password> {
+        let wheres = match value {
+            UserSubject::UserID(id) => format!("`id` = {}", id),
+            UserSubject::Email(email) => format!("`email` = '{}'", email),
+            UserSubject::Mobile(mobile) => format!("`mobile` = '{}'", mobile),
+        };
+        let row = match sqlx::query(
+            format!(
+                r#"SELECT `id`,`nick_name`,`email`,`mobile`,`secret`,`password`
+                FROM `user`
+                WHERE {}  AND `deleted` = 0;"#,
+                wheres,
+            )
+            .as_str(),
+        )
+        .fetch_optional(&self.pool)
+        .await
+        {
+            Ok(v) => match v {
+                Some(value) => Ok(value),
+                None => Err(Error::NotFound("no rows".to_owned())),
+            },
+            Err(err) => Err(Error::any(err)),
+        }?;
+
+        Ok(Password {
+            user_id: row
+                .try_get::<u64, _>("id")
+                .map_err(Error::any)?
+                .to_string(),
+            user_name: row.try_get("name").map_err(Error::any)?,
+            nick_name: row.try_get("nick_name").map_err(Error::any)?,
+            email: row.try_get("email").map_err(Error::any)?,
+            mobile: row.try_get("mobile").map_err(Error::any)?,
+            hash: row.try_get("password").map_err(Error::any)?,
+            secret: row.try_get("secret").map_err(Error::any)?,
+        })
     }
 }

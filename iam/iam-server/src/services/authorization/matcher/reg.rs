@@ -1,7 +1,4 @@
-use std::{
-    cmp::Ordering,
-    sync::{Arc, Mutex},
-};
+use std::{cmp::Ordering, sync::Mutex};
 
 use lru::LruCache;
 use regex::Regex;
@@ -11,7 +8,7 @@ use cim_core::{Error, Result};
 use crate::services::authorization::Matcher;
 
 pub struct Regexp {
-    pub lru: Arc<Mutex<LruCache<String, Regex>>>,
+    pub lru: Mutex<LruCache<String, Regex>>,
 }
 
 impl Matcher for Regexp {

@@ -4,7 +4,10 @@ use sqlx::{MySqlPool, Row};
 
 use cim_core::{next_id, Error, Result};
 
-use crate::models::{List, ID};
+use crate::models::{
+    usergroup::{Kind, UserGroupBinding, UserGroupBindings},
+    List, ID,
+};
 
 #[derive(Clone)]
 pub struct MariadbUserGroups {
@@ -18,7 +21,7 @@ impl MariadbUserGroups {
 }
 
 #[async_trait]
-impl super::UserGroupsRepository for MariadbUserGroups {
+impl super::UserGroupsRep for MariadbUserGroups {
     async fn create(
         &self,
         id: Option<String>,
@@ -115,10 +118,10 @@ impl super::UserGroupsRepository for MariadbUserGroups {
     async fn get(
         &self,
         id: &str,
-        account_id: Option<String>,
-    ) -> Result<super::UserGroup> {
+        filter: &super::Querys,
+    ) -> Result<UserGroupBindings> {
         let mut wheres = format!(r#"`id` = {}"#, id);
-        if let Some(v) = account_id {
+        if let Some(v) = &filter.account_id {
             let account_id_u64: u64 = v
                 .parse()
                 .map_err(|err| Error::BadRequest(format!("{}", err)))?;
@@ -144,7 +147,7 @@ impl super::UserGroupsRepository for MariadbUserGroups {
             },
             Err(err) => Err(Error::any(err)),
         }?;
-        Ok(super::UserGroup {
+        let mut usergroup_binding = UserGroupBindings {
             id: row.try_get::<u64, _>("id").map_err(Error::any)?.to_string(),
             account_id: row
                 .try_get::<u64, _>("account_id")
@@ -156,9 +159,22 @@ impl super::UserGroupsRepository for MariadbUserGroups {
                 .to_string(),
             name: row.try_get("name").map_err(Error::any)?,
             desc: row.try_get("desc").map_err(Error::any)?,
+            links: Vec::new(),
             created_at: row.try_get("created_at").map_err(Error::any)?,
             updated_at: row.try_get("updated_at").map_err(Error::any)?,
-        })
+        };
+        let f = format!(
+            "`id` = {} AND `deleted` = 0 {}",
+            id,
+            filter.pagination.to_string()
+        );
+        usergroup_binding
+            .links
+            .append(&mut self.list_user_group_role(f.as_str()).await?);
+        usergroup_binding
+            .links
+            .append(&mut self.list_user_group_user(f.as_str()).await?);
+        Ok(usergroup_binding)
     }
 
     async fn delete(&self, id: &str, account_id: Option<String>) -> Result<()> {
@@ -298,5 +314,182 @@ impl super::UserGroupsRepository for MariadbUserGroups {
         .map_err(Error::any)?;
         let count: i64 = result.try_get("count").map_err(Error::any)?;
         Ok(count != 0)
+    }
+    async fn add_user(
+        &self,
+        id: &str,
+        account_id: &str,
+        user_id: &str,
+    ) -> Result<()> {
+        if sqlx::query!(
+            r#"SELECT `id` FROM `user_group`
+            WHERE `id` = ? AND `account_id` = ? AND `deleted` = 0 LIMIT 1;"#,
+            id,
+            account_id,
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(Error::any)?
+        .is_none()
+        {
+            return Err(Error::NotFound(format!(
+                "not found user_group {}",
+                id,
+            )));
+        }
+        if sqlx::query!(
+            r#"SELECT `id` FROM `user`
+            WHERE `id` = ? AND `account_id` = ? AND `deleted` = 0 LIMIT 1;"#,
+            user_id,
+            account_id,
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(Error::any)?
+        .is_none()
+        {
+            return Err(Error::NotFound(format!("not found user {}", user_id)));
+        }
+        sqlx::query!(
+            r#"INSERT INTO `user_group_user`
+            (`id`,`user_group_id`,`user_id`)
+            VALUES(?,?,?);"#,
+            next_id().map_err(Error::any)?,
+            id,
+            user_id,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(Error::any)?;
+        Ok(())
+    }
+    async fn delete_user(&self, id: &str, user_id: &str) -> Result<()> {
+        sqlx::query!(
+            r#"UPDATE `user_group_user` SET `deleted` = `id`,`deleted_at`= ?
+            WHERE `user_group_id` = ? AND `user_id` = ? AND `deleted` = 0;"#,
+            Utc::now().naive_utc(),
+            id,
+            user_id,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(Error::any)?;
+        Ok(())
+    }
+    async fn add_role(
+        &self,
+        id: &str,
+        account_id: &str,
+        role_id: &str,
+    ) -> Result<()> {
+        if sqlx::query!(
+            r#"SELECT `id` FROM `user_group`
+            WHERE `id` = ? AND `account_id` = ? AND `deleted` = 0 LIMIT 1;"#,
+            id,
+            account_id,
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(Error::any)?
+        .is_none()
+        {
+            return Err(Error::NotFound(format!(
+                "not found user_group {}",
+                id,
+            )));
+        }
+        if sqlx::query!(
+            r#"SELECT `id` FROM `role`
+            WHERE `id` = ? AND `account_id` = ? AND `deleted` = 0 LIMIT 1;"#,
+            role_id,
+            account_id,
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(Error::any)?
+        .is_none()
+        {
+            return Err(Error::NotFound(format!("not found role {}", role_id)));
+        }
+        sqlx::query!(
+            r#"INSERT INTO `user_group_role`
+            (`id`,`user_group_id`,`role_id`)
+            VALUES(?,?,?);"#,
+            next_id().map_err(Error::any)?,
+            id,
+            role_id,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(Error::any)?;
+        Ok(())
+    }
+    async fn delete_role(&self, id: &str, role_id: &str) -> Result<()> {
+        sqlx::query!(
+            r#"UPDATE `user_group_role` SET `deleted` = `id`,`deleted_at`= ?
+            WHERE `user_group_id` = ? AND `role_id` = ? AND `deleted` = 0;"#,
+            Utc::now().naive_utc(),
+            id,
+            role_id,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(Error::any)?;
+        Ok(())
+    }
+}
+
+impl MariadbUserGroups {
+    async fn list_user_group_user(
+        &self,
+        wheres: &str,
+    ) -> Result<Vec<UserGroupBinding>> {
+        let rows = sqlx::query(
+            format!(
+                r#"SELECT `user_id`
+                FROM `user_group_user`
+                WHERE {};"#,
+                wheres,
+            )
+            .as_str(),
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(Error::any)?;
+        let mut data = Vec::with_capacity(rows.len());
+        for row in rows.iter() {
+            data.push(UserGroupBinding {
+                kind: Kind::User,
+                subject_id: row.try_get("user_id").map_err(Error::any)?,
+            })
+        }
+        Ok(data)
+    }
+    async fn list_user_group_role(
+        &self,
+        wheres: &str,
+    ) -> Result<Vec<UserGroupBinding>> {
+        let rows = sqlx::query(
+            format!(
+                r#"SELECT `role_id`
+                FROM `user_group_role`
+                WHERE {};"#,
+                wheres,
+            )
+            .as_str(),
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(Error::any)?;
+
+        let mut data = Vec::with_capacity(rows.len());
+
+        for row in rows.iter() {
+            data.push(UserGroupBinding {
+                kind: Kind::Role,
+                subject_id: row.try_get("role_id").map_err(Error::any)?,
+            })
+        }
+        Ok(data)
     }
 }

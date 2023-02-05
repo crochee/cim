@@ -4,17 +4,20 @@ use cim_core::Result;
 
 use crate::{
     models::{List, ID},
-    repo::users::{Content, DynUsersRepository, Opts, Querys},
+    repo::{
+        users::{Content, Opts, Querys},
+        DynRepository,
+    },
 };
 
 use super::User;
 
 pub struct IAMUsers {
-    repository: DynUsersRepository,
+    repository: DynRepository,
 }
 
 impl IAMUsers {
-    pub fn new(repository: DynUsersRepository) -> Self {
+    pub fn new(repository: DynRepository) -> Self {
         Self { repository }
     }
 }
@@ -22,16 +25,18 @@ impl IAMUsers {
 #[async_trait]
 impl super::UsersService for IAMUsers {
     async fn create(&self, content: &Content) -> Result<ID> {
-        self.repository.create(None, content).await
+        self.repository.user().create(None, content).await
     }
     async fn put(&self, id: &str, content: &Content) -> Result<()> {
         let found = self
             .repository
+            .user()
             .exist(id, content.account_id.clone(), true)
             .await?;
         if found {
             return self
                 .repository
+                .user()
                 .update(
                     id,
                     content.account_id.clone(),
@@ -49,16 +54,19 @@ impl super::UsersService for IAMUsers {
                 )
                 .await;
         }
-        self.repository.create(Some(id.to_owned()), content).await?;
+        self.repository
+            .user()
+            .create(Some(id.to_owned()), content)
+            .await?;
         Ok(())
     }
     async fn get(&self, id: &str, account_id: Option<String>) -> Result<User> {
-        self.repository.get(id, account_id).await
+        self.repository.user().get(id, account_id).await
     }
     async fn delete(&self, id: &str, account_id: Option<String>) -> Result<()> {
-        self.repository.delete(id, account_id).await
+        self.repository.user().delete(id, account_id).await
     }
     async fn list(&self, filter: &Querys) -> Result<List<User>> {
-        self.repository.list(filter).await
+        self.repository.user().list(filter).await
     }
 }

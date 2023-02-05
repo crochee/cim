@@ -12,7 +12,7 @@ pub fn encrypt(password: &str, secret: &str) -> Result<String> {
     let cfg = Config {
         secret: secret.as_bytes(),
         thread_mode: ThreadMode::Parallel,
-        time_cost: 12,
+        time_cost: 30,
         ..Default::default()
     };
     argon2::hash_encoded(password.as_bytes(), password_salt.as_bytes(), &cfg)

@@ -13,7 +13,7 @@ use crate::{
 
 pub use im::IAMPolicies;
 
-pub type DynPoliciesService = Arc<dyn PoliciesService + Send + Sync>;
+pub type DynPolicies = Arc<dyn PoliciesService + Send + Sync>;
 
 #[async_trait]
 pub trait PoliciesService {

@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use axum::{
     body::HttpBody,
     extract::{FromRequest, FromRequestParts},
-    Json,
+    Form, Json,
 };
 use http::{request::Parts, Request};
 use serde::de::DeserializeOwned;
@@ -50,6 +50,28 @@ where
         state: &S,
     ) -> Result<Self, Self::Rejection> {
         let value = Json::<T>::from_request(req, state)
+            .await
+            .map_err(|err| Error::BadRequest(err.to_string()))?;
+        value.deref().validate().map_err(Error::Validates)?;
+        Ok(Self(value))
+    }
+}
+
+#[async_trait]
+impl<S, B, T> FromRequest<S, B> for Valid<Form<T>>
+where
+    S: Send + Sync,
+    B: HttpBody + Send + 'static,
+    B::Data: Send,
+    B::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+    T: DeserializeOwned + Validate,
+{
+    type Rejection = Error;
+    async fn from_request(
+        req: Request<B>,
+        state: &S,
+    ) -> Result<Self, Self::Rejection> {
+        let value = Form::<T>::from_request(req, state)
             .await
             .map_err(|err| Error::BadRequest(err.to_string()))?;
         value.deref().validate().map_err(Error::Validates)?;
