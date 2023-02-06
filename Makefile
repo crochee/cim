@@ -3,11 +3,19 @@ all: fmt ci run
 
 .PHONY: fmt
 fmt:
-	cargo fmt
+	@cargo fmt
 .PHONY: ci
 ci:
-	cargo clippy
+	@cargo clippy
 
-.PHONY: run
+.PHONY: server
 run:
-	cargo run --release
+	@cargo run --release --bin iam-server
+
+.PHONY: migrate
+migrate:
+	@sqlx database create && sqlx migrate run
+
+.PHONY: database
+database:
+	@cargo install sqlx-cli --no-default-features --features rustls,mysql

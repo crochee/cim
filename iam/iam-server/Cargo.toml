@@ -30,6 +30,7 @@ sqlx = { version = "0.6", features = [
     "mysql",
     "runtime-tokio-rustls",
     "chrono",
+    "offline",
 ] }
 regex = "1.7"
 serde_urlencoded = "0.7"
