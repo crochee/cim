@@ -42,12 +42,12 @@ impl Authenticator for IAMAuthenticator {
     }
     async fn token(
         &self,
-        claims: &Claims,
-        opts: &TokenOpts,
+        _claims: &Claims,
+        _opts: &TokenOpts,
     ) -> Result<(String, i64)> {
         todo!()
     }
-    async fn verify(&self, token: &str) -> Result<Claims> {
+    async fn verify(&self, _token: &str) -> Result<Claims> {
         todo!()
     }
 }

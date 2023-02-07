@@ -1,5 +1,6 @@
 mod im;
 mod password;
+pub mod token;
 
 use std::sync::Arc;
 
@@ -171,6 +172,15 @@ pub trait SAMLConnector {
 #[derive(Debug, Deserialize, Validate)]
 pub struct AuthReq {
     pub response_type: String,
+    pub client_id: String,
+    pub state: Option<String>,
+    pub redirect_uri: String,
+    pub scope: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TokenReq {
+    pub grant_type: String,
     pub client_id: String,
     pub state: Option<String>,
     pub redirect_uri: String,

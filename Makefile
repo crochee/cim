@@ -1,5 +1,5 @@
 .PHONY: all
-all: fmt ci run
+all: fmt ci
 
 .PHONY: fmt
 fmt:
@@ -9,7 +9,7 @@ ci:
 	@cargo clippy
 
 .PHONY: server
-run:
+server:
 	@cargo run --release --bin iam-server
 
 .PHONY: migrate

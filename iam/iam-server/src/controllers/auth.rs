@@ -12,11 +12,7 @@ use cim_core::{Error, Result};
 
 use crate::{
     models::{req::Request, ID},
-    pkg::{
-        security::{encrypt, verify},
-        valid::Valid,
-        HtmlTemplate,
-    },
+    pkg::{security::verify, valid::Valid, HtmlTemplate},
     repo::providers::Content,
     services::{
         authentication::{Info, Scopes},
@@ -30,10 +26,11 @@ pub struct AuthRouter;
 impl AuthRouter {
     pub fn new_router() -> Router {
         Router::new()
-            .route("/auth", post(Self::authorize))
+            .route("/token", post(Self::token))
+            .route("/authorize", post(Self::authorize))
             .route("/approval", get(Self::approval_html).post(Self::approval))
             .route("/login.html", get(Self::porta))
-            .route("/token", post(Self::token))
+            .route("/oidc/authorize", post(Self::token))
             .route("/provider", post(Self::create_provider))
         // .route("/auth/tokens", get(Self::token))
         // .route("/auth/:name/login", post(Self::login))
@@ -187,7 +184,7 @@ impl AuthRouter {
         Form(info): Form<Info>,
     ) -> Result<(StatusCode, HeaderMap)> {
         info!("{:?}", info);
-        let (identity, ok) = srv.authentication().login(&s, &info).await?;
+        let (_identity, ok) = srv.authentication().login(&s, &info).await?;
         if !ok {
             let mut headers = HeaderMap::new();
 

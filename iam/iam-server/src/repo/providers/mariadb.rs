@@ -41,9 +41,10 @@ impl super::ProvidersRep for MariadbProviders {
         })
     }
     async fn get(&self, id: &str) -> Result<Provider> {
-        match sqlx::query!(r#"SELECT `id`,`redirect_url`,`name`,`prompt`,`logo_url` FROM `provider` WHERE `id` = ? AND `deleted` = 0"#,id)
+        match sqlx::query!(r#"SELECT `id`,`secret`,`redirect_url`,`name`,`prompt`,`logo_url` FROM `provider` WHERE `id` = ? AND `deleted` = 0"#,id)
             .map(|row| Provider {
                 id: row.id.to_string(),
+                secret: row.secret,
                 redirect_url: row.redirect_url,
                 name: row.name,
                 prompt:row.prompt,
@@ -60,9 +61,10 @@ impl super::ProvidersRep for MariadbProviders {
             }
     }
     async fn list(&self) -> Result<Vec<Provider>> {
-        sqlx::query!(r#"SELECT `id`,`redirect_url`,`name`,`prompt`,`logo_url` FROM `provider` WHERE `deleted` = 0"#)
+        sqlx::query!(r#"SELECT `id`,`secret`,`redirect_url`,`name`,`prompt`,`logo_url` FROM `provider` WHERE `deleted` = 0"#)
             .map(|row| Provider {
                 id: row.id.to_string(),
+                secret: row.secret,
                 redirect_url: row.redirect_url,
                 name: row.name,
                 prompt:row.prompt,
