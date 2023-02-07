@@ -50,6 +50,96 @@
     },
     "query": "INSERT INTO `provider`\n            (`id`,`secret`,`redirect_url`,`name`,`prompt`,`logo_url`)\n            VALUES(?,?,?,?,?,?);"
   },
+  "185da016fc59a1a8e42bd69bdbefcd2c38681bf44404b1188adbb52bb7f4d7bc": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": {
+            "char_set": 63,
+            "flags": {
+              "bits": 547
+            },
+            "max_size": 20,
+            "type": "LongLong"
+          }
+        },
+        {
+          "name": "secret",
+          "ordinal": 1,
+          "type_info": {
+            "char_set": 192,
+            "flags": {
+              "bits": 4225
+            },
+            "max_size": 765,
+            "type": "VarString"
+          }
+        },
+        {
+          "name": "redirect_url",
+          "ordinal": 2,
+          "type_info": {
+            "char_set": 192,
+            "flags": {
+              "bits": 4233
+            },
+            "max_size": 765,
+            "type": "VarString"
+          }
+        },
+        {
+          "name": "name",
+          "ordinal": 3,
+          "type_info": {
+            "char_set": 192,
+            "flags": {
+              "bits": 4225
+            },
+            "max_size": 765,
+            "type": "VarString"
+          }
+        },
+        {
+          "name": "prompt",
+          "ordinal": 4,
+          "type_info": {
+            "char_set": 192,
+            "flags": {
+              "bits": 4225
+            },
+            "max_size": 765,
+            "type": "VarString"
+          }
+        },
+        {
+          "name": "logo_url",
+          "ordinal": 5,
+          "type_info": {
+            "char_set": 192,
+            "flags": {
+              "bits": 4225
+            },
+            "max_size": 765,
+            "type": "VarString"
+          }
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Right": 1
+      }
+    },
+    "query": "SELECT `id`,`secret`,`redirect_url`,`name`,`prompt`,`logo_url` FROM `provider` WHERE `id` = ? AND `deleted` = 0"
+  },
   "1e9aac9a2df788b9ac159925a39c894f8bab5d769572a81f40b1a7428555c16f": {
     "describe": {
       "columns": [],
@@ -79,6 +169,96 @@
       }
     },
     "query": "UPDATE `user_group_role` SET `deleted` = `id`,`deleted_at`= ?\n            WHERE `user_group_id` = ? AND `role_id` = ? AND `deleted` = 0;"
+  },
+  "374db603bc407b47db8904009076565929dd4ab1dade73bf07686f91275338a6": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": {
+            "char_set": 63,
+            "flags": {
+              "bits": 547
+            },
+            "max_size": 20,
+            "type": "LongLong"
+          }
+        },
+        {
+          "name": "secret",
+          "ordinal": 1,
+          "type_info": {
+            "char_set": 192,
+            "flags": {
+              "bits": 4225
+            },
+            "max_size": 765,
+            "type": "VarString"
+          }
+        },
+        {
+          "name": "redirect_url",
+          "ordinal": 2,
+          "type_info": {
+            "char_set": 192,
+            "flags": {
+              "bits": 4233
+            },
+            "max_size": 765,
+            "type": "VarString"
+          }
+        },
+        {
+          "name": "name",
+          "ordinal": 3,
+          "type_info": {
+            "char_set": 192,
+            "flags": {
+              "bits": 4225
+            },
+            "max_size": 765,
+            "type": "VarString"
+          }
+        },
+        {
+          "name": "prompt",
+          "ordinal": 4,
+          "type_info": {
+            "char_set": 192,
+            "flags": {
+              "bits": 4225
+            },
+            "max_size": 765,
+            "type": "VarString"
+          }
+        },
+        {
+          "name": "logo_url",
+          "ordinal": 5,
+          "type_info": {
+            "char_set": 192,
+            "flags": {
+              "bits": 4225
+            },
+            "max_size": 765,
+            "type": "VarString"
+          }
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Right": 0
+      }
+    },
+    "query": "SELECT `id`,`secret`,`redirect_url`,`name`,`prompt`,`logo_url` FROM `provider` WHERE `deleted` = 0"
   },
   "749ae8ab8511707f23fb2ad9b2dd7581cdebf248f37dd793a325061fd95fc7a3": {
     "describe": {
@@ -348,83 +528,6 @@
     },
     "query": "SELECT `id`,`client_id`,`response_type`,`scope`,`redirect_url`,`nonce`,`state`,`force_approval`,`expiry`,`logged_in`,`claims`,`hmac_key` \n        FROM `auth_request` \n        WHERE `id` = ? AND `deleted` = 0"
   },
-  "b4710789122463238627cd060d22466fdfeae65d8416a43857687747657ded13": {
-    "describe": {
-      "columns": [
-        {
-          "name": "id",
-          "ordinal": 0,
-          "type_info": {
-            "char_set": 63,
-            "flags": {
-              "bits": 547
-            },
-            "max_size": 20,
-            "type": "LongLong"
-          }
-        },
-        {
-          "name": "redirect_url",
-          "ordinal": 1,
-          "type_info": {
-            "char_set": 192,
-            "flags": {
-              "bits": 4233
-            },
-            "max_size": 765,
-            "type": "VarString"
-          }
-        },
-        {
-          "name": "name",
-          "ordinal": 2,
-          "type_info": {
-            "char_set": 192,
-            "flags": {
-              "bits": 4225
-            },
-            "max_size": 765,
-            "type": "VarString"
-          }
-        },
-        {
-          "name": "prompt",
-          "ordinal": 3,
-          "type_info": {
-            "char_set": 192,
-            "flags": {
-              "bits": 4225
-            },
-            "max_size": 765,
-            "type": "VarString"
-          }
-        },
-        {
-          "name": "logo_url",
-          "ordinal": 4,
-          "type_info": {
-            "char_set": 192,
-            "flags": {
-              "bits": 4225
-            },
-            "max_size": 765,
-            "type": "VarString"
-          }
-        }
-      ],
-      "nullable": [
-        false,
-        false,
-        false,
-        false,
-        false
-      ],
-      "parameters": {
-        "Right": 0
-      }
-    },
-    "query": "SELECT `id`,`redirect_url`,`name`,`prompt`,`logo_url` FROM `provider` WHERE `deleted` = 0"
-  },
   "b983b4ffd484b1f86abf46762c9b5cb3258df9da152c785efb25d514e522fa9d": {
     "describe": {
       "columns": [
@@ -469,83 +572,6 @@
       }
     },
     "query": "UPDATE `auth_request` SET `deleted` = `id`,`deleted_at`= ?\n        WHERE `id` = ? AND `deleted` = 0;"
-  },
-  "ec4a7ad6fcfea44a08a6e2997de788406ce2e5e9690364b180d08b8a9534d20d": {
-    "describe": {
-      "columns": [
-        {
-          "name": "id",
-          "ordinal": 0,
-          "type_info": {
-            "char_set": 63,
-            "flags": {
-              "bits": 547
-            },
-            "max_size": 20,
-            "type": "LongLong"
-          }
-        },
-        {
-          "name": "redirect_url",
-          "ordinal": 1,
-          "type_info": {
-            "char_set": 192,
-            "flags": {
-              "bits": 4233
-            },
-            "max_size": 765,
-            "type": "VarString"
-          }
-        },
-        {
-          "name": "name",
-          "ordinal": 2,
-          "type_info": {
-            "char_set": 192,
-            "flags": {
-              "bits": 4225
-            },
-            "max_size": 765,
-            "type": "VarString"
-          }
-        },
-        {
-          "name": "prompt",
-          "ordinal": 3,
-          "type_info": {
-            "char_set": 192,
-            "flags": {
-              "bits": 4225
-            },
-            "max_size": 765,
-            "type": "VarString"
-          }
-        },
-        {
-          "name": "logo_url",
-          "ordinal": 4,
-          "type_info": {
-            "char_set": 192,
-            "flags": {
-              "bits": 4225
-            },
-            "max_size": 765,
-            "type": "VarString"
-          }
-        }
-      ],
-      "nullable": [
-        false,
-        false,
-        false,
-        false,
-        false
-      ],
-      "parameters": {
-        "Right": 1
-      }
-    },
-    "query": "SELECT `id`,`redirect_url`,`name`,`prompt`,`logo_url` FROM `provider` WHERE `id` = ? AND `deleted` = 0"
   },
   "ef7bd4eac1815f134893354cb16dcfa40ca4830416a1522cfd4c9271a03cdbfe": {
     "describe": {
