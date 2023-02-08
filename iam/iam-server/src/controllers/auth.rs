@@ -1,11 +1,20 @@
+use std::collections::HashMap;
+
 use axum::{
     extract::Query,
+    headers::{
+        authorization::{Basic, Credentials},
+        Authorization,
+    },
     routing::{get, post},
-    Extension, Form, Json, Router,
+    Extension, Form, Json, Router, TypedHeader,
 };
+use base64::prelude::{Engine, BASE64_STANDARD};
 use chrono::Utc;
-use http::{header::LOCATION, HeaderMap, StatusCode, Uri};
-
+use http::{
+    header::{AUTHORIZATION, LOCATION},
+    HeaderMap, StatusCode, Uri,
+};
 use tracing::info;
 
 use cim_core::{Error, Result};
@@ -15,7 +24,10 @@ use crate::{
     pkg::{security::verify, valid::Valid, HtmlTemplate},
     repo::providers::Content,
     services::{
-        authentication::{Info, Scopes},
+        authentication::{
+            token::{PasswordGrant, Token},
+            Info, Scopes,
+        },
         templates::{Approval, ApprovalInfo, Connector, ConnectorInfo, Porta},
         DynService,
     },
@@ -180,31 +192,49 @@ impl AuthRouter {
 
     async fn token(
         Extension(srv): Extension<DynService>,
-        Query(s): Query<Scopes>,
-        Form(info): Form<Info>,
+        header: HeaderMap,
+        Form(body): Form<HashMap<String, String>>,
     ) -> Result<(StatusCode, HeaderMap)> {
-        info!("{:?}", info);
-        let (_identity, ok) = srv.authentication().login(&s, &info).await?;
-        if !ok {
-            let mut headers = HeaderMap::new();
+        let f = || {
+            if let Some(value) = header.get(AUTHORIZATION) {
+                if let Some(v) = Basic::decode(value) {
+                    return (v.username().to_owned(), v.password().to_owned());
+                }
+            }
+            (
+                body.get("client_id").unwrap_or(&"".to_owned()).to_owned(),
+                body.get("client_secret")
+                    .unwrap_or(&"".to_owned())
+                    .to_owned(),
+            )
+        };
+        if let Some(grant_type) = body.get("grant_type") {
+            if grant_type.eq("authorization_code") {
+            } else if grant_type.eq("refresh_token") {
+            }
+        };
+        let content = PasswordGrant::new(srv).handle(&body, f).await?;
+        // header.get(key)
+        // info!("{:?}", info);
+        // let (_identity, ok) = srv.authentication().login(&s, &info).await?;
+        // if !ok {
+        //     let mut headers = HeaderMap::new();
 
-            headers.insert(
-                LOCATION,
-                format!("/v1/login.html?subject={}", info.subject)
-                    .parse()
-                    .unwrap(),
-            );
+        //     headers.insert(
+        //         LOCATION,
+        //         format!("/v1/login.html?subject={}", info.subject)
+        //             .parse()
+        //             .unwrap(),
+        //     );
 
-            return Ok((StatusCode::FOUND, headers));
-        }
+        //     return Ok((StatusCode::FOUND, headers));
+        // }
 
         let mut headers = HeaderMap::new();
 
         headers.insert(
             LOCATION,
-            format!("/v1/login.html?subject={}", info.subject)
-                .parse()
-                .unwrap(),
+            format!("/v1/login.html?subject={}", 1).parse().unwrap(),
         );
 
         Ok((StatusCode::SEE_OTHER, headers))

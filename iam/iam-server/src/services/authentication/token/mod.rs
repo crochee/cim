@@ -1,7 +1,10 @@
 mod password;
 
+use std::collections::HashMap;
+
 use async_trait::async_trait;
 use http::Request;
+use mockall::automock;
 use serde::Deserialize;
 
 use cim_core::Result;
@@ -12,7 +15,7 @@ pub use password::PasswordGrant;
 
 #[derive(Debug, Deserialize)]
 pub struct GrantTypes {
-    pub grant_type: GrantType,
+    pub grant_type: Option<GrantType>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -26,7 +29,12 @@ pub enum GrantType {
 }
 
 #[async_trait]
-pub trait Token<B> {
-    async fn client(req: Request<B>) -> Result<Provider>;
-    async fn handle(req: Request<B>) -> Result<()>;
+pub trait Token {
+    async fn handle<F>(
+        &self,
+        body: &HashMap<String, String>,
+        f: F,
+    ) -> Result<()>
+    where
+        F: FnOnce() -> (String, String) + Send;
 }
