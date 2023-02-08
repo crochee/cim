@@ -1,91 +1,11 @@
 {
-  "query": "SELECT `id`,`secret`,`redirect_url`,`name`,`prompt`,`logo_url` FROM `provider` WHERE `deleted` = 0",
+  "query": "INSERT INTO `user`\n            (`id`,`account_id`,`name`,`nick_name`,`desc`,`email`,`mobile`,`sex`,`image`,`secret`,`password`)\n            VALUES(?,?,?,?,?,?,?,?,?,?,?);",
   "describe": {
-    "columns": [
-      {
-        "ordinal": 0,
-        "name": "id",
-        "type_info": {
-          "type": "LongLong",
-          "flags": {
-            "bits": 547
-          },
-          "char_set": 63,
-          "max_size": 20
-        }
-      },
-      {
-        "ordinal": 1,
-        "name": "secret",
-        "type_info": {
-          "type": "VarString",
-          "flags": {
-            "bits": 4225
-          },
-          "char_set": 192,
-          "max_size": 765
-        }
-      },
-      {
-        "ordinal": 2,
-        "name": "redirect_url",
-        "type_info": {
-          "type": "VarString",
-          "flags": {
-            "bits": 4233
-          },
-          "char_set": 192,
-          "max_size": 765
-        }
-      },
-      {
-        "ordinal": 3,
-        "name": "name",
-        "type_info": {
-          "type": "VarString",
-          "flags": {
-            "bits": 4225
-          },
-          "char_set": 192,
-          "max_size": 765
-        }
-      },
-      {
-        "ordinal": 4,
-        "name": "prompt",
-        "type_info": {
-          "type": "VarString",
-          "flags": {
-            "bits": 4225
-          },
-          "char_set": 192,
-          "max_size": 765
-        }
-      },
-      {
-        "ordinal": 5,
-        "name": "logo_url",
-        "type_info": {
-          "type": "VarString",
-          "flags": {
-            "bits": 4225
-          },
-          "char_set": 192,
-          "max_size": 765
-        }
-      }
-    ],
+    "columns": [],
     "parameters": {
-      "Right": 0
+      "Right": 11
     },
-    "nullable": [
-      false,
-      false,
-      false,
-      false,
-      false,
-      false
-    ]
+    "nullable": []
   },
-  "hash": "374db603bc407b47db8904009076565929dd4ab1dade73bf07686f91275338a6"
+  "hash": "2f30372302d90373b8936143529647b6a94fb4d20ae9122cd041b21e5ccc2c69"
 }

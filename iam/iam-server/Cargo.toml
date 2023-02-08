@@ -19,10 +19,11 @@ anyhow = { version = "1.0", features = ["backtrace"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tower = { version = "0.4", features = ["full"] }
-tower-http = { version = "0.3", features = ["trace", "cors", "fs"] }
+tower-http = { version = "0.4", features = ["trace", "cors", "fs"] }
 uuid = { version = "1.2", features = ["v4"] }
 metrics = "0.20"
 metrics-exporter-prometheus = "0.11"
+prometheus = { version = "=0.13.3", default-features = false }
 lazy_static = "1.4"
 dotenv = "0.15"
 clap = { version = "4.0", features = ["derive", "env"] }
@@ -47,3 +48,9 @@ reqwest = { version = "0.11", default-features = false, features = [
     "json",
 ] }
 base64 = "0.21"
+jsonwebtoken = "8.2"
+sha2 = "0.10"
+tikv-jemallocator = { version = "=0.5.0", features = [
+    'unprefixed_malloc_on_supported_platforms',
+    'profiling',
+] }

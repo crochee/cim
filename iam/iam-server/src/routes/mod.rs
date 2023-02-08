@@ -1,19 +1,17 @@
 use std::{
     future::ready,
-    io,
-    net::SocketAddr,
     time::{Duration, Instant},
 };
 
-use anyhow::Context;
+use anyhow::{Context, Result};
 use axum::{
     extract::MatchedPath,
     middleware::{self, Next},
     response::IntoResponse,
-    routing::{get, get_service},
-    Router, Server, Extension,
+    routing::get,
+    Router,
 };
-use cim_core::Error;
+use cim_core::Code;
 use http::{header::HeaderName, HeaderValue, Request, Uri};
 use metrics_exporter_prometheus::{Matcher, PrometheusBuilder};
 use tower::ServiceBuilder;
@@ -31,21 +29,17 @@ use crate::{
         usergroups::UserGroupsRouter, users::UsersRouter,
     },
     middlewares::MakeSpanWithTrace,
-    DynService,
+    AppState,
 };
 
 lazy_static::lazy_static! {
     static ref EXPONENTIAL_SECONDS: &'static [f64] = &[0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0,];
 }
 
-pub struct ApplicationController;
+pub struct AppRouter;
 
-impl ApplicationController {
-    pub async fn serve(
-        port: u16,
-        cors_origin: &str,
-        srv: DynService,
-    ) -> anyhow::Result<()> {
+impl AppRouter {
+    pub fn build(cors_origin: &str, state: AppState) -> Result<Router> {
         let recorder_handle = PrometheusBuilder::new()
             .set_buckets_for_metric(
                 Matcher::Full(String::from("http_requests_duration_seconds")),
@@ -56,26 +50,17 @@ impl ApplicationController {
             .context("could not install metrics recorder")?;
 
         let router = Router::new()
-            .nest_service(
-                "/static",
-                get_service(ServeDir::new("static"))
-                    .handle_error(Self::handle_fs_error),
-            )
-            .nest_service(
-                "/theme",
-                get_service(ServeDir::new("theme"))
-                    .handle_error(Self::handle_fs_error),
-            )
+            .nest_service("/static", ServeDir::new("static"))
+            .nest_service("/theme", ServeDir::new("theme"))
             .nest(
                 "/v1",
                 Router::new()
-                    .merge(PoliciesRouter::new_router())
-                    .merge(AuthRouter::new_router())
-                    .merge(UsersRouter::new_router())
-                    .merge(RolesRouter::new_router())
-                    .merge(UserGroupsRouter::new_router()),
+                    .merge(PoliciesRouter::new_router(state.clone()))
+                    .merge(AuthRouter::new_router(state.clone()))
+                    .merge(UsersRouter::new_router(state.clone()))
+                    .merge(RolesRouter::new_router(state.clone()))
+                    .merge(UserGroupsRouter::new_router(state)),
             )
-            .layer(Extension(srv))
             .layer(
                 ServiceBuilder::new().layer(
                     TraceLayer::new_for_http()
@@ -108,17 +93,7 @@ impl ApplicationController {
             .route_layer(middleware::from_fn(Self::track_metrics))
             .route("/metrics", get(move || ready(recorder_handle.render())));
 
-        tracing::info!("routes initialized, listening on port {}", port);
-
-        Server::bind(&SocketAddr::from(([0, 0, 0, 0], port)))
-            .http1_title_case_headers(true)
-            .serve(router.into_make_service())
-            .with_graceful_shutdown(async move {
-                let _ = tokio::signal::ctrl_c().await;
-            })
-            .await
-            .context("error while starting API server")?;
-        Ok(())
+        Ok(router)
     }
 
     async fn trace<B>(request: Request<B>, next: Next<B>) -> impl IntoResponse {
@@ -181,10 +156,6 @@ impl ApplicationController {
     }
 
     async fn not_found(uri: Uri) -> impl IntoResponse {
-        Error::NotFound(format!("no route for {}", uri))
-    }
-
-    async fn handle_fs_error(err: io::Error) -> impl IntoResponse {
-        Error::any(err)
+        Code::not_found(&format!("no route for {}", uri))
     }
 }

@@ -1,4 +1,4 @@
-use axum::{extract::Path, routing::get, Extension, Json, Router};
+use axum::{extract::Path, routing::get, Json, Router};
 
 use cim_core::Result;
 use http::StatusCode;
@@ -7,82 +7,87 @@ use tracing::info;
 use crate::{
     models::{self, user::User},
     pkg::valid::{Header, Valid},
-    repo::users::{Content, Querys},
-    services::DynService,
+    services::users,
+    store::{
+        users::{Content, Querys},
+        Store,
+    },
     var::SOURCE_SYSTEM,
+    AppState,
 };
 
 pub struct UsersRouter;
 
 impl UsersRouter {
-    pub fn new_router() -> Router {
+    pub fn new_router(state: AppState) -> Router {
         Router::new()
             .route("/users", get(Self::list).post(Self::create))
             .route(
                 "/users/:id",
                 get(Self::get).delete(Self::delete).put(Self::put),
             )
+            .with_state(state)
     }
 
     async fn create(
-        Extension(srv): Extension<DynService>,
+        app: AppState,
         Valid(Json(input)): Valid<Json<Content>>,
     ) -> Result<(StatusCode, Json<models::ID>)> {
         info!("list query {:#?}", input);
-        let id = srv.user().create(&input).await?;
+        let id = app.store.create_user(None, &input).await?;
         Ok((StatusCode::CREATED, id.into()))
     }
 
     async fn list(
         header: Header,
+        app: AppState,
         Valid(mut filter): Valid<Querys>,
-        Extension(srv): Extension<DynService>,
     ) -> Result<Json<models::List<User>>> {
         if header.source.ne(&Some(SOURCE_SYSTEM.to_owned())) {
             filter.account_id = Some(header.account_id);
         }
         filter.pagination.check();
-        let list = srv.user().list(&filter).await?;
+        let list = app.store.list_user(&filter).await?;
         Ok(list.into())
     }
 
     async fn get(
         header: Header,
+        app: AppState,
         Path(id): Path<String>,
-        Extension(srv): Extension<DynService>,
     ) -> Result<Json<User>> {
         let mut account_id = None;
         if header.source.ne(&Some(SOURCE_SYSTEM.to_owned())) {
             account_id = Some(header.account_id);
         }
-        let resp = srv.user().get(&id, account_id).await?;
+        let resp = app.store.get_user(&id, account_id).await?;
         Ok(resp.into())
     }
 
     async fn delete(
         header: Header,
+        app: AppState,
         Path(id): Path<String>,
-        Extension(srv): Extension<DynService>,
     ) -> Result<StatusCode> {
         let mut account_id = None;
         if header.source.ne(&Some(SOURCE_SYSTEM.to_owned())) {
             account_id = Some(header.account_id);
         }
-        srv.user().delete(&id, account_id).await?;
+        app.store.delete_user(&id, account_id).await?;
         Ok(StatusCode::NO_CONTENT)
     }
 
     async fn put(
         header: Header,
+        app: AppState,
         Path(id): Path<String>,
-        Extension(srv): Extension<DynService>,
         Valid(Json(mut content)): Valid<Json<Content>>,
     ) -> Result<StatusCode> {
         info!("list query {:#?} {:#?}", content, header);
         if header.source.ne(&Some(SOURCE_SYSTEM.to_owned())) {
             content.account_id = Some(header.account_id);
         }
-        srv.user().put(&id, &content).await?;
+        users::put(&app, &id, &content).await?;
         Ok(StatusCode::NO_CONTENT)
     }
 }

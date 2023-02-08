@@ -2,6 +2,7 @@ pub mod auth_code;
 pub mod auth_request;
 pub mod claim;
 pub mod condition;
+pub mod key;
 pub mod policy;
 pub mod provider;
 pub mod req;

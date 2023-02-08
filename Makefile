@@ -1,5 +1,5 @@
 .PHONY: all
-all: fmt ci
+all: fmt ci check
 
 .PHONY: fmt
 fmt:
@@ -7,6 +7,9 @@ fmt:
 .PHONY: ci
 ci:
 	@cargo clippy
+.PHONY: check
+check:
+	@cargo check
 
 .PHONY: server
 server:

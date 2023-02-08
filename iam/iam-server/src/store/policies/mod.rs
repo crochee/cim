@@ -1,52 +1,11 @@
 mod mariadb;
 
-use std::sync::Arc;
-
-use async_trait::async_trait;
-use mockall::automock;
 use serde::Deserialize;
 use validator::Validate;
 
-use cim_core::Result;
+use crate::models::{policy::Statement, Pagination};
 
-use crate::models::{
-    policy::{Policy, Statement},
-    List, Pagination, ID,
-};
-
-pub use mariadb::MariadbPolicies;
-
-pub type DynPolicies = Arc<dyn PoliciesRep + Send + Sync>;
-
-#[automock]
-#[async_trait]
-pub trait PoliciesRep {
-    async fn create(&self, id: Option<String>, content: &Content)
-        -> Result<ID>;
-
-    async fn update(
-        &self,
-        id: &str,
-        account_id: Option<String>,
-        opts: &Opts,
-    ) -> Result<()>;
-
-    async fn get(&self, id: &str, account_id: Option<String>)
-        -> Result<Policy>;
-
-    async fn delete(&self, id: &str, account_id: Option<String>) -> Result<()>;
-
-    async fn list(&self, filter: &Querys) -> Result<List<Policy>>;
-
-    async fn exist(
-        &self,
-        id: &str,
-        account_id: Option<String>,
-        unscoped: bool,
-    ) -> Result<bool>;
-
-    async fn get_by_user(&self, user_id: &str) -> Result<Vec<Policy>>;
-}
+pub use mariadb::*;
 
 #[derive(Debug, Deserialize, Validate)]
 pub struct Content {

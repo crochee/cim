@@ -1,173 +1,26 @@
-mod im;
-mod password;
+pub mod connect;
+pub mod key;
 pub mod token;
 
-use std::sync::Arc;
+use std::collections::HashMap;
 
-use async_trait::async_trait;
-use http::Request;
-use mockall::automock;
+use chrono::Utc;
+use rand::Rng;
 use serde::Deserialize;
-use serde_json::value::RawValue;
 use validator::Validate;
 
-use cim_core::Result;
+use cim_core::{Code, Result};
 
 use crate::{
-    models::{claim::Claims, provider::Provider, ID},
-    pkg::valid::field::check_password,
-    repo::{authreqs, providers::Content},
+    models::{claim::Claims, provider::Provider},
+    store::Store,
+    AppState,
 };
 
-pub use im::IAMAuthenticator;
-pub use password::UserIDPassword;
-
-pub type DynAuthenticator = Arc<dyn Authenticator + Send + Sync>;
-
-#[automock]
-#[async_trait]
-pub trait Authenticator {
-    fn authreq(&self) -> authreqs::DynAuthReqs;
-    async fn create_provider(&self, content: &Content) -> Result<ID>;
-    async fn providers(&self) -> Result<Vec<Provider>>;
-    async fn get_provider(&self,id:&str) -> Result<Provider>;
-    async fn login(&self, s: &Scopes, info: &Info) -> Result<(Identity, bool)>;
-    async fn token(
-        &self,
-        claims: &Claims,
-        opts: &TokenOpts,
-    ) -> Result<(String, i64)>;
-    async fn verify(&self, token: &str) -> Result<Claims>;
-}
-
-#[automock]
-#[async_trait]
-pub trait PasswordConnector {
-    fn prompt(&self) -> String;
-    async fn login(&self, s: &Scopes, info: &Info) -> Result<(Identity, bool)>;
-}
-
-/// Scopes represents additional data requested by the clients about the end user.
-#[derive(Debug, Deserialize, Default)]
-pub struct Scopes {
-    /// The client has requested a refresh token from the server.
-    pub offline_access: bool,
-    /// The client has requested group information about the end user.
-    pub groups: bool,
-}
-
-#[derive(Debug, Deserialize, Validate)]
-pub struct Info {
-    #[validate(length(min = 1))]
-    pub subject: String,
-    #[validate(custom = "check_password")]
-    pub password: String,
-}
-
-#[derive(Debug, Deserialize, Validate)]
-pub struct TokenOpts {
-    pub scopes: Vec<String>,
-    pub nonce: String,
-    pub access_token: Option<String>,
-    pub code: String,
-    pub conn_id: String,
-}
-
-/// Identity represents the ID Token claims supported by the server.
-#[derive(Debug, Default)]
-pub struct Identity {
-    pub user_id: String,
-    pub username: String,
-    pub preferred_username: String,
-    pub email: String,
-    pub email_verified: bool,
-    pub mobile: String,
-
-    pub groups: Vec<String>,
-
-    /// ConnectorData holds data used by the connector for subsequent requests after initial
-    /// authentication, such as access tokens for upstream provides.
-    ///
-    /// This data is never shared with end users, OAuth clients, or through the API.
-    pub connector_data: Box<RawValue>,
-}
-
-#[async_trait]
-pub trait RefreshConnector {
-    /// refresh is called when a client attempts to claim a refresh token. The
-    /// connector should attempt to update the identity object to reflect any
-    /// changes since the token was last refreshed.
-    async fn refresh(
-        &self,
-        s: &Scopes,
-        identity: &Identity,
-    ) -> Result<Identity>;
-}
-
-/// CallbackConnector is an interface implemented by connectors which use an OAuth
-/// style redirect flow to determine user information.
-#[async_trait]
-pub trait CallbackConnector<B> {
-    /// The initial URL to redirect the user to.
-    ///
-    /// OAuth2 implementations should request different scopes from the upstream
-    /// identity provider based on the scopes requested by the downstream client.
-    /// For example, if the downstream client requests a refresh token from the
-    /// server, the connector should also request a token from the provider.
-    ///
-    /// Many identity providers have arbitrary restrictions on refresh tokens. For
-    /// example Google only allows a single refresh token per client/user/scopes
-    /// combination, and wont return a refresh token even if offline access is
-    /// requested if one has already been issues. There's no good general answer
-    /// for these kind of restrictions, and may require this package to become more
-    /// aware of the global set of user/connector interactions.
-    async fn login_url(
-        &self,
-        s: &Scopes,
-        callback_url: &str,
-        state: &str,
-    ) -> Result<String>;
-
-    /// Handle the callback to the server and return an identity.
-    async fn handle_callback(
-        &self,
-        s: &Scopes,
-        req: Request<B>,
-    ) -> Result<Identity>;
-}
-
-/// SAMLConnector represents SAML connectors which implement the HTTP POST binding.
-///
-///	RelayState is handled by the server.
-///
-/// See: https://docs.oasis-open.org/security/saml/v2.0/saml-bindings-2.0-os.pdf
-/// "3.5 HTTP POST Binding"
-#[async_trait]
-pub trait SAMLConnector {
-    /// POSTData returns an encoded SAML request and SSO URL for the server to
-    /// render a POST form with.
-    ///
-    /// POSTData should encode the provided request ID in the returned serialized
-    /// SAML request.
-    async fn post_data(
-        &self,
-        s: &Scopes,
-        request_id: &str,
-    ) -> Result<(String, String)>;
-
-    /// HandlePOST decodes, verifies, and maps attributes from the SAML response.
-    /// It passes the expected value of the "InResponseTo" response field, which
-    /// the connector must ensure matches the response value.
-    ///
-    /// See: https://www.oasis-open.org/committees/download.php/35711/sstc-saml-core-errata-2.0-wd-06-diff.pdf
-    /// "3.2.2 Complex Type StatusResponseType"
-    async fn handle_post(
-        &self,
-        s: &Scopes,
-        saml_response: &str,
-        in_response_to: &str,
-    ) -> Result<Identity>;
-}
+use self::{
+    connect::{parse_scopes, Info, PasswordConnector},
+    token::{Token, TokenOpts, TokenResponse},
+};
 
 #[derive(Debug, Deserialize, Validate)]
 pub struct AuthReq {
@@ -185,4 +38,118 @@ pub struct TokenReq {
     pub state: Option<String>,
     pub redirect_uri: String,
     pub scope: String,
+}
+
+pub async fn password_grant_token(
+    app: &AppState,
+    body: &HashMap<String, String>,
+    f: (String, String),
+) -> Result<TokenResponse> {
+    let (client_id, _) = &f;
+    let provider = match app.store.get_provider(client_id).await {
+        Ok(v) => v,
+        Err(err) => {
+            if err.eq(&Code::not_found("")) {
+                return Err(Code::Unauthorized.with());
+            }
+            return Err(err);
+        }
+    };
+    let connector = connect::UserIDPassword::new(app.store.clone());
+    let token_handler =
+        token::AccessToken::new(app.key_rotator.clone(), 30 * 60);
+
+    password_grant(&provider, &token_handler, &connector, body, &f).await
+}
+
+async fn password_grant<T: Token, C: PasswordConnector>(
+    provider: &Provider,
+    token_creator: &T,
+    connector: &C,
+    body: &HashMap<String, String>,
+    f: &(String, String),
+) -> Result<TokenResponse> {
+    let (client_id, client_secret) = f;
+    if provider.secret.eq(client_secret) {
+        return Err(Code::Unauthorized.with());
+    }
+    let nonce = body.get("nonce").unwrap_or(&"".to_owned()).to_owned();
+    let default_scope = String::new();
+    let scopes: Vec<String> = body
+        .get("scope")
+        .unwrap_or(&default_scope)
+        .to_owned()
+        .split_whitespace()
+        .map(|x| x.to_owned())
+        .collect();
+
+    let mut has_open_id_scope = false;
+    for scope in &scopes {
+        if scope.eq("openid") {
+            has_open_id_scope = true;
+        }
+    }
+    if !has_open_id_scope {
+        return Err(Code::bad_request(
+            r#"Missing required scope(s) ["openid"]."#,
+        ));
+    }
+
+    let username = body.get("username").unwrap_or(&"".to_owned()).to_owned();
+    let password = body.get("password").unwrap_or(&"".to_owned()).to_owned();
+
+    let (identity, ok) = connector
+        .login(
+            &parse_scopes(&scopes),
+            &Info {
+                subject: username,
+                password,
+            },
+        )
+        .await?;
+
+    if !ok {
+        return Err(Code::Unauthorized.with());
+    }
+
+    let claims = Claims {
+        user_id: identity.user_id,
+        username: identity.username,
+        preferred_username: identity.preferred_username,
+        email: identity.email,
+        email_verified: identity.email_verified,
+        mobile: identity.mobile,
+        exp: None,
+    };
+    let access_token_pad = rand::thread_rng()
+        .sample_iter(&rand::distributions::Alphanumeric)
+        .take(255)
+        .map(char::from)
+        .collect::<String>();
+    let mut token_opts = TokenOpts {
+        scopes: scopes.clone(),
+        nonce,
+        access_token: Some(access_token_pad),
+        code: None,
+        conn_id: client_id.to_string(),
+        issuer_url: provider.redirect_url.to_string(),
+    };
+    let (access_token, _) = token_creator.token(&claims, &token_opts).await?;
+
+    token_opts.access_token = Some(access_token.clone());
+    let (id_token, exp) = token_creator.token(&claims, &token_opts).await?;
+
+    let mut result = TokenResponse {
+        access_token,
+        token_type: "".to_owned(),
+        expires_in: None,
+        refresh_token: None,
+        id_token: Some(id_token),
+        scopes: Some(scopes),
+    };
+    if provider.refresh {
+        result.refresh_token = Some("test".to_owned());
+    }
+    result.expires_in = Some(exp - Utc::now().timestamp());
+    Ok(result)
 }

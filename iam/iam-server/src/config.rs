@@ -1,4 +1,4 @@
-#[derive(clap::Parser)]
+#[derive(clap::Parser, Clone)]
 pub struct AppConfig {
     #[clap(long, env)]
     pub database_url: String,

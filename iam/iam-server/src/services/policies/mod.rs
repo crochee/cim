@@ -1,26 +1,36 @@
-mod im;
-
-use std::sync::Arc;
-
-use async_trait::async_trait;
-
 use cim_core::Result;
 
 use crate::{
-    models::{policy::Policy, List, ID},
-    repo::policies::{Content, Querys},
+    store::{policies, Store},
+    AppState,
 };
 
-pub use im::IAMPolicies;
-
-pub type DynPolicies = Arc<dyn PoliciesService + Send + Sync>;
-
-#[async_trait]
-pub trait PoliciesService {
-    async fn create(&self, content: &Content) -> Result<ID>;
-    async fn put(&self, id: &str, content: &Content) -> Result<()>;
-    async fn get(&self, id: &str, account_id: Option<String>)
-        -> Result<Policy>;
-    async fn delete(&self, id: &str, account_id: Option<String>) -> Result<()>;
-    async fn list(&self, filter: &Querys) -> Result<List<Policy>>;
+pub async fn put(
+    app: &AppState,
+    id: &str,
+    content: &policies::Content,
+) -> Result<()> {
+    let found = app
+        .store
+        .policy_exist(id, content.account_id.clone(), true)
+        .await?;
+    if found {
+        return app
+            .store
+            .update_policy(
+                id,
+                content.account_id.clone(),
+                &policies::Opts {
+                    desc: Some(content.desc.clone()),
+                    version: Some(content.version.clone()),
+                    statement: Some(content.statement.clone()),
+                    unscoped: Some(true),
+                },
+            )
+            .await;
+    }
+    app.store
+        .create_policy(Some(id.to_owned()), content)
+        .await?;
+    Ok(())
 }

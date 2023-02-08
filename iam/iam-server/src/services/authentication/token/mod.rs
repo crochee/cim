@@ -1,40 +1,60 @@
-mod password;
-
-use std::collections::HashMap;
+mod tokenx;
 
 use async_trait::async_trait;
-use http::Request;
 use mockall::automock;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use cim_core::Result;
 
-use crate::models::provider::Provider;
+use crate::models::claim::Claims;
 
-pub use password::PasswordGrant;
+pub use tokenx::AccessToken;
 
-#[derive(Debug, Deserialize)]
-pub struct GrantTypes {
-    pub grant_type: Option<GrantType>,
-}
-
-#[derive(Debug, Deserialize)]
-pub enum GrantType {
-    #[serde(rename = "password")]
-    Password,
-    #[serde(rename = "authorization_code")]
-    AuthorizationCode,
-    #[serde(rename = "refresh_token")]
-    RefreshToken,
-}
-
+#[automock]
 #[async_trait]
 pub trait Token {
-    async fn handle<F>(
+    async fn token(
         &self,
-        body: &HashMap<String, String>,
-        f: F,
-    ) -> Result<()>
-    where
-        F: FnOnce() -> (String, String) + Send;
+        claims: &Claims,
+        opts: &TokenOpts,
+    ) -> Result<(String, i64)>;
+    async fn verify(&self, token: &str) -> Result<Claims>;
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct TokenClaims {
+    pub aud: String, // Optional. Audience
+    pub exp: i64, // Required (validate_exp defaults to true in validation). Expiration time (as UTC timestamp)
+    pub iat: i64, // Optional. Issued at (as UTC timestamp)
+    pub iss: String, // Optional. Issuer
+    pub sub: String, // Optional. Subject (whom token refers to)
+
+    pub nonce: String,
+    pub access_token_hash: String,
+    pub code_hash: String,
+    pub email: Option<String>,
+    pub email_verified: bool,
+    pub mobile: Option<String>,
+    pub name: String,
+    pub preferred_username: String,
+}
+
+#[derive(Debug)]
+pub struct TokenOpts {
+    pub scopes: Vec<String>,
+    pub nonce: String,
+    pub access_token: Option<String>,
+    pub code: Option<String>,
+    pub conn_id: String,
+    pub issuer_url: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct TokenResponse {
+    pub access_token: String,
+    pub token_type: String,
+    pub expires_in: Option<i64>,
+    pub refresh_token: Option<String>,
+    pub id_token: Option<String>,
+    pub scopes: Option<Vec<String>>,
 }

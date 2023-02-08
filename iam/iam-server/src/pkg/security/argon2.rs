@@ -1,7 +1,7 @@
 use argon2::{Config, ThreadMode};
 use rand::Rng;
 
-use cim_core::{Error, Result};
+use cim_core::{Code, Result};
 
 pub fn encrypt(password: &str, secret: &str) -> Result<String> {
     let password_salt = rand::thread_rng()
@@ -16,12 +16,12 @@ pub fn encrypt(password: &str, secret: &str) -> Result<String> {
         ..Default::default()
     };
     argon2::hash_encoded(password.as_bytes(), password_salt.as_bytes(), &cfg)
-        .map_err(Error::any)
+        .map_err(Code::any)
 }
 
 pub fn verify(encoded: &str, pwd: &str, secret: &str) -> Result<bool> {
     argon2::verify_encoded_ext(encoded, pwd.as_bytes(), secret.as_bytes(), &[])
-        .map_err(Error::any)
+        .map_err(Code::any)
 }
 
 #[cfg(test)]

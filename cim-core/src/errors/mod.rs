@@ -1,53 +1,133 @@
-mod message;
+use std::{backtrace::Backtrace, error::Error, fmt, str::FromStr};
 
+use anyhow::Context;
 use axum::{
     body::{self, Full},
-    response::{IntoResponse, Response},
+    response::IntoResponse,
 };
+use http::{header, HeaderValue, Response, StatusCode};
+use serde_json::{json, to_vec};
 
-use http::{header, HeaderValue, StatusCode};
-
-use message::Message;
+pub trait ErrorCode: Error + 'static {
+    fn code(&self) -> &'static str;
+}
 
 #[derive(thiserror::Error, Debug)]
-pub enum Error {
+pub enum Code {
     #[error(transparent)]
     Any(#[from] anyhow::Error),
-    #[error("{0} isn't found")]
+    #[error("Not found {0}")]
     NotFound(String),
-    #[error("{0}")]
-    Validates(#[source] validator::ValidationErrors),
-    #[error("{0}")]
+    #[error("Forbidden for {0}")]
     Forbidden(String),
-    #[error("authentication is required to access this resource")]
+    #[error("Authentication is required to access this resource")]
     Unauthorized,
-    #[error("{0}")]
+    #[error("Please recheck the request.see: {0}")]
+    Validates(#[source] validator::ValidationErrors),
+    #[error("Please recheck the request.see: {0}")]
     BadRequest(String),
 }
 
-impl Error {
-    #[inline]
-    pub fn any<E>(err: E) -> Self
-    where
-        E: std::error::Error,
-    {
-        Self::Any(anyhow::format_err!("{}", err))
+impl ErrorCode for Code {
+    fn code(&self) -> &'static str {
+        match self {
+            Self::Any(_) => "Cim.500.1010001",
+            Self::NotFound(_) => "Cim.404.1010002",
+            Self::Unauthorized => "Cim.401.1010003",
+            Self::Validates(_) => "Cim.422.1010004",
+            Self::Forbidden(_) => "Cim.403.1010005",
+            Self::BadRequest(_) => "Cim.400.1010006",
+        }
     }
 }
 
-impl PartialEq for Error {
+impl Code {
+    pub fn any<E: Error>(err: E) -> WithBacktrace {
+        WithBacktrace {
+            code: Code::Any(anyhow::anyhow!("{}", err)),
+            backtrace: Backtrace::force_capture(),
+        }
+    }
+
+    pub fn with(self) -> WithBacktrace {
+        WithBacktrace {
+            code: self,
+            backtrace: Backtrace::force_capture(),
+        }
+    }
+
+    pub fn not_found<S: ToString + ?Sized>(err: &S) -> WithBacktrace {
+        WithBacktrace {
+            code: Code::NotFound(err.to_string()),
+            backtrace: Backtrace::force_capture(),
+        }
+    }
+
+    pub fn forbidden<S: ToString + ?Sized>(err: &S) -> WithBacktrace {
+        WithBacktrace {
+            code: Code::Forbidden(err.to_string()),
+            backtrace: Backtrace::force_capture(),
+        }
+    }
+    pub fn bad_request<S: ToString + ?Sized>(err: &S) -> WithBacktrace {
+        WithBacktrace {
+            code: Code::BadRequest(err.to_string()),
+            backtrace: Backtrace::force_capture(),
+        }
+    }
+}
+
+pub struct WithBacktrace {
+    code: Code,
+    backtrace: Backtrace,
+}
+
+impl fmt::Debug for WithBacktrace {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:#?} {:#?}", self.code, self.backtrace)
+    }
+}
+
+impl fmt::Display for WithBacktrace {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.code)
+    }
+}
+
+impl Error for WithBacktrace {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        Some(&self.code)
+    }
+}
+
+impl From<Code> for WithBacktrace {
+    fn from(code: Code) -> Self {
+        WithBacktrace {
+            code,
+            backtrace: Backtrace::force_capture(),
+        }
+    }
+}
+
+impl PartialEq for WithBacktrace {
     fn eq(&self, other: &Self) -> bool {
-        let content: Message = self.into();
-        let other_content: Message = other.into();
-        content.code == other_content.code
+        self.code.code() == other.code.code()
     }
 }
 
-impl IntoResponse for Error {
-    fn into_response(self) -> Response {
-        let content: Message = self.into();
-        tracing::error!("{:?}", content);
-        let code = match content.status_code() {
+impl IntoResponse for WithBacktrace {
+    fn into_response(self) -> axum::response::Response {
+        tracing::error!("{:?}", self);
+
+        let codes: Vec<&str> = self.code.code().split('.').collect();
+        let status_code: Result<StatusCode, anyhow::Error> = (|| {
+            if codes.len() != 3 {
+                return Err(anyhow::anyhow! {"code's lenght isn't 3"});
+            }
+            StatusCode::from_str(codes[1]).context("could not parse from str")
+        })();
+
+        let code = match status_code {
             Ok(v) => v,
             Err(err) => {
                 return Response::builder()
@@ -62,7 +142,10 @@ impl IntoResponse for Error {
                     .unwrap();
             }
         };
-        let bytes = match serde_json::to_vec(&content) {
+        let bytes = match to_vec(&json!({
+            "code": self.code.code(),
+            "message": self.to_string(),
+        })) {
             Ok(res) => res,
             Err(err) => {
                 return Response::builder()

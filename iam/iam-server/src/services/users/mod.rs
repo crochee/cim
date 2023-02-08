@@ -1,25 +1,39 @@
-mod im;
-
-use std::sync::Arc;
-
-use async_trait::async_trait;
-
 use cim_core::Result;
 
 use crate::{
-    models::{user::User, List, ID},
-    repo::users::{Content, Querys},
+    store::{users, Store},
+    AppState,
 };
 
-pub use im::IAMUsers;
-
-pub type DynUsers = Arc<dyn UsersService + Send + Sync>;
-
-#[async_trait]
-pub trait UsersService {
-    async fn create(&self, content: &Content) -> Result<ID>;
-    async fn put(&self, id: &str, content: &Content) -> Result<()>;
-    async fn get(&self, id: &str, account_id: Option<String>) -> Result<User>;
-    async fn delete(&self, id: &str, account_id: Option<String>) -> Result<()>;
-    async fn list(&self, filter: &Querys) -> Result<List<User>>;
+pub async fn put(
+    app: &AppState,
+    id: &str,
+    content: &users::Content,
+) -> Result<()> {
+    let found = app
+        .store
+        .user_exist(id, content.account_id.clone(), true)
+        .await?;
+    if found {
+        return app
+            .store
+            .update_user(
+                id,
+                content.account_id.clone(),
+                &users::Opts {
+                    name: Some(content.name.clone()),
+                    nick_name: content.nick_name.clone(),
+                    desc: Some(content.desc.clone()),
+                    email: content.email.clone(),
+                    mobile: content.mobile.clone(),
+                    sex: content.sex.clone(),
+                    image: content.image.clone(),
+                    password: Some(content.password.clone()),
+                    unscoped: Some(true),
+                },
+            )
+            .await;
+    }
+    app.store.create_user(Some(id.to_owned()), content).await?;
+    Ok(())
 }

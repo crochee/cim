@@ -1,8 +1,11 @@
-use serde::{Deserialize, Serialize};
+mod mariadb;
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct Provider {
-    pub id: String,
+use serde::Deserialize;
+
+pub use mariadb::*;
+
+#[derive(Debug, Deserialize)]
+pub struct Content {
     pub secret: String,
     pub redirect_url: String,
     pub name: String,

@@ -2,14 +2,10 @@ use std::collections::HashMap;
 
 use axum::{
     extract::Query,
-    headers::{
-        authorization::{Basic, Credentials},
-        Authorization,
-    },
+    headers::authorization::{Basic, Credentials},
     routing::{get, post},
-    Extension, Form, Json, Router, TypedHeader,
+    Form, Json, Router,
 };
-use base64::prelude::{Engine, BASE64_STANDARD};
 use chrono::Utc;
 use http::{
     header::{AUTHORIZATION, LOCATION},
@@ -17,26 +13,24 @@ use http::{
 };
 use tracing::info;
 
-use cim_core::{Error, Result};
+use cim_core::{Code, Result};
 
 use crate::{
     models::{req::Request, ID},
     pkg::{security::verify, valid::Valid, HtmlTemplate},
-    repo::providers::Content,
     services::{
-        authentication::{
-            token::{PasswordGrant, Token},
-            Info, Scopes,
-        },
+        authentication::{self, token::TokenResponse},
+        authorization,
         templates::{Approval, ApprovalInfo, Connector, ConnectorInfo, Porta},
-        DynService,
     },
+    store::{providers::Content, Store},
+    AppState,
 };
 
 pub struct AuthRouter;
 
 impl AuthRouter {
-    pub fn new_router() -> Router {
+    pub fn new_router(state: AppState) -> Router {
         Router::new()
             .route("/token", post(Self::token))
             .route("/authorize", post(Self::authorize))
@@ -44,41 +38,36 @@ impl AuthRouter {
             .route("/login.html", get(Self::porta))
             .route("/oidc/authorize", post(Self::token))
             .route("/provider", post(Self::create_provider))
-        // .route("/auth/tokens", get(Self::token))
-        // .route("/auth/:name/login", post(Self::login))
+            // .route("/auth/tokens", get(Self::token))
+            // .route("/auth/:name/login", post(Self::login))
+            .with_state(state)
     }
 
     async fn authorize(
-        Extension(srv): Extension<DynService>,
+        app: AppState,
         Valid(Json(input)): Valid<Json<Request>>,
     ) -> Result<StatusCode> {
         info!("list query {:#?}", input);
-        srv.authorization().authorize(&input).await?;
+        authorization::authorize(&app, &input).await?;
         Ok(StatusCode::NO_CONTENT)
     }
 
     async fn approval_html(
-        Extension(srv): Extension<DynService>,
+        app: AppState,
         Query(approval_info): Query<ApprovalInfo>,
     ) -> Result<HtmlTemplate<Approval>> {
         info!("list query {:#?}", approval_info);
-        let auth_req = srv
-            .authentication()
-            .authreq()
-            .get(&approval_info.req)
-            .await?;
+        let auth_req = app.store.get_authrequests(&approval_info.req).await?;
         if !auth_req.logged_in {
-            return Err(Error::Any(anyhow::anyhow!(
+            return Err(Code::Any(anyhow::anyhow!(
                 "Login process not yet finalized."
-            )));
+            ))
+            .with());
         }
         if verify(&approval_info.hmac, &auth_req.id, &auth_req.hmac_key)? {
-            return Err(Error::Unauthorized);
+            return Err(Code::Unauthorized.with());
         }
-        let provider = srv
-            .authentication()
-            .get_provider(&auth_req.client_id)
-            .await?;
+        let provider = app.store.get_provider(&auth_req.client_id).await?;
         Ok(HtmlTemplate(Approval {
             req_path: Default::default(),
             client: provider.name,
@@ -88,34 +77,32 @@ impl AuthRouter {
     }
 
     async fn approval(
-        Extension(srv): Extension<DynService>,
+        app: AppState,
         Query(approval_info): Query<ApprovalInfo>,
     ) -> Result<(StatusCode, HeaderMap)> {
         info!("list query {:#?}", approval_info);
         if approval_info.approval.unwrap_or_default().ne("approve") {
-            return Err(Error::Any(anyhow::anyhow!("Approval rejected.")));
+            return Err(Code::Any(anyhow::anyhow!("Approval rejected.")).with());
         }
-        let auth_req = srv
-            .authentication()
-            .authreq()
-            .get(&approval_info.req)
-            .await?;
+        let auth_req = app.store.get_authrequests(&approval_info.req).await?;
         if !auth_req.logged_in {
-            return Err(Error::Any(anyhow::anyhow!(
+            return Err(Code::Any(anyhow::anyhow!(
                 "Login process not yet finalized."
-            )));
+            ))
+            .with());
         }
         if verify(&approval_info.hmac, &auth_req.id, &auth_req.hmac_key)? {
-            return Err(Error::Unauthorized);
+            return Err(Code::Unauthorized.with());
         }
         if auth_req.expiry < Utc::now().timestamp() {
-            return Err(Error::Any(anyhow::anyhow!(
+            return Err(Code::Any(anyhow::anyhow!(
                 "User session has expired."
-            )));
+            ))
+            .with());
         }
-        srv.authentication().authreq().delete(&auth_req.id).await?;
+        app.store.delete_authrequests(&auth_req.id).await?;
 
-        let u: Uri = auth_req.redirect_url.parse().map_err(Error::any)?;
+        let u: Uri = auth_req.redirect_url.parse().map_err(Code::any)?;
         let mut url = u.to_string();
         if u.query().is_none() {
             url.push('?');
@@ -134,16 +121,16 @@ impl AuthRouter {
     }
 
     async fn create_provider(
-        Extension(srv): Extension<DynService>,
+        app: AppState,
         Json(input): Json<Content>,
     ) -> Result<(StatusCode, Json<ID>)> {
         info!("list query {:#?}", input);
-        let id = srv.authentication().create_provider(&input).await?;
+        let id = app.store.create_provider(&input).await?;
         Ok((StatusCode::CREATED, id.into()))
     }
 
     async fn porta(
-        Extension(srv): Extension<DynService>,
+        app: AppState,
         Query(connector): Query<Connector>,
     ) -> Result<HtmlTemplate<Porta>> {
         let mut p = Porta {
@@ -151,7 +138,7 @@ impl AuthRouter {
             username: connector.subject.unwrap_or_default(),
             ..Default::default()
         };
-        for provider in srv.authentication().providers().await? {
+        for provider in app.store.list_provider().await? {
             match &connector.client_id {
                 Some(v) => {
                     if provider.id.eq(v) {
@@ -191,44 +178,27 @@ impl AuthRouter {
     }
 
     async fn token(
-        Extension(srv): Extension<DynService>,
+        app: AppState,
         header: HeaderMap,
         Form(body): Form<HashMap<String, String>>,
-    ) -> Result<(StatusCode, HeaderMap)> {
+    ) -> Result<(StatusCode, (HeaderMap, Json<TokenResponse>))> {
         let f = || {
+            if let Some(client_id) = body.get("client_id") {
+                return (
+                    client_id.to_owned(),
+                    body.get("client_secret")
+                        .unwrap_or(&"".to_owned())
+                        .to_owned(),
+                );
+            }
             if let Some(value) = header.get(AUTHORIZATION) {
                 if let Some(v) = Basic::decode(value) {
                     return (v.username().to_owned(), v.password().to_owned());
                 }
             }
-            (
-                body.get("client_id").unwrap_or(&"".to_owned()).to_owned(),
-                body.get("client_secret")
-                    .unwrap_or(&"".to_owned())
-                    .to_owned(),
-            )
+            ("".to_owned(), "".to_owned())
         };
-        if let Some(grant_type) = body.get("grant_type") {
-            if grant_type.eq("authorization_code") {
-            } else if grant_type.eq("refresh_token") {
-            }
-        };
-        let content = PasswordGrant::new(srv).handle(&body, f).await?;
-        // header.get(key)
-        // info!("{:?}", info);
-        // let (_identity, ok) = srv.authentication().login(&s, &info).await?;
-        // if !ok {
-        //     let mut headers = HeaderMap::new();
-
-        //     headers.insert(
-        //         LOCATION,
-        //         format!("/v1/login.html?subject={}", info.subject)
-        //             .parse()
-        //             .unwrap(),
-        //     );
-
-        //     return Ok((StatusCode::FOUND, headers));
-        // }
+        let r = authentication::password_grant_token(&app, &body, f()).await?;
 
         let mut headers = HeaderMap::new();
 
@@ -237,48 +207,6 @@ impl AuthRouter {
             format!("/v1/login.html?subject={}", 1).parse().unwrap(),
         );
 
-        Ok((StatusCode::SEE_OTHER, headers))
+        Ok((StatusCode::SEE_OTHER, (headers, r.into())))
     }
-    // async fn token(Path(name): Path<String>) -> Result<HtmlTemplate<Password>> {
-    //     info!("{}", name);
-    //     let t = Password {
-    //         post_url: format!("http://127.0.0.1:30050/v1/auth/{}/login", name),
-    //         back_link: "".to_owned(),
-    //         username: "".to_owned(),
-    //         prompt: "UserID".to_owned(),
-    //         invalid: false,
-    //         req_path: "".to_owned(),
-    //     };
-    //     Ok(HtmlTemplate(t))
-    // }
-    // async fn login(
-    //     Extension(pool): Extension<MySqlPool>,
-    //     Path(name): Path<String>,
-    //     Query(scopes): Query<Scopes>,
-    //     Valid(Form(info)): Valid<Form<Info>>,
-    // ) -> Result<Any<Password>> {
-    //     if name.eq("user") {
-    //         let (identity, ok) =
-    //             UserIDPassword::new(pool).login(&scopes, &info).await?;
-    //         if !ok {
-    //             return Err(Error::Forbidden(format!(
-    //                 "Forbidden for {}",
-    //                 info.subject
-    //             )));
-    //         }
-    //         info!("{:?}", identity);
-    //         // get token
-    //         return Ok(Any::Header(HeaderMap::new()));
-    //     }
-    //     info!("{}", name);
-    //     let t = Password {
-    //         post_url: "http://127.0.0.1:5555/callback".to_owned(),
-    //         back_link: "".to_owned(),
-    //         username: info.subject,
-    //         prompt: "UserID".to_owned(),
-    //         invalid: false,
-    //         req_path: "".to_owned(),
-    //     };
-    //     Ok(Any::Html(HtmlTemplate(t)))
-    // }
 }

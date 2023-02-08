@@ -5,7 +5,7 @@ use cidr_utils::cidr::IpCidr;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-use cim_core::{Error, Result};
+use cim_core::{Code, Result};
 use serde_json::value::RawValue;
 
 use super::req::Request;
@@ -23,43 +23,43 @@ impl JsonCondition {
             "StringCmp" => {
                 let result: StringCmp =
                     serde_json::from_str(self.options.get())
-                        .map_err(Error::any)?;
+                        .map_err(Code::any)?;
                 Ok(Box::new(result))
             }
             "StringMatch" => {
                 let result: StringMatch =
                     serde_json::from_str(self.options.get())
-                        .map_err(Error::any)?;
+                        .map_err(Code::any)?;
                 Ok(Box::new(result))
             }
             "CIDR" => {
                 let result: Cidr = serde_json::from_str(self.options.get())
-                    .map_err(Error::any)?;
+                    .map_err(Code::any)?;
                 Ok(Box::new(result))
             }
             "EqualsSubject" => {
                 let result: EqualsSubject =
                     serde_json::from_str(self.options.get())
-                        .map_err(Error::any)?;
+                        .map_err(Code::any)?;
                 Ok(Box::new(result))
             }
             "Boolean" => {
                 let result: Boolean = serde_json::from_str(self.options.get())
-                    .map_err(Error::any)?;
+                    .map_err(Code::any)?;
                 Ok(Box::new(result))
             }
             "NumericCmp" => {
                 let result: NumericCmp =
                     serde_json::from_str(self.options.get())
-                        .map_err(Error::any)?;
+                        .map_err(Code::any)?;
                 Ok(Box::new(result))
             }
             "TimeCmp" => {
                 let result: TimeCmp = serde_json::from_str(self.options.get())
-                    .map_err(Error::any)?;
+                    .map_err(Code::any)?;
                 Ok(Box::new(result))
             }
-            v => Err(Error::NotFound(format!(
+            v => Err(Code::not_found(&format!(
                 "Could not find condition type {}",
                 v
             ))),

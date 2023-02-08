@@ -55,7 +55,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_effect() {
+    fn policy() {
         let v: Policy = serde_json::from_value(json!(
             {
                 "id": "123",
@@ -64,19 +64,19 @@ mod tests {
                 "statement": [
                     {
                         "effect": "Allow",
-                        "subject": [
+                        "subjects": [
                             "max",
                             "peter",
                             "<zac|ken>"
                         ],
-                        "action": [
+                        "actions": [
                             "<create|delete>",
                             "get"
                         ],
-                        "resource": [
+                        "resources": [
                             "myrn:some.domain.com:resource:<d+>"
                         ],
-                        "condition": {
+                        "conditions": {
                             "owner": {
                                 "type": "EqualsSubjectCondition",
                                 "options": {}

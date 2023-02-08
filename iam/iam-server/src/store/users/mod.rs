@@ -1,50 +1,14 @@
 mod mariadb;
 
-use std::sync::Arc;
-
-use async_trait::async_trait;
-use mockall::automock;
 use serde::Deserialize;
 use validator::Validate;
 
-use cim_core::Result;
-
 use crate::{
-    models::{user::User, List, Pagination, ID},
+    models::Pagination,
     pkg::valid::field::{check_password, check_sex},
 };
 
-pub use mariadb::MariadbUsers;
-
-pub type DynUsers = Arc<dyn UsersRep + Send + Sync>;
-
-#[automock]
-#[async_trait]
-pub trait UsersRep {
-    async fn create(&self, id: Option<String>, content: &Content)
-        -> Result<ID>;
-
-    async fn update(
-        &self,
-        id: &str,
-        account_id: Option<String>,
-        opts: &Opts,
-    ) -> Result<()>;
-
-    async fn get(&self, id: &str, account_id: Option<String>) -> Result<User>;
-
-    async fn delete(&self, id: &str, account_id: Option<String>) -> Result<()>;
-
-    async fn list(&self, filter: &Querys) -> Result<List<User>>;
-
-    async fn exist(
-        &self,
-        id: &str,
-        account_id: Option<String>,
-        unscoped: bool,
-    ) -> Result<bool>;
-    async fn get_password(&self, id: &UserSubject) -> Result<Password>;
-}
+pub use mariadb::*;
 
 #[derive(Debug, Deserialize, Validate)]
 pub struct Content {
@@ -112,8 +76,8 @@ pub struct Password {
     pub user_id: String,
     pub user_name: String,
     pub nick_name: String,
-    pub email: String,
-    pub mobile: String,
+    pub email: Option<String>,
+    pub mobile: Option<String>,
     pub hash: String,
     pub secret: String,
 }

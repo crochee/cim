@@ -12,7 +12,7 @@ use http::{request::Parts, Request};
 use serde::de::DeserializeOwned;
 use validator::Validate;
 
-use cim_core::Error;
+use cim_core::{Code, WithBacktrace};
 
 pub struct Valid<T>(pub T);
 
@@ -22,15 +22,15 @@ where
     S: Send + Sync,
     T: DeserializeOwned + Validate,
 {
-    type Rejection = Error;
+    type Rejection = WithBacktrace;
     async fn from_request_parts(
         parts: &mut Parts,
         _state: &S,
     ) -> Result<Self, Self::Rejection> {
         let query = parts.uri.query().unwrap_or_default();
         let value: T = serde_urlencoded::from_str(query)
-            .map_err(|err| Error::BadRequest(err.to_string()))?;
-        value.validate().map_err(Error::Validates)?;
+            .map_err(|err| Code::bad_request(&err))?;
+        value.validate().map_err(Code::Validates)?;
         Ok(Self(value))
     }
 }
@@ -44,15 +44,15 @@ where
     B::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
     T: DeserializeOwned + Validate,
 {
-    type Rejection = Error;
+    type Rejection = WithBacktrace;
     async fn from_request(
         req: Request<B>,
         state: &S,
     ) -> Result<Self, Self::Rejection> {
         let value = Json::<T>::from_request(req, state)
             .await
-            .map_err(|err| Error::BadRequest(err.to_string()))?;
-        value.deref().validate().map_err(Error::Validates)?;
+            .map_err(|err| Code::bad_request(&err))?;
+        value.deref().validate().map_err(Code::Validates)?;
         Ok(Self(value))
     }
 }
@@ -66,15 +66,15 @@ where
     B::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
     T: DeserializeOwned + Validate,
 {
-    type Rejection = Error;
+    type Rejection = WithBacktrace;
     async fn from_request(
         req: Request<B>,
         state: &S,
     ) -> Result<Self, Self::Rejection> {
         let value = Form::<T>::from_request(req, state)
             .await
-            .map_err(|err| Error::BadRequest(err.to_string()))?;
-        value.deref().validate().map_err(Error::Validates)?;
+            .map_err(|err| Code::bad_request(&err))?;
+        value.deref().validate().map_err(Code::Validates)?;
         Ok(Self(value))
     }
 }
@@ -94,7 +94,7 @@ impl<S> FromRequestParts<S> for Header
 where
     S: Send + Sync,
 {
-    type Rejection = Error;
+    type Rejection = WithBacktrace;
     async fn from_request_parts(
         parts: &mut Parts,
         _state: &S,
@@ -104,9 +104,7 @@ where
                 .headers
                 .get("X-Account-ID")
                 .ok_or_else(|| {
-                    Error::Forbidden(
-                        "miss request header X-Account-ID".to_string(),
-                    )
+                    Code::forbidden("miss request header X-Account-ID")
                 })?
                 .to_str()
                 .unwrap_or_default()
@@ -115,9 +113,7 @@ where
                 .headers
                 .get("X-User-ID")
                 .ok_or_else(|| {
-                    Error::Forbidden(
-                        "miss request header X-User-ID".to_string(),
-                    )
+                    Code::forbidden("miss request header X-User-ID")
                 })?
                 .to_str()
                 .unwrap_or_default()
@@ -128,7 +124,7 @@ where
         if let Some(v) = parts.headers.get("X-Source") {
             result.source = Some(v.to_str().unwrap_or_default().to_owned());
         };
-        result.validate().map_err(Error::Validates)?;
+        result.validate().map_err(Code::Validates)?;
         Ok(result)
     }
 }

@@ -1,43 +1,35 @@
-mod im;
-
-use std::sync::Arc;
-
-use async_trait::async_trait;
-
 use cim_core::Result;
 
 use crate::{
-    models::{
-        usergroup::{UserGroup, UserGroupBindings},
-        List, ID,
-    },
-    repo::usergroups::{Content, Querys},
+    store::{usergroups, Store},
+    AppState,
 };
 
-pub use im::IAMUserGroups;
-
-pub type DynUserGroups = Arc<dyn UserGroupsService + Send + Sync>;
-
-#[async_trait]
-pub trait UserGroupsService {
-    async fn create(&self, content: &Content) -> Result<ID>;
-    async fn put(&self, id: &str, content: &Content) -> Result<()>;
-    async fn get(&self, id: &str, filter: &Querys)
-        -> Result<UserGroupBindings>;
-    async fn delete(&self, id: &str, account_id: Option<String>) -> Result<()>;
-    async fn list(&self, filter: &Querys) -> Result<List<UserGroup>>;
-    async fn add_user(
-        &self,
-        id: &str,
-        account_id: &str,
-        user_id: &str,
-    ) -> Result<()>;
-    async fn delete_user(&self, id: &str, user_id: &str) -> Result<()>;
-    async fn add_role(
-        &self,
-        id: &str,
-        account_id: &str,
-        role_id: &str,
-    ) -> Result<()>;
-    async fn delete_role(&self, id: &str, role_id: &str) -> Result<()>;
+pub async fn put(
+    app: &AppState,
+    id: &str,
+    content: &usergroups::Content,
+) -> Result<()> {
+    let found = app
+        .store
+        .user_group_exist(id, Some(content.account_id.clone()), true)
+        .await?;
+    if found {
+        return app
+            .store
+            .update_user_group(
+                id,
+                Some(content.account_id.clone()),
+                &usergroups::Opts {
+                    name: Some(content.name.clone()),
+                    desc: Some(content.desc.clone()),
+                    unscoped: Some(true),
+                },
+            )
+            .await;
+    }
+    app.store
+        .create_user_group(Some(id.to_owned()), content)
+        .await?;
+    Ok(())
 }

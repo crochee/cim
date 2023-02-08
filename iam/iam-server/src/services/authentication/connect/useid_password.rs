@@ -1,28 +1,31 @@
 use async_trait::async_trait;
 
-use cim_core::{Error, Result};
+use cim_core::{Code, Result};
 
 use crate::{
     pkg::security::verify,
-    repo::{users::UserSubject, DynRepository},
+    store::{users::UserSubject, Store},
 };
 
 use super::{Identity, Info, PasswordConnector, RefreshConnector, Scopes};
 
-pub struct UserIDPassword {
-    repository: DynRepository,
+pub struct UserIDPassword<S> {
+    store: S,
 }
 
-impl UserIDPassword {
-    pub fn new(repository: DynRepository) -> Self {
-        Self { repository }
+impl<S> UserIDPassword<S> {
+    pub fn new(store: S) -> Self {
+        Self { store }
     }
 }
 
 #[async_trait]
-impl PasswordConnector for UserIDPassword {
-    fn prompt(&self) -> String {
-        "UserID".to_owned()
+impl<S> PasswordConnector for UserIDPassword<S>
+where
+    S: Store,
+{
+    fn prompt(&self) -> &'static str {
+        "UserID"
     }
     async fn login(
         &self,
@@ -30,15 +33,14 @@ impl PasswordConnector for UserIDPassword {
         info: &Info,
     ) -> Result<(Identity, bool)> {
         let p = self
-            .repository
-            .user()
-            .get_password(&UserSubject::UserID(info.subject.clone()))
+            .store
+            .user_get_password(&UserSubject::UserID(info.subject.clone()))
             .await?;
         if let Err(err) = verify(&p.hash, &info.password, &p.secret) {
             tracing::error!("{}", err);
             return Ok((Default::default(), false));
         };
-        let email_verified = !p.email.is_empty();
+        let email_verified = p.email.is_some();
         Ok((
             Identity {
                 user_id: p.user_id,
@@ -55,24 +57,26 @@ impl PasswordConnector for UserIDPassword {
 }
 
 #[async_trait]
-impl RefreshConnector for UserIDPassword {
+impl<S> RefreshConnector for UserIDPassword<S>
+where
+    S: Store + Send + Sync,
+{
     async fn refresh(
         &self,
         _s: &Scopes,
         identity: &Identity,
     ) -> Result<Identity> {
         let p = self
-            .repository
-            .user()
-            .get_password(&UserSubject::UserID(identity.user_id.clone()))
+            .store
+            .user_get_password(&UserSubject::UserID(identity.user_id.clone()))
             .await?;
         if p.email != identity.email {
-            return Err(Error::NotFound("user not found".to_owned()));
+            return Err(Code::not_found("user"));
         }
         if p.mobile != identity.mobile {
-            return Err(Error::NotFound("user not found".to_owned()));
+            return Err(Code::not_found("user"));
         }
-        let email_verified = !p.email.is_empty();
+        let email_verified = p.email.is_some();
         Ok(Identity {
             user_id: p.user_id,
             username: p.user_name,
