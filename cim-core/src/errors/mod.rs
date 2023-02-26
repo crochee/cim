@@ -1,10 +1,11 @@
-use std::{backtrace::Backtrace, error::Error, fmt, str::FromStr};
+use std::{error::Error, fmt, str::FromStr};
 
 use anyhow::Context;
 use axum::{
     body::{self, Full},
     response::IntoResponse,
 };
+use backtrace::Backtrace;
 use http::{header, HeaderValue, Response, StatusCode};
 use serde_json::{json, to_vec};
 
@@ -16,9 +17,9 @@ pub trait ErrorCode: Error + 'static {
 pub enum Code {
     #[error(transparent)]
     Any(#[from] anyhow::Error),
-    #[error("Not found {0}")]
+    #[error("Not found. {0}")]
     NotFound(String),
-    #[error("Forbidden for {0}")]
+    #[error("Forbidden. {0}")]
     Forbidden(String),
     #[error("Authentication is required to access this resource")]
     Unauthorized,
@@ -45,34 +46,34 @@ impl Code {
     pub fn any<E: Error>(err: E) -> WithBacktrace {
         WithBacktrace {
             code: Code::Any(anyhow::anyhow!("{}", err)),
-            backtrace: Backtrace::force_capture(),
+            backtrace: Backtrace::new(),
         }
     }
 
     pub fn with(self) -> WithBacktrace {
         WithBacktrace {
             code: self,
-            backtrace: Backtrace::force_capture(),
+            backtrace: Backtrace::new(),
         }
     }
 
     pub fn not_found<S: ToString + ?Sized>(err: &S) -> WithBacktrace {
         WithBacktrace {
             code: Code::NotFound(err.to_string()),
-            backtrace: Backtrace::force_capture(),
+            backtrace: Backtrace::new(),
         }
     }
 
     pub fn forbidden<S: ToString + ?Sized>(err: &S) -> WithBacktrace {
         WithBacktrace {
             code: Code::Forbidden(err.to_string()),
-            backtrace: Backtrace::force_capture(),
+            backtrace: Backtrace::new(),
         }
     }
     pub fn bad_request<S: ToString + ?Sized>(err: &S) -> WithBacktrace {
         WithBacktrace {
             code: Code::BadRequest(err.to_string()),
-            backtrace: Backtrace::force_capture(),
+            backtrace: Backtrace::new(),
         }
     }
 }
@@ -84,7 +85,7 @@ pub struct WithBacktrace {
 
 impl fmt::Debug for WithBacktrace {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:#?} {:#?}", self.code, self.backtrace)
+        write!(f, "{:#?} {:?}", self.code, self.backtrace)
     }
 }
 
@@ -104,7 +105,7 @@ impl From<Code> for WithBacktrace {
     fn from(code: Code) -> Self {
         WithBacktrace {
             code,
-            backtrace: Backtrace::force_capture(),
+            backtrace: Backtrace::new(),
         }
     }
 }

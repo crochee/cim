@@ -6,8 +6,6 @@ use std::collections::HashMap;
 
 use chrono::Utc;
 use rand::Rng;
-use serde::Deserialize;
-use validator::Validate;
 
 use cim_core::{Code, Result};
 
@@ -21,24 +19,6 @@ use self::{
     connect::{parse_scopes, Info, PasswordConnector},
     token::{Token, TokenOpts, TokenResponse},
 };
-
-#[derive(Debug, Deserialize, Validate)]
-pub struct AuthReq {
-    pub response_type: String,
-    pub client_id: String,
-    pub state: Option<String>,
-    pub redirect_uri: String,
-    pub scope: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct TokenReq {
-    pub grant_type: String,
-    pub client_id: String,
-    pub state: Option<String>,
-    pub redirect_uri: String,
-    pub scope: String,
-}
 
 pub async fn password_grant_token(
     app: &AppState,
@@ -70,7 +50,7 @@ async fn password_grant<T: Token, C: PasswordConnector>(
     f: &(String, String),
 ) -> Result<TokenResponse> {
     let (client_id, client_secret) = f;
-    if provider.secret.eq(client_secret) {
+    if provider.secret.ne(client_secret) {
         return Err(Code::Unauthorized.with());
     }
     let nonce = body.get("nonce").unwrap_or(&"".to_owned()).to_owned();
@@ -148,6 +128,7 @@ async fn password_grant<T: Token, C: PasswordConnector>(
         scopes: Some(scopes),
     };
     if provider.refresh {
+        // TODO pad detail refresh token
         result.refresh_token = Some("test".to_owned());
     }
     result.expires_in = Some(exp - Utc::now().timestamp());

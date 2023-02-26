@@ -79,7 +79,7 @@ where
         let key = KeyValue {
             id,
             value: Self::key_generator(),
-            alg: String::from("RS256"),
+            alg: String::from("HS256"),
         };
         let now_time = Self::time_now();
         if nk.next_rotation > now_time {

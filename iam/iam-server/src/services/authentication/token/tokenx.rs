@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use async_trait::async_trait;
 use chrono::Utc;
 use jsonwebtoken::{
@@ -43,9 +41,6 @@ where
         opts: &TokenOpts,
     ) -> Result<(String, i64)> {
         let keys = self.key_store.get().await?;
-        let alg =
-            Algorithm::from_str(&keys.signing_key.alg).map_err(Code::any)?;
-        let header = Header::new(alg);
         let issued_at = Utc::now().timestamp();
         let exp = issued_at + self.expire_sec;
 
@@ -74,7 +69,7 @@ where
                 format!("{:?}", Sha256::new().chain_update(code).finalize());
         };
         let token = encode(
-            &header,
+            &Header::new(Algorithm::HS256),
             &token_claims,
             &EncodingKey::from_secret(keys.signing_key.value.as_bytes()),
         )

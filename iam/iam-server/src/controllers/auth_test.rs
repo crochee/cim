@@ -1,9 +1,9 @@
 use std::env;
 
 use oauth2::{
-    basic::BasicClient, reqwest::async_http_client, AccessToken, AuthUrl,
-    AuthorizationCode, ClientId, ClientSecret, CsrfToken, RedirectUrl, Scope,
-    TokenResponse, TokenUrl,
+    basic::BasicClient, reqwest::async_http_client, AuthUrl, AuthorizationCode,
+    ClientId, ClientSecret, CsrfToken, RedirectUrl, Scope, TokenResponse,
+    TokenUrl,
 };
 use serde::{Deserialize, Serialize};
 

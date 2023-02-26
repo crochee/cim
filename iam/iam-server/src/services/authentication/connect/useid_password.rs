@@ -88,3 +88,48 @@ where
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        pkg::security::encrypt,
+        services::authentication::connect::parse_scopes,
+        store::{users::Password, MockStore},
+    };
+
+    use super::*;
+
+    #[tokio::test]
+    async fn login_test() {
+        let password = String::from("sgjfasfas");
+        let secret = String::from("testsss");
+        let password_str = encrypt(&password, &secret).unwrap();
+        let mut store = MockStore::new();
+        store.expect_user_get_password().returning(move |_v| {
+            Ok(Password {
+                user_id: "123".to_string(),
+                user_name: "test".to_string(),
+                nick_name: "tss".to_string(),
+                email: None,
+                mobile: None,
+                hash: password_str.clone(),
+                secret: secret.clone(),
+            })
+        });
+        let up = UserIDPassword::new(store);
+
+        let scopes = vec!["openid".to_string()];
+        let (identity, ok) = up
+            .login(
+                &parse_scopes(&scopes),
+                &Info {
+                    subject: "123".to_string(),
+                    password,
+                },
+            )
+            .await
+            .unwrap();
+        assert!(ok);
+        println!("{:#?}", identity);
+    }
+}
