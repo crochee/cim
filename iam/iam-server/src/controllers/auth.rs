@@ -207,6 +207,6 @@ impl AuthRouter {
             format!("/v1/login.html?subject={}", 1).parse().unwrap(),
         );
 
-        Ok((StatusCode::SEE_OTHER, (headers, r.into())))
+        Ok((StatusCode::OK, (headers, r.into())))
     }
 }
