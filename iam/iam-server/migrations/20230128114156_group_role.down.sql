@@ -1,2 +1,2 @@
 -- Add down migration script here
-DROP TABLE `user_group_role`;
+DROP TABLE `group_role`;

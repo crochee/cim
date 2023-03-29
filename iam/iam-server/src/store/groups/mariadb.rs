@@ -26,7 +26,7 @@ pub async fn create(
         .parse()
         .map_err(|err| Code::bad_request(&err))?;
     sqlx::query!(
-        r#"INSERT INTO `user_group`
+        r#"INSERT INTO `group`
             (`id`,`account_id`,`user_id`,`name`,`desc`)
             VALUES(?,?,?,?,?);"#,
         uid,
@@ -85,7 +85,7 @@ pub async fn update(
     };
     sqlx::query(
         format!(
-            r#"UPDATE `user_group` SET {}
+            r#"UPDATE `group` SET {}
                 WHERE {};"#,
             update_content, wheres,
         )
@@ -113,7 +113,7 @@ pub async fn get(
 
     let row = match sqlx::query(
             format!(r#"SELECT `id`,`account_id`,`user_id`,`name`,`desc`,`created_at`,`updated_at`
-            FROM `user_group`
+            FROM `group`
             WHERE {} AND `deleted` = 0;"#,
             wheres)
             .as_str()
@@ -172,7 +172,7 @@ pub async fn delete(
     }
     sqlx::query(
         format!(
-            r#"UPDATE `user_group` SET `deleted` = `id`,`deleted_at`= '{}'
+            r#"UPDATE `group` SET `deleted` = `id`,`deleted_at`= '{}'
             WHERE {} AND `deleted` = 0;"#,
             Utc::now().naive_utc(),
             wheres
@@ -206,7 +206,7 @@ pub async fn list(
     // 查询total
     let policy_result = sqlx::query(
         format!(
-            r#"SELECT COUNT(*) as count FROM `user_group`
+            r#"SELECT COUNT(*) as count FROM `group`
             WHERE {};"#,
             wheres,
         )
@@ -223,7 +223,7 @@ pub async fn list(
     let rows = sqlx::query(
             format!(
                 r#"SELECT `id`,`account_id`,`user_id`,`name`,`desc`,`created_at`,`updated_at`
-                FROM `user_group`
+                FROM `group`
                 WHERE {};"#,
                 wheres,
             )
@@ -278,7 +278,7 @@ pub async fn exist(
     }
     let result = sqlx::query(
         format!(
-            r#"SELECT COUNT(*) as count FROM `user_group`
+            r#"SELECT COUNT(*) as count FROM `group`
             WHERE {} LIMIT 1;"#,
             wheres,
         )
@@ -297,7 +297,7 @@ pub async fn add_user(
     user_id: &str,
 ) -> Result<()> {
     if sqlx::query!(
-        r#"SELECT `id` FROM `user_group`
+        r#"SELECT `id` FROM `group`
             WHERE `id` = ? AND `account_id` = ? AND `deleted` = 0 LIMIT 1;"#,
         id,
         account_id,
@@ -323,7 +323,7 @@ pub async fn add_user(
         return Err(Code::not_found(&format!("not found user {}", user_id)));
     }
     sqlx::query!(
-        r#"INSERT INTO `user_group_user`
+        r#"INSERT INTO `group_user`
             (`id`,`user_group_id`,`user_id`)
             VALUES(?,?,?);"#,
         next_id().map_err(Code::any)?,
@@ -341,7 +341,7 @@ pub async fn delete_user(
     user_id: &str,
 ) -> Result<()> {
     sqlx::query!(
-        r#"UPDATE `user_group_user` SET `deleted` = `id`,`deleted_at`= ?
+        r#"UPDATE `group_user` SET `deleted` = `id`,`deleted_at`= ?
             WHERE `user_group_id` = ? AND `user_id` = ? AND `deleted` = 0;"#,
         Utc::now().naive_utc(),
         id,
@@ -359,7 +359,7 @@ pub async fn add_role(
     role_id: &str,
 ) -> Result<()> {
     if sqlx::query!(
-        r#"SELECT `id` FROM `user_group`
+        r#"SELECT `id` FROM `group`
             WHERE `id` = ? AND `account_id` = ? AND `deleted` = 0 LIMIT 1;"#,
         id,
         account_id,
@@ -385,7 +385,7 @@ pub async fn add_role(
         return Err(Code::not_found(&format!("not found role {}", role_id)));
     }
     sqlx::query!(
-        r#"INSERT INTO `user_group_role`
+        r#"INSERT INTO `group_role`
             (`id`,`user_group_id`,`role_id`)
             VALUES(?,?,?);"#,
         next_id().map_err(Code::any)?,
@@ -404,7 +404,7 @@ pub async fn delete_role(
     role_id: &str,
 ) -> Result<()> {
     sqlx::query!(
-        r#"UPDATE `user_group_role` SET `deleted` = `id`,`deleted_at`= ?
+        r#"UPDATE `group_role` SET `deleted` = `id`,`deleted_at`= ?
             WHERE `user_group_id` = ? AND `role_id` = ? AND `deleted` = 0;"#,
         Utc::now().naive_utc(),
         id,
@@ -423,7 +423,7 @@ async fn list_user_group_user(
     let rows = sqlx::query(
         format!(
             r#"SELECT `user_id`
-                FROM `user_group_user`
+                FROM `group_user`
                 WHERE {};"#,
             wheres,
         )
@@ -448,7 +448,7 @@ async fn list_user_group_role(
     let rows = sqlx::query(
         format!(
             r#"SELECT `role_id`
-                FROM `user_group_role`
+                FROM `group_role`
                 WHERE {};"#,
             wheres,
         )

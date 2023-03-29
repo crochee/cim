@@ -20,16 +20,6 @@
     },
     "query": "INSERT INTO `role`\n            (`id`,`account_id`,`user_id`,`name`,`desc`)\n            VALUES(?,?,?,?,?);"
   },
-  "08a1fbb01215b58d1e2e0805a5947a1e4e8d6194cb24e778ddf8dbad2b92cb58": {
-    "describe": {
-      "columns": [],
-      "nullable": [],
-      "parameters": {
-        "Right": 3
-      }
-    },
-    "query": "UPDATE `user_group_user` SET `deleted` = `id`,`deleted_at`= ?\n            WHERE `user_group_id` = ? AND `user_id` = ? AND `deleted` = 0;"
-  },
   "11ad406a01fb61b13e870e961dc2198610b6e5db025bd054f688287265a83cd3": {
     "describe": {
       "columns": [],
@@ -160,7 +150,7 @@
     },
     "query": "INSERT INTO `user`\n            (`id`,`account_id`,`name`,`nick_name`,`desc`,`email`,`mobile`,`sex`,`image`,`secret`,`password`)\n            VALUES(?,?,?,?,?,?,?,?,?,?,?);"
   },
-  "37242c2f29ab975929cfc46991053ad0051ecc146a4ce2dfb16a85971258c3ec": {
+  "3577a87e9ac4117e6667eff8aaaed12fa7ba65434b555ec83342fd2112f53c97": {
     "describe": {
       "columns": [],
       "nullable": [],
@@ -168,7 +158,7 @@
         "Right": 3
       }
     },
-    "query": "UPDATE `user_group_role` SET `deleted` = `id`,`deleted_at`= ?\n            WHERE `user_group_id` = ? AND `role_id` = ? AND `deleted` = 0;"
+    "query": "INSERT INTO `group_user`\n            (`id`,`user_group_id`,`user_id`)\n            VALUES(?,?,?);"
   },
   "374db603bc407b47db8904009076565929dd4ab1dade73bf07686f91275338a6": {
     "describe": {
@@ -260,7 +250,58 @@
     },
     "query": "SELECT `id`,`secret`,`redirect_url`,`name`,`prompt`,`logo_url` FROM `provider` WHERE `deleted` = 0"
   },
-  "749ae8ab8511707f23fb2ad9b2dd7581cdebf248f37dd793a325061fd95fc7a3": {
+  "4df246abf37958789867439bc94a5b33cacf8dae338b3c99ec567974b2399152": {
+    "describe": {
+      "columns": [
+        {
+          "name": "signing_key",
+          "ordinal": 0,
+          "type_info": {
+            "char_set": 192,
+            "flags": {
+              "bits": 4241
+            },
+            "max_size": 196605,
+            "type": "Blob"
+          }
+        },
+        {
+          "name": "verification_keys",
+          "ordinal": 1,
+          "type_info": {
+            "char_set": 192,
+            "flags": {
+              "bits": 4241
+            },
+            "max_size": 196605,
+            "type": "Blob"
+          }
+        },
+        {
+          "name": "next_rotation",
+          "ordinal": 2,
+          "type_info": {
+            "char_set": 63,
+            "flags": {
+              "bits": 4097
+            },
+            "max_size": 20,
+            "type": "LongLong"
+          }
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Right": 0
+      }
+    },
+    "query": "SELECT `signing_key`,`verification_keys`,`next_rotation`\n        FROM `key` WHERE `enable` = 1 AND `deleted` = 0;"
+  },
+  "6ead6f718cbbd02683ac112640de5d2fff3905b86014d86437c2aafbca47bfb4": {
     "describe": {
       "columns": [],
       "nullable": [],
@@ -268,7 +309,17 @@
         "Right": 3
       }
     },
-    "query": "INSERT INTO `user_group_user`\n            (`id`,`user_group_id`,`user_id`)\n            VALUES(?,?,?);"
+    "query": "UPDATE `group_user` SET `deleted` = `id`,`deleted_at`= ?\n            WHERE `user_group_id` = ? AND `user_id` = ? AND `deleted` = 0;"
+  },
+  "7aa4d5048495b49b0ff902fd5aa1c0c5fad28b331f3e942e47779c598a27b758": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Right": 3
+      }
+    },
+    "query": "INSERT INTO `key`\n            (`signing_key`,`verification_keys`,`next_rotation`,`enable`)\n        VALUES(?,?,?,1);"
   },
   "7c11128a4312f2d3726f5e5fe0e9c316e0542fbcbe94ad3c36b51bda24aac455": {
     "describe": {
@@ -304,16 +355,6 @@
       }
     },
     "query": "SELECT `id` FROM `policy`\n            WHERE `id` = ? AND `account_id` IN(0,?) AND `deleted` = 0 LIMIT 1;"
-  },
-  "896e1592e65f75835902b9279bdf1e02a9bab1683f51e34f3338eae42075ccd5": {
-    "describe": {
-      "columns": [],
-      "nullable": [],
-      "parameters": {
-        "Right": 5
-      }
-    },
-    "query": "INSERT INTO `user_group`\n            (`id`,`account_id`,`user_id`,`name`,`desc`)\n            VALUES(?,?,?,?,?);"
   },
   "8b73bf198900a687881f645fdf7d6b7988d1a841e3acbddacd4f4b85f745da45": {
     "describe": {
@@ -359,6 +400,16 @@
       }
     },
     "query": "UPDATE `user_role` SET `deleted` = `id`,`deleted_at`= ?\n            WHERE `user_id` = ? AND `role_id` = ? AND `deleted` = 0;"
+  },
+  "9d73d2fc6b97021ff8eefd5326a90084b50dfaead3c7f48117c68ecb2bb8d0a0": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Right": 3
+      }
+    },
+    "query": "UPDATE `key` SET `signing_key` = ?,`verification_keys`= ?,`next_rotation` = ?\n                WHERE `enable` = 1 AND `deleted` = 0;"
   },
   "a0a1fa17b635340802f49d421520743d1967eb2ba91bb3654e436c73d4618100": {
     "describe": {
@@ -528,7 +579,7 @@
     },
     "query": "SELECT `id`,`client_id`,`response_type`,`scope`,`redirect_url`,`nonce`,`state`,`force_approval`,`expiry`,`logged_in`,`claims`,`hmac_key` \n        FROM `auth_request` \n        WHERE `id` = ? AND `deleted` = 0"
   },
-  "b983b4ffd484b1f86abf46762c9b5cb3258df9da152c785efb25d514e522fa9d": {
+  "a849f02eb39f2d56639c6922c9b17b6b05813cfb6a76b8196b2c0c03114c3b61": {
     "describe": {
       "columns": [
         {
@@ -551,9 +602,9 @@
         "Right": 2
       }
     },
-    "query": "SELECT `id` FROM `user_group`\n            WHERE `id` = ? AND `account_id` = ? AND `deleted` = 0 LIMIT 1;"
+    "query": "SELECT `id` FROM `group`\n            WHERE `id` = ? AND `account_id` = ? AND `deleted` = 0 LIMIT 1;"
   },
-  "c084029d5168d1bb0c88f4e0e0ca0436437ba5534ec2e5729d47124b1f75f8d9": {
+  "d254a9869937d789f71d6ff387360a1e6e4a99be2ccc98503bbb2e23a8b6ff07": {
     "describe": {
       "columns": [],
       "nullable": [],
@@ -561,7 +612,7 @@
         "Right": 3
       }
     },
-    "query": "INSERT INTO `user_group_role`\n            (`id`,`user_group_id`,`role_id`)\n            VALUES(?,?,?);"
+    "query": "INSERT INTO `group_role`\n            (`id`,`user_group_id`,`role_id`)\n            VALUES(?,?,?);"
   },
   "d9d0ec0a4655586ff30ce15672ada5d3dea68606a38ba4576a3dbfc206ad45bd": {
     "describe": {
@@ -572,6 +623,16 @@
       }
     },
     "query": "UPDATE `auth_request` SET `deleted` = `id`,`deleted_at`= ?\n        WHERE `id` = ? AND `deleted` = 0;"
+  },
+  "ebf4196666a5dc96928d8b1e377904f0022afb2d64bb3892016acdc6c17cbb34": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Right": 5
+      }
+    },
+    "query": "INSERT INTO `group`\n            (`id`,`account_id`,`user_id`,`name`,`desc`)\n            VALUES(?,?,?,?,?);"
   },
   "ef7bd4eac1815f134893354cb16dcfa40ca4830416a1522cfd4c9271a03cdbfe": {
     "describe": {
@@ -607,5 +668,15 @@
       }
     },
     "query": "UPDATE `auth_request` SET `logged_in` = ?,`claims`= ?\n        WHERE `id` = ? AND `deleted` = 0;"
+  },
+  "f7e262c949ad3bfca60ad11599b35eca99d1f89f163b9d27f5aac715af3c2c7d": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Right": 3
+      }
+    },
+    "query": "UPDATE `group_role` SET `deleted` = `id`,`deleted_at`= ?\n            WHERE `user_group_id` = ? AND `role_id` = ? AND `deleted` = 0;"
   }
 }

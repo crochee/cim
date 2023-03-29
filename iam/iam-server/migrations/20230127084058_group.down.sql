@@ -1,2 +1,2 @@
 -- Add down migration script here
-DROP TABLE `user_group_user`;
+DROP TABLE `group`;

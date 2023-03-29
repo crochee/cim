@@ -1,10 +1,10 @@
 pub mod authrequests;
+pub mod groups;
 pub mod keys;
 pub mod policies;
 pub mod pool;
 pub mod providers;
 pub mod roles;
-pub mod usergroups;
 pub mod users;
 
 use async_trait::async_trait;
@@ -64,18 +64,18 @@ pub trait Store: Send + Sync {
     async fn create_user_group(
         &self,
         id: Option<String>,
-        content: &usergroups::Content,
+        content: &groups::Content,
     ) -> Result<ID>;
     async fn update_user_group(
         &self,
         id: &str,
         account_id: Option<String>,
-        opts: &usergroups::Opts,
+        opts: &groups::Opts,
     ) -> Result<()>;
     async fn get_user_group(
         &self,
         id: &str,
-        filter: &usergroups::Querys,
+        filter: &groups::Querys,
     ) -> Result<UserGroupBindings>;
     async fn delete_user_group(
         &self,
@@ -84,7 +84,7 @@ pub trait Store: Send + Sync {
     ) -> Result<()>;
     async fn list_user_group(
         &self,
-        filter: &usergroups::Querys,
+        filter: &groups::Querys,
     ) -> Result<List<UserGroup>>;
     async fn user_group_exist(
         &self,
@@ -288,37 +288,37 @@ impl Store for MariadbStore {
     async fn create_user_group(
         &self,
         id: Option<String>,
-        content: &usergroups::Content,
+        content: &groups::Content,
     ) -> Result<ID> {
-        usergroups::create(&self.pool, id, content).await
+        groups::create(&self.pool, id, content).await
     }
     async fn update_user_group(
         &self,
         id: &str,
         account_id: Option<String>,
-        opts: &usergroups::Opts,
+        opts: &groups::Opts,
     ) -> Result<()> {
-        usergroups::update(&self.pool, id, account_id, opts).await
+        groups::update(&self.pool, id, account_id, opts).await
     }
     async fn get_user_group(
         &self,
         id: &str,
-        filter: &usergroups::Querys,
+        filter: &groups::Querys,
     ) -> Result<UserGroupBindings> {
-        usergroups::get(&self.pool, id, filter).await
+        groups::get(&self.pool, id, filter).await
     }
     async fn delete_user_group(
         &self,
         id: &str,
         account_id: Option<String>,
     ) -> Result<()> {
-        usergroups::delete(&self.pool, id, account_id).await
+        groups::delete(&self.pool, id, account_id).await
     }
     async fn list_user_group(
         &self,
-        filter: &usergroups::Querys,
+        filter: &groups::Querys,
     ) -> Result<List<UserGroup>> {
-        usergroups::list(&self.pool, filter).await
+        groups::list(&self.pool, filter).await
     }
     async fn user_group_exist(
         &self,
@@ -326,7 +326,7 @@ impl Store for MariadbStore {
         account_id: Option<String>,
         unscoped: bool,
     ) -> Result<bool> {
-        usergroups::exist(&self.pool, id, account_id, unscoped).await
+        groups::exist(&self.pool, id, account_id, unscoped).await
     }
     async fn add_user_to_user_group(
         &self,
@@ -334,14 +334,14 @@ impl Store for MariadbStore {
         account_id: &str,
         user_id: &str,
     ) -> Result<()> {
-        usergroups::add_user(&self.pool, id, account_id, user_id).await
+        groups::add_user(&self.pool, id, account_id, user_id).await
     }
     async fn delete_user_from_user_group(
         &self,
         id: &str,
         user_id: &str,
     ) -> Result<()> {
-        usergroups::delete_user(&self.pool, id, user_id).await
+        groups::delete_user(&self.pool, id, user_id).await
     }
     async fn add_role_to_user_group(
         &self,
@@ -349,14 +349,14 @@ impl Store for MariadbStore {
         account_id: &str,
         role_id: &str,
     ) -> Result<()> {
-        usergroups::add_role(&self.pool, id, account_id, role_id).await
+        groups::add_role(&self.pool, id, account_id, role_id).await
     }
     async fn delete_role_from_user_group(
         &self,
         id: &str,
         role_id: &str,
     ) -> Result<()> {
-        usergroups::delete_role(&self.pool, id, role_id).await
+        groups::delete_role(&self.pool, id, role_id).await
     }
     // roles
     async fn create_role(

@@ -1,14 +1,14 @@
 use cim_core::Result;
 
 use crate::{
-    store::{usergroups, Store},
+    store::{groups, Store},
     AppState,
 };
 
 pub async fn put(
     app: &AppState,
     id: &str,
-    content: &usergroups::Content,
+    content: &groups::Content,
 ) -> Result<()> {
     let found = app
         .store
@@ -20,7 +20,7 @@ pub async fn put(
             .update_user_group(
                 id,
                 Some(content.account_id.clone()),
-                &usergroups::Opts {
+                &groups::Opts {
                     name: Some(content.name.clone()),
                     desc: Some(content.desc.clone()),
                     unscoped: Some(true),

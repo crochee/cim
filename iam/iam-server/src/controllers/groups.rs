@@ -14,18 +14,18 @@ use crate::{
         usergroup::{UserGroup, UserGroupBindings},
     },
     pkg::valid::{Header, Valid},
-    services::usergroups,
+    services::groups,
     store::{
-        usergroups::{Content, Querys},
+        groups::{Content, Querys},
         Store,
     },
     var::SOURCE_SYSTEM,
     AppState,
 };
 
-pub struct UserGroupsRouter;
+pub struct GroupsRouter;
 
-impl UserGroupsRouter {
+impl GroupsRouter {
     pub fn new_router(state: AppState) -> Router {
         Router::new()
             .route("/groups", get(Self::list).post(Self::create))
@@ -109,7 +109,7 @@ impl UserGroupsRouter {
         info!("list query {:#?} {:#?}", content, header);
         content.account_id = header.account_id;
         content.user_id = header.user_id;
-        usergroups::put(&app, &id, &content).await?;
+        groups::put(&app, &id, &content).await?;
         Ok(StatusCode::NO_CONTENT)
     }
 

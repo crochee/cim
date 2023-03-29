@@ -316,7 +316,7 @@ pub async fn get_by_user(
         r#"SELECT t3.`id`,t3.`account_id`,t3.`user_id`,t3.`desc`,t3.`version`,t3.`content`,t3.`created_at`,t3.`updated_at`
             FROM ((SELECT a3.`id` FROM `user` a1 RIGHT JOIN `user_role` a2 ON a1.`id`=a2.`user_id` RIGHT JOIN `role` a3 ON a2.`role_id`=a3.`id` WHERE a1.`id`= {} AND a1.`deleted`=0 AND a2.`deleted`=0 AND a3.`deleted`=0)
             UNION 
-            (SELECT b4.`id` FROM `user` b1 RIGHT JOIN `user_group_user` b2 ON b1.`id`=b2.`user_id` RIGHT JOIN `user_group_role` b3 ON b2.`user_group_id`=b3.`user_group_id` RIGHT JOIN `role` b4 ON b3.`role_id`=b4.`id` 
+            (SELECT b4.`id` FROM `user` b1 RIGHT JOIN `group_user` b2 ON b1.`id`=b2.`user_id` RIGHT JOIN `group_role` b3 ON b2.`user_group_id`=b3.`user_group_id` RIGHT JOIN `role` b4 ON b3.`role_id`=b4.`id`
             WHERE b1.`id`= {} AND b1.`deleted`=0 AND b2.`deleted`=0 AND b3.`deleted`=0 AND b4.`deleted`=0))
             t1 RIGHT JOIN `role_policy` t2 ON t1.`id`=t2.`role_id` RIGHT JOIN `policy` t3 ON t2.`policy_id`=t3.`id` WHERE t2.`deleted`=0 AND t3.`deleted`=0;"#,
         user_id, user_id,

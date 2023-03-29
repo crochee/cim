@@ -1,7 +1,7 @@
 pub mod auth;
+pub mod groups;
 pub mod policies;
 pub mod roles;
-pub mod usergroups;
 pub mod users;
 
 #[cfg(test)]

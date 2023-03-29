@@ -25,8 +25,8 @@ use tracing::Level;
 
 use crate::{
     controllers::{
-        auth::AuthRouter, policies::PoliciesRouter, roles::RolesRouter,
-        usergroups::UserGroupsRouter, users::UsersRouter,
+        auth::AuthRouter, groups::GroupsRouter, policies::PoliciesRouter,
+        roles::RolesRouter, users::UsersRouter,
     },
     middlewares::MakeSpanWithTrace,
     AppState,
@@ -59,7 +59,7 @@ impl AppRouter {
                     .merge(AuthRouter::new_router(state.clone()))
                     .merge(UsersRouter::new_router(state.clone()))
                     .merge(RolesRouter::new_router(state.clone()))
-                    .merge(UserGroupsRouter::new_router(state)),
+                    .merge(GroupsRouter::new_router(state)),
             )
             .layer(
                 ServiceBuilder::new().layer(
