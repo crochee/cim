@@ -1,8 +1,6 @@
-use std::collections::HashMap;
-
 use axum::{
     extract::Query,
-    headers::authorization::{Basic, Credentials},
+    headers::authorization::{Basic, Bearer, Credentials},
     routing::{get, post},
     Form, Json, Router,
 };
@@ -16,10 +14,13 @@ use tracing::info;
 use cim_core::{Code, Result};
 
 use crate::{
-    models::{req::Request, ID},
+    models::{claim::Claims, req::Request, ID},
     pkg::{security::verify, valid::Valid, HtmlTemplate},
     services::{
-        authentication::{self, token::TokenResponse},
+        authentication::{
+            password,
+            token::{AccessToken, Token, TokenResponse},
+        },
         authorization,
         templates::{Approval, ApprovalInfo, Connector, ConnectorInfo, Porta},
     },
@@ -32,8 +33,9 @@ pub struct AuthRouter;
 impl AuthRouter {
     pub fn new_router(state: AppState) -> Router {
         Router::new()
-            .route("/token", post(Self::token))
+            .route("/tokens", post(Self::token))
             .route("/authorize", post(Self::authorize))
+            .route("/verify", get(Self::verify))
             .route("/approval", get(Self::approval_html).post(Self::approval))
             .route("/login.html", get(Self::porta))
             .route("/oidc/authorize", post(Self::token))
@@ -43,6 +45,38 @@ impl AuthRouter {
             .with_state(state)
     }
 
+    async fn token(
+        app: AppState,
+        header: HeaderMap,
+        Form(mut body): Form<password::PasswordGrantOpts>,
+    ) -> Result<(StatusCode, (HeaderMap, Json<TokenResponse>))> {
+        match header.get(AUTHORIZATION) {
+            Some(value) => {
+                if let Some(v) = Basic::decode(value) {
+                    body.client_id = Some(v.username().to_owned());
+                    body.client_secret = Some(v.password().to_owned());
+                }
+            }
+            None => {
+                if body.client_id.is_none() || body.client_secret.is_none() {
+                    return Err(Code::bad_request(
+                        "client_id or client_secret is none",
+                    ));
+                }
+            }
+        }
+        let r = password::password_grant_token(&app, &body).await?;
+
+        let mut headers = HeaderMap::new();
+
+        headers.insert(
+            LOCATION,
+            format!("/v1/login.html?subject={}", 1).parse().unwrap(),
+        );
+
+        Ok((StatusCode::OK, (headers, r.into())))
+    }
+
     async fn authorize(
         app: AppState,
         Valid(Json(input)): Valid<Json<Request>>,
@@ -50,6 +84,21 @@ impl AuthRouter {
         info!("list query {:#?}", input);
         authorization::authorize(&app, &input).await?;
         Ok(StatusCode::NO_CONTENT)
+    }
+
+    async fn verify(
+        app: AppState,
+        header: HeaderMap,
+    ) -> Result<(StatusCode, Json<Claims>)> {
+        if let Some(value) = header.get(AUTHORIZATION) {
+            if let Some(v) = Bearer::decode(value) {
+                let token_handler =
+                    AccessToken::new(app.key_rotator.clone(), 0);
+                let claims = token_handler.verify(v.token()).await?;
+                return Ok((StatusCode::OK, claims.into()));
+            }
+        }
+        Err(Code::Unauthorized.with())
     }
 
     async fn approval_html(
@@ -175,38 +224,5 @@ impl AuthRouter {
             }
         }
         Ok(HtmlTemplate(p))
-    }
-
-    async fn token(
-        app: AppState,
-        header: HeaderMap,
-        Form(body): Form<HashMap<String, String>>,
-    ) -> Result<(StatusCode, (HeaderMap, Json<TokenResponse>))> {
-        let f = || {
-            if let Some(client_id) = body.get("client_id") {
-                return (
-                    client_id.to_owned(),
-                    body.get("client_secret")
-                        .unwrap_or(&"".to_owned())
-                        .to_owned(),
-                );
-            }
-            if let Some(value) = header.get(AUTHORIZATION) {
-                if let Some(v) = Basic::decode(value) {
-                    return (v.username().to_owned(), v.password().to_owned());
-                }
-            }
-            ("".to_owned(), "".to_owned())
-        };
-        let r = authentication::password_grant_token(&app, &body, f()).await?;
-
-        let mut headers = HeaderMap::new();
-
-        headers.insert(
-            LOCATION,
-            format!("/v1/login.html?subject={}", 1).parse().unwrap(),
-        );
-
-        Ok((StatusCode::OK, (headers, r.into())))
     }
 }
