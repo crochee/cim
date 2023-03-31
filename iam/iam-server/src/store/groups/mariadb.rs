@@ -324,7 +324,7 @@ pub async fn add_user(
     }
     sqlx::query!(
         r#"INSERT INTO `group_user`
-            (`id`,`user_group_id`,`user_id`)
+            (`id`,`group_id`,`user_id`)
             VALUES(?,?,?);"#,
         next_id().map_err(Code::any)?,
         id,
@@ -342,7 +342,7 @@ pub async fn delete_user(
 ) -> Result<()> {
     sqlx::query!(
         r#"UPDATE `group_user` SET `deleted` = `id`,`deleted_at`= ?
-            WHERE `user_group_id` = ? AND `user_id` = ? AND `deleted` = 0;"#,
+            WHERE `group_id` = ? AND `user_id` = ? AND `deleted` = 0;"#,
         Utc::now().naive_utc(),
         id,
         user_id,
@@ -386,7 +386,7 @@ pub async fn add_role(
     }
     sqlx::query!(
         r#"INSERT INTO `group_role`
-            (`id`,`user_group_id`,`role_id`)
+            (`id`,`group_id`,`role_id`)
             VALUES(?,?,?);"#,
         next_id().map_err(Code::any)?,
         id,
@@ -405,7 +405,7 @@ pub async fn delete_role(
 ) -> Result<()> {
     sqlx::query!(
         r#"UPDATE `group_role` SET `deleted` = `id`,`deleted_at`= ?
-            WHERE `user_group_id` = ? AND `role_id` = ? AND `deleted` = 0;"#,
+            WHERE `group_id` = ? AND `role_id` = ? AND `deleted` = 0;"#,
         Utc::now().naive_utc(),
         id,
         role_id,
