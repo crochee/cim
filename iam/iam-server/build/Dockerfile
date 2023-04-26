@@ -14,13 +14,13 @@ COPY . .
 RUN cargo build --release --bin iam-server
 
 # We do not need the Rust toolchain to run the binary!
-FROM debian:buster-slim AS runtime
+FROM ubuntu AS runtime
 WORKDIR app
 COPY --from=builder /app/target/release/iam-server /usr/local/bin
 COPY --from=builder /app/.env  .
 COPY --from=builder /app/iam/iam-server/build/entrypoint.sh /usr/local/bin/
 # 赋予执行权限
-RUN chmod +x /usr/local/bin/apiserver /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/iam-server /usr/local/bin/entrypoint.sh
 
 EXPOSE 30050
 STOPSIGNAL 2
