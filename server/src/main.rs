@@ -7,7 +7,7 @@ use tokio::sync::oneshot;
 use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use iam_server::{connection_manager, App, AppConfig, AppRouter, AppState};
+use server::{connection_manager, App, AppConfig, AppRouter, AppState};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

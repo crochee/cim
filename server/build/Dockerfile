@@ -11,19 +11,19 @@ COPY --from=planner /app/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
 # Build application
 COPY . .
-RUN cargo build --release --bin iam-server
+RUN cargo build --release --bin server
 
 # We do not need the Rust toolchain to run the binary!
 FROM ubuntu AS runtime
 WORKDIR app
-COPY --from=builder /app/target/release/iam-server /usr/local/bin
+COPY --from=builder /app/target/release/server /usr/local/bin
 COPY --from=builder /app/.env  .
 COPY --from=builder /app/iam/iam-server/build/entrypoint.sh /usr/local/bin/
 # 赋予执行权限
-RUN chmod +x /usr/local/bin/iam-server /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/server /usr/local/bin/entrypoint.sh
 
 EXPOSE 30050
 STOPSIGNAL 2
 
 ENTRYPOINT ["entrypoint.sh"]
-CMD ["iam-server"]
+CMD ["server"]
