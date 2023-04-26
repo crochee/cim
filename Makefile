@@ -13,7 +13,7 @@ check:
 
 .PHONY: server
 server:
-	@cargo run --release --bin iam-server
+	@cargo run --release --bin server
 
 .PHONY: migrate
 migrate:

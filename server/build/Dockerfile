@@ -18,7 +18,7 @@ FROM ubuntu AS runtime
 WORKDIR app
 COPY --from=builder /app/target/release/server /usr/local/bin
 COPY --from=builder /app/.env  .
-COPY --from=builder /app/iam/iam-server/build/entrypoint.sh /usr/local/bin/
+COPY --from=builder /app/server/build/entrypoint.sh /usr/local/bin/
 # 赋予执行权限
 RUN chmod +x /usr/local/bin/server /usr/local/bin/entrypoint.sh
 
