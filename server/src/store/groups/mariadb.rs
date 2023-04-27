@@ -144,7 +144,7 @@ pub async fn get(
         updated_at: row.try_get("updated_at").map_err(Code::any)?,
     };
     let f = format!(
-        "`id` = {} AND `deleted` = 0 {}",
+        "`group_id` = {} AND `deleted` = 0 {}",
         id,
         filter.pagination.to_string()
     );
@@ -170,6 +170,7 @@ pub async fn delete(
         wheres
             .push_str(format!(r#"`account_id` = {}"#, account_id_u64).as_str());
     }
+    let mut tx = pool.begin().await.map_err(Code::any)?;
     sqlx::query(
         format!(
             r#"UPDATE `group` SET `deleted` = `id`,`deleted_at`= '{}'
@@ -179,9 +180,28 @@ pub async fn delete(
         )
         .as_str(),
     )
-    .execute(pool)
+    .execute(&mut tx)
     .await
     .map_err(Code::any)?;
+    sqlx::query(
+        r#"UPDATE  `group_user`  SET  `deleted` = `id`,`deleted_at` =  ?
+            WHERE  `group_id`  =  ?  AND  `deleted`  = 0"#,
+    )
+    .bind(Utc::now())
+    .bind(id)
+    .execute(&mut tx)
+    .await
+    .map_err(Code::any)?;
+    sqlx::query(
+        r#"UPDATE  `group_role`  SET  `deleted` = `id`,`deleted_at` =  ?
+            WHERE  `group_id`  =  ?  AND  `deleted`  = 0"#,
+    )
+    .bind(Utc::now())
+    .bind(id)
+    .execute(&mut tx)
+    .await
+    .map_err(Code::any)?;
+    tx.commit().await.map_err(Code::any)?;
     Ok(())
 }
 

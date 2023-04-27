@@ -77,9 +77,14 @@ impl RolesRouter {
         header: Header,
         app: AppState,
         Path(id): Path<String>,
-        Valid(mut filter): Valid<Querys>,
     ) -> Result<Json<RoleBindings>> {
+        let mut filter = Querys {
+            account_id: None,
+            pagination: Default::default(),
+        };
         filter.pagination.check();
+        filter.pagination.limit = 0;
+        filter.pagination.offset = 0;
         if header.source.ne(&Some(SOURCE_SYSTEM.to_owned())) {
             filter.account_id = Some(header.account_id);
         }
