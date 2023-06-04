@@ -14,7 +14,6 @@ Cargo.lock
 # Added by cargo
 
 /target
-.env
 
 README.md
 .gitignore
