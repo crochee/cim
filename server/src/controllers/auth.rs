@@ -33,7 +33,10 @@ pub struct AuthRouter;
 impl AuthRouter {
     pub fn new_router(state: AppState) -> Router {
         Router::new()
-            .route("/tokens", post(Self::token))
+            .route("/auth", post(Self::auth))
+            .route("/token", post(Self::token))
+            .route("/keys", get(Self::keys))
+            .route("/userinfo", get(Self::userinfo))
             .route("/authorize", post(Self::authorize))
             .route("/verify", get(Self::verify))
             .route("/approval", get(Self::approval_html).post(Self::approval))
@@ -43,6 +46,14 @@ impl AuthRouter {
             // .route("/auth/tokens", get(Self::token))
             // .route("/auth/:name/login", post(Self::login))
             .with_state(state)
+    }
+
+    async fn auth(
+        _app: AppState,
+        header: HeaderMap,
+        Form(_body): Form<password::PasswordGrantOpts>,
+    ) -> Result<(StatusCode, (HeaderMap, Json<()>))> {
+        Ok((StatusCode::OK, (header, Json(()))))
     }
 
     async fn token(
@@ -75,6 +86,14 @@ impl AuthRouter {
         );
 
         Ok((StatusCode::OK, (headers, r.into())))
+    }
+
+    async fn keys(_app: AppState) -> Result<(StatusCode, Json<()>)> {
+        Ok((StatusCode::OK, Json(())))
+    }
+
+    async fn userinfo(_app: AppState) -> Result<(StatusCode, Json<()>)> {
+        Ok((StatusCode::OK, Json(())))
     }
 
     async fn authorize(

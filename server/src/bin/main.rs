@@ -2,24 +2,59 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use anyhow::Context;
-use clap::Parser;
-use tokio::sync::oneshot;
+use clap::{Parser, Subcommand};
+use tokio::{runtime::Builder, sync::oneshot};
 use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use server::{connection_manager, App, AppConfig, AppRouter, AppState};
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
+fn main() -> anyhow::Result<()> {
     dotenv::dotenv().ok();
+    let args = Cli::parse();
+    match args.command {
+        Commands::Run(config) => {
+            run_server(config)?;
+        }
+        Commands::Version => {
+            println!("{}", server::version());
+            return Ok(());
+        }
+    }
+    Ok(())
+}
 
-    let config = AppConfig::parse();
+// A fictional versioning CLI
+#[derive(Debug, Parser)] // requires `derive` feature
+#[command(name = "server")]
+#[command(about = "Cim server CLI", long_about = None)]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
 
+#[derive(Debug, Subcommand)]
+enum Commands {
+    #[command(arg_required_else_help = true)]
+    Run(AppConfig),
+    Version,
+}
+
+fn run_server(config: AppConfig) -> anyhow::Result<()> {
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::new(&config.rust_log))
         .with(tracing_subscriber::fmt::layer())
         .init();
 
+    // tokio的运行时配置
+    Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .context("could not initialize multi-thread runtime")?
+        .block_on(async move { async_run_server(config).await })
+}
+
+async fn async_run_server(config: AppConfig) -> anyhow::Result<()> {
     info!("environment loaded and configuration parsed, initializing Mariadb connection and running migrations...");
     let store = connection_manager(
         &config.database_url,
@@ -78,8 +113,7 @@ fn key_rotate(app: Arc<App>) {
                 }
                 info!("start rotate finish!");
                     },
-                    msg = &mut rx => {
-                        info!("Got message: {}", msg.unwrap());
+                    _ = &mut rx => {
                         break;
                     }
                 }

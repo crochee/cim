@@ -5,6 +5,13 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[lib]
+doctest = true
+
+[[bin]]
+name = "server"
+path = "src/bin/main.rs"
+
 [dependencies]
 cim-core = { path = "../cim-core" }
 
@@ -21,8 +28,8 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tower = { version = "0.4", features = ["full"] }
 tower-http = { version = "0.4", features = ["trace", "cors", "fs"] }
 uuid = { version = "1.2", features = ["v4"] }
-metrics = "0.20"
-metrics-exporter-prometheus = "0.11"
+metrics = "0.21"
+metrics-exporter-prometheus = "0.12"
 prometheus = { version = "=0.13.3", default-features = false }
 lazy_static = "1.4"
 dotenv = "0.15"
@@ -31,17 +38,17 @@ sqlx = { version = "0.6", features = [
     "mysql",
     "runtime-tokio-rustls",
     "chrono",
-    "offline",
+    "offline"
 ] }
 regex = "1.7"
 serde_urlencoded = "0.7"
 chrono = { version = "0.4", features = ["serde"] }
-lru = "0.9"
+lru = "0.11"
 cidr-utils = "0.5"
 mockall = "0.11"
 rust-argon2 = "1.0"
 rand = "0.8"
-askama = "0.11"
+askama = "0.12"
 oauth2 = "4.3"
 reqwest = { version = "0.11", default-features = false, features = [
     "rustls-tls",
@@ -50,7 +57,12 @@ reqwest = { version = "0.11", default-features = false, features = [
 base64 = "0.21"
 jsonwebtoken = "8.2"
 sha2 = "0.10"
-tikv-jemallocator = { version = "=0.5.0", features = [
-    'unprefixed_malloc_on_supported_platforms',
-    'profiling',
-] }
+
+mimalloc = { version = "0.1.30", default-features = false, optional = true }
+
+[target.'cfg(not(target_env = "msvc"))'.dependencies]
+jemallocator = { version = "0.5.0", package = "tikv-jemallocator", optional = true }
+
+[features]
+default=["mimalloc"]
+jemalloc = ["jemallocator"]
