@@ -36,9 +36,9 @@ impl fmt::Display for VersionInfo {
 
 /// Returns information about cargo's version.
 pub const fn version() -> VersionInfo {
-    let version = match option_env!("RELEASE") {
+    let version = match option_env!("CARGO_PKG_VERSION") {
         Some(x) => x,
-        None => "v0.1.0",
+        None => "0.0.0",
     };
 
     let release_channel = option_env!("RELEASE_CHANNEL");

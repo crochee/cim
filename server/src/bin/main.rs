@@ -27,7 +27,7 @@ fn main() -> anyhow::Result<()> {
 // A fictional versioning CLI
 #[derive(Debug, Parser)] // requires `derive` feature
 #[command(name = "server")]
-#[command(about = "Cim server CLI", long_about = None)]
+#[command(author, about, long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -37,6 +37,7 @@ struct Cli {
 enum Commands {
     #[command(arg_required_else_help = true)]
     Run(AppConfig),
+    #[command(short_flag = 'v')]
     Version,
 }
 
