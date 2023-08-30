@@ -1,4 +1,4 @@
-FROM lukemathwalker/cargo-chef:latest-rust-1 AS chef
+FROM lukemathwalker/cargo-chef:latest AS chef
 WORKDIR app
 
 FROM chef AS planner
@@ -26,4 +26,4 @@ EXPOSE 30050
 STOPSIGNAL 2
 
 ENTRYPOINT ["entrypoint.sh"]
-CMD ["server"]
+CMD ["server", "run"]
