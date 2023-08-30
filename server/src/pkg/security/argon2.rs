@@ -1,4 +1,4 @@
-use argon2::{Config, ThreadMode};
+use argon2::Config;
 use rand::Rng;
 
 use cim_core::{Code, Result};
@@ -11,7 +11,6 @@ pub fn encrypt(password: &str, secret: &str) -> Result<String> {
         .collect::<String>();
     let cfg = Config {
         secret: secret.as_bytes(),
-        thread_mode: ThreadMode::Parallel,
         time_cost: 30,
         ..Default::default()
     };

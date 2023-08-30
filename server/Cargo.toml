@@ -1,5 +1,5 @@
 [package]
-name = "server"
+name = "cim-server"
 version = "0.1.0"
 edition = "2021"
 
@@ -13,7 +13,7 @@ name = "server"
 path = "src/bin/main.rs"
 
 [dependencies]
-cim-core = { path = "../cim-core" }
+cim-core = { path = "../core" }
 
 tokio = { version = "1.24", features = ["full"] }
 axum = { version = "0.6", features = ["headers"] }
@@ -46,7 +46,7 @@ chrono = { version = "0.4", features = ["serde"] }
 lru = "0.11"
 cidr-utils = "0.5"
 mockall = "0.11"
-rust-argon2 = "1.0"
+rust-argon2 = "2.0"
 rand = "0.8"
 askama = "0.12"
 oauth2 = "4.3"

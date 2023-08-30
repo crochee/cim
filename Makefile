@@ -3,7 +3,8 @@ all: fmt check clippy test
 
 .PHONY: fmt
 fmt:
-	@cargo fmt -- --check
+	# @cargo fmt -- --check
+	@cargo fmt
 .PHONY: clippy
 clippy:
 	# @cargo clippy --all-targets --all-features --tests --benches -- -D warnings

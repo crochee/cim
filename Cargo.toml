@@ -1,4 +1,4 @@
 [workspace]
 resolver = "2"
-members = ["server", "cimctl", "cim-core"]
+members = ["server",  "core"]
 default-members = ["server"]

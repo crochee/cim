@@ -7,7 +7,7 @@ use tokio::{runtime::Builder, sync::oneshot};
 use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use server::{connection_manager, App, AppConfig, AppRouter, AppState};
+use cim_server::{connection_manager, App, AppConfig, AppRouter, AppState};
 
 fn main() -> anyhow::Result<()> {
     dotenv::dotenv().ok();
@@ -17,7 +17,7 @@ fn main() -> anyhow::Result<()> {
             run_server(config)?;
         }
         Commands::Version => {
-            println!("{}", server::version());
+            println!("{}", cim_server::version());
             return Ok(());
         }
     }
