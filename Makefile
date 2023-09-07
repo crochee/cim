@@ -17,6 +17,10 @@ test:
 	# @cargo test --all-features --all
 	@cargo test --all
 
+.PHONY: build
+build:
+	@cargo build --release
+
 .PHONY: server
 server:
 	@cargo run --release --bin server
