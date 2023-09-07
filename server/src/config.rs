@@ -19,6 +19,9 @@ pub struct AppConfig {
     pub cors_origin: String,
     #[clap(long, env)]
     pub cache_size: usize,
+    #[clap(long, env)]
+    #[arg(default_value_t = String::from("http://localhost"))]
+    pub endpoint: String,
 }
 
 const PORT_RANGE: RangeInclusive<usize> = 1..=65535;

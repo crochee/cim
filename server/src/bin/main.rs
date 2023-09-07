@@ -69,6 +69,7 @@ async fn async_run_server(config: AppConfig) -> anyhow::Result<()> {
     info!("migrations successfully run, initializing axum server...");
 
     let port = config.port;
+    let endpoint = config.endpoint.clone();
     let app = Arc::new(App::new(store, config.clone())?);
 
     key_rotate(app.clone());
@@ -77,7 +78,7 @@ async fn async_run_server(config: AppConfig) -> anyhow::Result<()> {
         .context("could not initialize application routes")?;
 
     info!("routes initialized, listening on port {}", port);
-    axum::Server::bind(&SocketAddr::from(([0, 0, 0, 0], port)))
+    axum::Server::bind(&SocketAddr::from((endpoint, port)))
         .http1_title_case_headers(true)
         .serve(router.into_make_service())
         .with_graceful_shutdown(async move {
