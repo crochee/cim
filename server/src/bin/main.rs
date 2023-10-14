@@ -1,4 +1,4 @@
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 
 use anyhow::Context;
@@ -78,14 +78,19 @@ async fn async_run_server(config: AppConfig) -> anyhow::Result<()> {
         .context("could not initialize application routes")?;
 
     info!("routes initialized, listening on port {}", port);
-    axum::Server::bind(&SocketAddr::from((endpoint, port)))
-        .http1_title_case_headers(true)
-        .serve(router.into_make_service())
-        .with_graceful_shutdown(async move {
-            let _ = tokio::signal::ctrl_c().await;
-        })
-        .await
-        .context("error while starting API server")?;
+    axum::Server::bind(&SocketAddr::from((
+        endpoint
+            .parse::<IpAddr>()
+            .context("could not parse endpoint")?,
+        port,
+    )))
+    .http1_title_case_headers(true)
+    .serve(router.into_make_service())
+    .with_graceful_shutdown(async move {
+        let _ = tokio::signal::ctrl_c().await;
+    })
+    .await
+    .context("error while starting API server")?;
 
     Ok(())
 }
