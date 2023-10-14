@@ -20,7 +20,7 @@ pub struct AppConfig {
     #[clap(long, env)]
     pub cache_size: usize,
     #[clap(long, env)]
-    #[arg(default_value_t = String::from("http://localhost"))]
+    #[arg(default_value_t = String::from("127.0.0.1"))]
     pub endpoint: String,
 }
 

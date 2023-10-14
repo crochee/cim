@@ -293,9 +293,10 @@ impl TimeCmp {
                         return self.cmp_utc(src_value, dest_value, v);
                     }
                     "LOCAL" => {
-                        if let Ok(src) = Local.datetime_from_str(src_value, v) {
+                        if let Ok(src) = DateTime::parse_from_str(src_value, v)
+                        {
                             if let Ok(dest) =
-                                Local.datetime_from_str(&dest_value.value, v)
+                                DateTime::parse_from_str(&dest_value.value, v)
                             {
                                 match dest_value.symbol.as_str() {
                                     "==" => return src == dest,
@@ -325,8 +326,10 @@ impl TimeCmp {
         dest_value: &TimeCmpInner,
         format: &str,
     ) -> bool {
-        if let Ok(src) = Utc.datetime_from_str(src_value, format) {
-            if let Ok(dest) = Utc.datetime_from_str(&dest_value.value, format) {
+        if let Ok(src) = DateTime::parse_from_str(src_value, format) {
+            if let Ok(dest) =
+                DateTime::parse_from_str(&dest_value.value, format)
+            {
                 match dest_value.symbol.as_str() {
                     "==" => return src == dest,
                     "!=" => return src != dest,
