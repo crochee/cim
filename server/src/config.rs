@@ -1,6 +1,10 @@
 use std::ops::RangeInclusive;
 
-#[derive(clap::Args, Clone, Debug)]
+use clap::Parser;
+
+#[derive(Parser, Debug, Clone)] // requires `derive` feature
+#[command(name = "server")]
+#[command(author, version, about, long_about = None)]
 pub struct AppConfig {
     #[clap(long, env)]
     pub database_url: String,
@@ -13,7 +17,7 @@ pub struct AppConfig {
     #[clap(long, env)]
     pub rust_log: String,
     #[clap(long, env)]
-    #[arg(value_parser = port_in_range)]
+    #[arg(value_parser = port_in_range,short = 'p')]
     pub port: u16,
     #[clap(long, env)]
     pub cors_origin: String,

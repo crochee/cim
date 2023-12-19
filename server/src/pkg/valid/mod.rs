@@ -4,15 +4,14 @@ use std::ops::Deref;
 
 use async_trait::async_trait;
 use axum::{
-    body::HttpBody,
-    extract::{FromRequest, FromRequestParts},
+    extract::{FromRequest, FromRequestParts, Request},
     Form, Json,
 };
-use http::{request::Parts, Request};
+use http::request::Parts;
 use serde::de::DeserializeOwned;
 use validator::Validate;
 
-use cim_core::{Code, WithBacktrace};
+use crate::{errors, Code, WithBacktrace};
 
 pub struct Valid<T>(pub T);
 
@@ -29,51 +28,45 @@ where
     ) -> Result<Self, Self::Rejection> {
         let query = parts.uri.query().unwrap_or_default();
         let value: T = serde_urlencoded::from_str(query)
-            .map_err(|err| Code::bad_request(&err))?;
+            .map_err(|err| errors::bad_request(&err))?;
         value.validate().map_err(Code::Validates)?;
         Ok(Self(value))
     }
 }
 
 #[async_trait]
-impl<S, B, T> FromRequest<S, B> for Valid<Json<T>>
+impl<S, T> FromRequest<S> for Valid<Json<T>>
 where
     S: Send + Sync,
-    B: HttpBody + Send + 'static,
-    B::Data: Send,
-    B::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
     T: DeserializeOwned + Validate,
 {
     type Rejection = WithBacktrace;
     async fn from_request(
-        req: Request<B>,
+        req: Request,
         state: &S,
     ) -> Result<Self, Self::Rejection> {
         let value = Json::<T>::from_request(req, state)
             .await
-            .map_err(|err| Code::bad_request(&err))?;
+            .map_err(|err| errors::bad_request(&err))?;
         value.deref().validate().map_err(Code::Validates)?;
         Ok(Self(value))
     }
 }
 
 #[async_trait]
-impl<S, B, T> FromRequest<S, B> for Valid<Form<T>>
+impl<S, T> FromRequest<S> for Valid<Form<T>>
 where
     S: Send + Sync,
-    B: HttpBody + Send + 'static,
-    B::Data: Send,
-    B::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
     T: DeserializeOwned + Validate,
 {
     type Rejection = WithBacktrace;
     async fn from_request(
-        req: Request<B>,
+        req: Request,
         state: &S,
     ) -> Result<Self, Self::Rejection> {
         let value = Form::<T>::from_request(req, state)
             .await
-            .map_err(|err| Code::bad_request(&err))?;
+            .map_err(|err| errors::bad_request(&err))?;
         value.deref().validate().map_err(Code::Validates)?;
         Ok(Self(value))
     }
@@ -104,7 +97,7 @@ where
                 .headers
                 .get("X-Account-ID")
                 .ok_or_else(|| {
-                    Code::forbidden("miss request header X-Account-ID")
+                    errors::forbidden("miss request header X-Account-ID")
                 })?
                 .to_str()
                 .unwrap_or_default()
@@ -113,7 +106,7 @@ where
                 .headers
                 .get("X-User-ID")
                 .ok_or_else(|| {
-                    Code::forbidden("miss request header X-User-ID")
+                    errors::forbidden("miss request header X-User-ID")
                 })?
                 .to_str()
                 .unwrap_or_default()

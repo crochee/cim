@@ -14,7 +14,7 @@ use crate::{
 
 use super::{Token, TokenClaims, TokenOpts};
 
-use cim_core::{Code, Result};
+use crate::{errors, Result};
 
 pub struct AccessToken<T> {
     key_store: T,
@@ -73,12 +73,12 @@ where
             &token_claims,
             &EncodingKey::from_secret(keys.signing_key.value.as_bytes()),
         )
-        .map_err(Code::any)?;
+        .map_err(errors::any)?;
         Ok((token, exp))
     }
 
     async fn verify(&self, token: &str) -> Result<Claims> {
-        let header = decode_header(token).map_err(Code::any)?;
+        let header = decode_header(token).map_err(errors::any)?;
         let keys = self.key_store.get().await?;
         let mut keys_list =
             Vec::with_capacity(keys.verification_keys.len() + 1);
@@ -121,7 +121,7 @@ where
                 }
             }
         }
-        Err(Code::forbidden("failed to verify id token signature"))
+        Err(errors::forbidden("failed to verify id token signature"))
     }
 }
 

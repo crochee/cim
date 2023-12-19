@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "UPDATE `auth_request` SET `deleted` = `id`,`deleted_at`= ?\n        WHERE `id` = ? AND `deleted` = 0;",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "d9d0ec0a4655586ff30ce15672ada5d3dea68606a38ba4576a3dbfc206ad45bd"
+}

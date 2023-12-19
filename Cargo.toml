@@ -1,4 +1,16 @@
 [workspace]
 resolver = "2"
-members = ["server",  "core"]
+members = ["server", "client"]
 default-members = ["server"]
+
+[workspace.dependencies]
+
+dotenv = "0.15"
+clap = { version = "4.4", features = ["derive", "env"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+anyhow = { version = "1.0", features = ["backtrace"] }
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"

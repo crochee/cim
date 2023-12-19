@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "INSERT INTO `user_role`\n            (`id`,`user_id`,`role_id`)\n            VALUES(?,?,?);",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "1e9aac9a2df788b9ac159925a39c894f8bab5d769572a81f40b1a7428555c16f"
+}

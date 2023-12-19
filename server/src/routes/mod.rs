@@ -5,14 +5,13 @@ use std::{
 
 use anyhow::{Context, Result};
 use axum::{
-    extract::MatchedPath,
+    extract::{MatchedPath, Request},
     middleware::{self, Next},
     response::IntoResponse,
     routing::get,
     Router,
 };
-use cim_core::Code;
-use http::{header::HeaderName, HeaderValue, Request, Uri};
+use http::{header::HeaderName, HeaderValue, Uri};
 use metrics_exporter_prometheus::{Matcher, PrometheusBuilder};
 use tower::ServiceBuilder;
 use tower_http::{
@@ -28,6 +27,7 @@ use crate::{
         auth::AuthRouter, groups::GroupsRouter, policies::PoliciesRouter,
         roles::RolesRouter, users::UsersRouter,
     },
+    errors,
     middlewares::MakeSpanWithTrace,
     AppState,
 };
@@ -96,7 +96,7 @@ impl AppRouter {
         Ok(router)
     }
 
-    async fn trace<B>(request: Request<B>, next: Next<B>) -> impl IntoResponse {
+    async fn trace(request: Request, next: Next) -> impl IntoResponse {
         let (mut head, body) = request.into_parts();
         match head.headers.get("X-Trace-Id") {
             Some(v) => {
@@ -122,10 +122,7 @@ impl AppRouter {
         }
     }
 
-    async fn track_metrics<B>(
-        request: Request<B>,
-        next: Next<B>,
-    ) -> impl IntoResponse {
+    async fn track_metrics(request: Request, next: Next) -> impl IntoResponse {
         let path = if let Some(matched_path) =
             request.extensions().get::<MatchedPath>()
         {
@@ -156,6 +153,6 @@ impl AppRouter {
     }
 
     async fn not_found(uri: Uri) -> impl IntoResponse {
-        Code::not_found(&format!("no route for {}", uri))
+        errors::not_found(&format!("no route for {}", uri))
     }
 }

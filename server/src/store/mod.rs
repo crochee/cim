@@ -10,7 +10,7 @@ pub mod users;
 use async_trait::async_trait;
 use mockall::automock;
 
-use cim_core::Result;
+use crate::Result;
 use sqlx::MySqlPool;
 
 use crate::models::{

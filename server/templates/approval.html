@@ -2,64 +2,64 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cim</title>
-    <link href="{{ req_path }}/static/main.css" rel="stylesheet">
-    <link href="{{ req_path }}/theme/styles.css" rel="stylesheet">
-    <link rel="icon" href="{{ req_path }}/theme/favicon.png">
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cim</title>
+  <link href="{{ req_path }}/static/main.css" rel="stylesheet">
+  <link href="{{ req_path }}/theme/styles.css" rel="stylesheet">
+  <link rel="icon" href="{{ req_path }}/theme/favicon.png">
 </head>
 
 <body class="theme-body">
-    <div class="theme-navbar">
-        <div class="theme-navbar__logo-wrap">
-            <img class="theme-navbar__logo" src="{{ req_path }}/theme/logo.png">
-        </div>
+  <div class="theme-navbar">
+    <div class="theme-navbar__logo-wrap">
+      <img class="theme-navbar__logo" src="{{ req_path }}/theme/logo.png">
     </div>
+  </div>
 
-    <div class="dex-container">
-        <div class="theme-panel">
-            <h2 class="theme-heading">Grant Access</h2>
+  <div class="dex-container">
+    <div class="theme-panel">
+      <h2 class="theme-heading">Grant Access</h2>
 
-            <hr class="dex-separator">
-            <div>
-                {% if scopes.len() !=0 %}
-                <div class="dex-subtle-text">{{ client }} would like to:</div>
-                <ul class="dex-list">
-                    {% for scope in scopes %}
-                    <li>{{ scope }}</li>
-                    {% endfor %}
-                </ul>
-                {% else %}
-                <div class="dex-subtle-text">{{ client }} has not requested any personal information</div>
-                {% endif %}
-            </div>
-            <hr class="dex-separator">
+      <hr class="dex-separator">
+      <div>
+        {% if scopes.len() !=0 %}
+        <div class="dex-subtle-text">{{ client }} would like to:</div>
+        <ul class="dex-list">
+          {% for scope in scopes %}
+          <li>{{ scope }}</li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="dex-subtle-text">{{ client }} has not requested any personal information</div>
+        {% endif %}
+      </div>
+      <hr class="dex-separator">
 
-            <div>
-                <div class="theme-form-row">
-                    <form method="post">
-                        <input type="hidden" name="req" value="{{ auth_req_id }}" />
-                        <input type="hidden" name="approval" value="approve">
-                        <button type="submit" class="dex-btn theme-btn--success">
-                            <span class="dex-btn-text">Grant Access</span>
-                        </button>
-                    </form>
-                </div>
-                <div class="theme-form-row">
-                    <form method="post">
-                        <input type="hidden" name="req" value="{{ auth_req_id }}" />
-                        <input type="hidden" name="approval" value="rejected">
-                        <button type="submit" class="dex-btn theme-btn-provider">
-                            <span class="dex-btn-text">Cancel</span>
-                        </button>
-                    </form>
-                </div>
-            </div>
-
+      <div>
+        <div class="theme-form-row">
+          <form method="post">
+            <input type="hidden" name="req" value="{{ auth_req_id }}" />
+            <input type="hidden" name="approval" value="approve">
+            <button type="submit" class="dex-btn theme-btn--success">
+              <span class="dex-btn-text">Grant Access</span>
+            </button>
+          </form>
         </div>
+        <div class="theme-form-row">
+          <form method="post">
+            <input type="hidden" name="req" value="{{ auth_req_id }}" />
+            <input type="hidden" name="approval" value="rejected">
+            <button type="submit" class="dex-btn theme-btn-provider">
+              <span class="dex-btn-text">Cancel</span>
+            </button>
+          </form>
+        </div>
+      </div>
+
     </div>
+  </div>
 </body>
 
 </html>

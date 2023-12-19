@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "INSERT INTO `role_policy`\n            (`id`,`role_id`,`policy_id`)\n            VALUES(?,?,?);",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "7c11128a4312f2d3726f5e5fe0e9c316e0542fbcbe94ad3c36b51bda24aac455"
+}

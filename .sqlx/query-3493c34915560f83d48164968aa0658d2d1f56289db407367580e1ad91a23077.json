@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "UPDATE `group_role` SET `deleted` = `id`,`deleted_at`= ?\n            WHERE `group_id` = ? AND `role_id` = ? AND `deleted` = 0;",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "3493c34915560f83d48164968aa0658d2d1f56289db407367580e1ad91a23077"
+}

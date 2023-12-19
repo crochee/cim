@@ -1,0 +1,25 @@
+{
+  "db_name": "MySQL",
+  "query": "SELECT `id` FROM `group`\n            WHERE `id` = ? AND `account_id` = ? AND `deleted` = 0 LIMIT 1;",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": {
+          "type": "LongLong",
+          "flags": "NOT_NULL | PRIMARY_KEY | UNSIGNED | AUTO_INCREMENT",
+          "char_set": 63,
+          "max_size": 20
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "a849f02eb39f2d56639c6922c9b17b6b05813cfb6a76b8196b2c0c03114c3b61"
+}

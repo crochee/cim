@@ -15,6 +15,6 @@ mod tests {
 
     #[test]
     fn next_id_test() {
-        assert!(!next_id().is_err());
+        assert!(next_id().is_ok());
     }
 }

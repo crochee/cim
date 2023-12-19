@@ -7,7 +7,7 @@ use serde::Deserialize;
 use serde_json::value::RawValue;
 use validator::Validate;
 
-use cim_core::Result;
+use crate::Result;
 
 use crate::pkg::valid::field::check_password;
 

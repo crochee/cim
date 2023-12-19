@@ -1,13 +1,13 @@
 use chrono::Utc;
 use rand::Rng;
 
-use cim_core::{Code, Result};
 use serde::Deserialize;
 
 use crate::{
+    errors,
     models::{claim::Claims, provider::Provider},
     store::Store,
-    AppState,
+    AppState, Code, Result,
 };
 
 use super::{
@@ -38,8 +38,8 @@ pub async fn password_grant_token(
     {
         Ok(v) => v,
         Err(err) => {
-            if err.eq(&Code::not_found("")) {
-                return Err(Code::Unauthorized.with());
+            if err.eq(&errors::not_found("")) {
+                return Err(Code::Unauthorized.into());
             }
             return Err(err);
         }
@@ -61,7 +61,7 @@ async fn password_grant<T: Token, C: PasswordConnector>(
         .secret
         .ne(&body.client_secret.clone().unwrap_or_default())
     {
-        return Err(Code::Unauthorized.with());
+        return Err(Code::Unauthorized.into());
     }
     let scopes: Vec<String> = body
         .scope
@@ -76,7 +76,7 @@ async fn password_grant<T: Token, C: PasswordConnector>(
         }
     }
     if !has_open_id_scope {
-        return Err(Code::bad_request(
+        return Err(errors::bad_request(
             r#"Missing required scope(s) ["openid"]."#,
         ));
     }
@@ -92,7 +92,7 @@ async fn password_grant<T: Token, C: PasswordConnector>(
         .await?;
 
     if !ok {
-        return Err(Code::Unauthorized.with());
+        return Err(Code::Unauthorized.into());
     }
 
     let claims = Claims {

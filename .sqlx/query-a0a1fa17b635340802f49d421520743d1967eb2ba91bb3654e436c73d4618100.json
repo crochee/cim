@@ -1,0 +1,146 @@
+{
+  "db_name": "MySQL",
+  "query": "SELECT `id`,`client_id`,`response_type`,`scope`,`redirect_url`,`nonce`,`state`,`force_approval`,`expiry`,`logged_in`,`claims`,`hmac_key` \n        FROM `auth_request` \n        WHERE `id` = ? AND `deleted` = 0",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": {
+          "type": "LongLong",
+          "flags": "NOT_NULL | PRIMARY_KEY | UNSIGNED | AUTO_INCREMENT",
+          "char_set": 63,
+          "max_size": 20
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "client_id",
+        "type_info": {
+          "type": "VarString",
+          "flags": "NOT_NULL | BINARY | NO_DEFAULT_VALUE",
+          "char_set": 192,
+          "max_size": 765
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "response_type",
+        "type_info": {
+          "type": "VarString",
+          "flags": "NOT_NULL | BINARY | NO_DEFAULT_VALUE",
+          "char_set": 192,
+          "max_size": 765
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "scope",
+        "type_info": {
+          "type": "VarString",
+          "flags": "NOT_NULL | BINARY | NO_DEFAULT_VALUE",
+          "char_set": 192,
+          "max_size": 765
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "redirect_url",
+        "type_info": {
+          "type": "VarString",
+          "flags": "NOT_NULL | MULTIPLE_KEY | BINARY | NO_DEFAULT_VALUE",
+          "char_set": 192,
+          "max_size": 765
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "nonce",
+        "type_info": {
+          "type": "Blob",
+          "flags": "NOT_NULL | BLOB | BINARY | NO_DEFAULT_VALUE",
+          "char_set": 192,
+          "max_size": 196605
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "state",
+        "type_info": {
+          "type": "Blob",
+          "flags": "NOT_NULL | BLOB | BINARY | NO_DEFAULT_VALUE",
+          "char_set": 192,
+          "max_size": 196605
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "force_approval",
+        "type_info": {
+          "type": "Tiny",
+          "flags": "NOT_NULL | NO_DEFAULT_VALUE",
+          "char_set": 63,
+          "max_size": 1
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "expiry",
+        "type_info": {
+          "type": "LongLong",
+          "flags": "NOT_NULL | NO_DEFAULT_VALUE",
+          "char_set": 63,
+          "max_size": 20
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "logged_in",
+        "type_info": {
+          "type": "Tiny",
+          "flags": "NOT_NULL | NO_DEFAULT_VALUE",
+          "char_set": 63,
+          "max_size": 1
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "claims",
+        "type_info": {
+          "type": "Blob",
+          "flags": "BLOB | BINARY",
+          "char_set": 192,
+          "max_size": 196605
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "hmac_key",
+        "type_info": {
+          "type": "VarString",
+          "flags": "NOT_NULL | BINARY | NO_DEFAULT_VALUE",
+          "char_set": 192,
+          "max_size": 765
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "a0a1fa17b635340802f49d421520743d1967eb2ba91bb3654e436c73d4618100"
+}

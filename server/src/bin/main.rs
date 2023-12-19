@@ -1,52 +1,24 @@
-use std::net::{IpAddr, SocketAddr};
+use std::net::IpAddr;
 use std::sync::Arc;
 
 use anyhow::Context;
-use clap::{Parser, Subcommand};
-use tokio::{runtime::Builder, sync::oneshot};
+use clap::Parser;
+use tokio::{net::TcpListener, runtime::Builder, sync::oneshot};
 use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use cim_server::{connection_manager, App, AppConfig, AppRouter, AppState};
+use cims::{connection_manager, version, App, AppConfig, AppRouter, AppState};
 
 fn main() -> anyhow::Result<()> {
     dotenv::dotenv().ok();
-    let args = Cli::parse();
-    match args.command {
-        Commands::Run(config) => {
-            run_server(config)?;
-        }
-        Commands::Version => {
-            println!("{}", cim_server::version());
-            return Ok(());
-        }
-    }
-    Ok(())
-}
+    let config = AppConfig::parse();
 
-// A fictional versioning CLI
-#[derive(Debug, Parser)] // requires `derive` feature
-#[command(name = "server")]
-#[command(author, about, long_about = None)]
-struct Cli {
-    #[command(subcommand)]
-    command: Commands,
-}
-
-#[derive(Debug, Subcommand)]
-enum Commands {
-    #[command(arg_required_else_help = true)]
-    Run(AppConfig),
-    #[command(short_flag = 'v')]
-    Version,
-}
-
-fn run_server(config: AppConfig) -> anyhow::Result<()> {
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::new(&config.rust_log))
         .with(tracing_subscriber::fmt::layer())
         .init();
 
+    info!("{}", version());
     // tokio的运行时配置
     Builder::new_multi_thread()
         .enable_all()
@@ -78,19 +50,18 @@ async fn async_run_server(config: AppConfig) -> anyhow::Result<()> {
         .context("could not initialize application routes")?;
 
     info!("routes initialized, listening on port {}", port);
-    axum::Server::bind(&SocketAddr::from((
+    let listener = TcpListener::bind((
         endpoint
             .parse::<IpAddr>()
             .context("could not parse endpoint")?,
         port,
-    )))
-    .http1_title_case_headers(true)
-    .serve(router.into_make_service())
-    .with_graceful_shutdown(async move {
-        let _ = tokio::signal::ctrl_c().await;
-    })
+    ))
     .await
-    .context("error while starting API server")?;
+    .context("could not bind to endpoint")?;
+
+    axum::serve(listener, router.into_make_service())
+        .await
+        .context("error while starting API server")?;
 
     Ok(())
 }

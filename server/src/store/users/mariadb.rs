@@ -2,7 +2,7 @@ use chrono::Utc;
 use rand::Rng;
 use sqlx::{MySqlPool, Row};
 
-use cim_core::{next_id, Code, Result};
+use crate::{errors, next_id, Result};
 
 use crate::{
     models::{user::User, List, ID},
@@ -17,11 +17,11 @@ pub async fn create(
     content: &super::Content,
 ) -> Result<ID> {
     let uid = match id {
-        Some(v) => v.parse().map_err(|err| Code::bad_request(&err))?,
-        None => next_id().map_err(Code::any)?,
+        Some(v) => v.parse().map_err(|err| errors::bad_request(&err))?,
+        None => next_id().map_err(errors::any)?,
     };
     let account_id = match &content.account_id {
-        Some(v) => v.parse().map_err(|err| Code::bad_request(&err))?,
+        Some(v) => v.parse().map_err(|err| errors::bad_request(&err))?,
         None => uid,
     };
     let nick_name = match &content.nick_name {
@@ -54,7 +54,7 @@ pub async fn create(
         )
         .execute(pool)
         .await
-        .map_err(Code::any)?;
+        .map_err(errors::any)?;
 
     Ok(ID {
         id: uid.to_string(),
@@ -130,7 +130,7 @@ pub async fn update(
     let mut wheres = format!(r#"`id` = {}"#, id);
     if let Some(v) = account_id {
         let account_id_u64: u64 =
-            v.parse().map_err(|err| Code::bad_request(&err))?;
+            v.parse().map_err(|err| errors::bad_request(&err))?;
         wheres.push_str(" AND ");
         wheres
             .push_str(format!(r#"`account_id` = {}"#, account_id_u64).as_str());
@@ -156,7 +156,7 @@ pub async fn update(
     )
     .execute(pool)
     .await
-    .map_err(Code::any)?;
+    .map_err(errors::any)?;
     Ok(())
 }
 
@@ -168,7 +168,7 @@ pub async fn get(
     let mut wheres = format!(r#"`id` = {}"#, id);
     if let Some(v) = account_id {
         let account_id_u64: u64 =
-            v.parse().map_err(|err| Code::bad_request(&err))?;
+            v.parse().map_err(|err| errors::bad_request(&err))?;
         wheres.push_str(" AND ");
         wheres
             .push_str(format!(r#"`account_id` = {}"#, account_id_u64).as_str());
@@ -186,25 +186,28 @@ pub async fn get(
         {
             Ok(v) => match v {
                 Some(value) => Ok(value),
-                None => Err(Code::not_found("no rows")),
+                None => Err(errors::not_found("no rows")),
             },
-            Err(err) => Err(Code::any(err)),
+            Err(err) => Err(errors::any(err)),
         }?;
     Ok(User {
-        id: row.try_get::<u64, _>("id").map_err(Code::any)?.to_string(),
+        id: row
+            .try_get::<u64, _>("id")
+            .map_err(errors::any)?
+            .to_string(),
         account_id: row
             .try_get::<u64, _>("account_id")
-            .map_err(Code::any)?
+            .map_err(errors::any)?
             .to_string(),
-        name: row.try_get("name").map_err(Code::any)?,
-        nick_name: row.try_get("nick_name").map_err(Code::any)?,
-        desc: row.try_get("desc").map_err(Code::any)?,
-        email: row.try_get("email").map_err(Code::any)?,
-        mobile: row.try_get("mobile").map_err(Code::any)?,
-        sex: row.try_get("sex").map_err(Code::any)?,
-        image: row.try_get("image").map_err(Code::any)?,
-        created_at: row.try_get("created_at").map_err(Code::any)?,
-        updated_at: row.try_get("updated_at").map_err(Code::any)?,
+        name: row.try_get("name").map_err(errors::any)?,
+        nick_name: row.try_get("nick_name").map_err(errors::any)?,
+        desc: row.try_get("desc").map_err(errors::any)?,
+        email: row.try_get("email").map_err(errors::any)?,
+        mobile: row.try_get("mobile").map_err(errors::any)?,
+        sex: row.try_get("sex").map_err(errors::any)?,
+        image: row.try_get("image").map_err(errors::any)?,
+        created_at: row.try_get("created_at").map_err(errors::any)?,
+        updated_at: row.try_get("updated_at").map_err(errors::any)?,
     })
 }
 
@@ -216,7 +219,7 @@ pub async fn delete(
     let mut wheres = format!(r#"`id` = {}"#, id);
     if let Some(v) = account_id {
         let account_id_u64: u64 =
-            v.parse().map_err(|err| Code::bad_request(&err))?;
+            v.parse().map_err(|err| errors::bad_request(&err))?;
         wheres.push_str(" AND ");
         wheres
             .push_str(format!(r#"`account_id` = {}"#, account_id_u64).as_str());
@@ -232,7 +235,7 @@ pub async fn delete(
     )
     .execute(pool)
     .await
-    .map_err(Code::any)?;
+    .map_err(errors::any)?;
     Ok(())
 }
 
@@ -245,8 +248,9 @@ pub async fn list(
         wheres.push_str(format!(r#"`sex` = {}"#, sex).as_str());
     };
     if let Some(account_id) = &filter.account_id {
-        let account_id_u64: u64 =
-            account_id.parse().map_err(|err| Code::bad_request(&err))?;
+        let account_id_u64: u64 = account_id
+            .parse()
+            .map_err(|err| errors::bad_request(&err))?;
         if !wheres.is_empty() {
             wheres.push_str(" AND ");
         }
@@ -268,7 +272,7 @@ pub async fn list(
     )
     .fetch_one(pool)
     .await
-    .map_err(Code::any)?;
+    .map_err(errors::any)?;
     // 查询列表
     let query = filter.pagination.to_string();
     if !query.is_empty() {
@@ -285,29 +289,32 @@ pub async fn list(
         )
         .fetch_all(pool)
         .await
-        .map_err(Code::any)?;
+        .map_err(errors::any)?;
     let mut result = List {
         data: Vec::new(),
         limit: filter.pagination.limit,
         offset: filter.pagination.offset,
-        total: policy_result.try_get("count").map_err(Code::any)?,
+        total: policy_result.try_get("count").map_err(errors::any)?,
     };
     for row in rows.iter() {
         result.data.push(User {
-            id: row.try_get::<u64, _>("id").map_err(Code::any)?.to_string(),
+            id: row
+                .try_get::<u64, _>("id")
+                .map_err(errors::any)?
+                .to_string(),
             account_id: row
                 .try_get::<u64, _>("account_id")
-                .map_err(Code::any)?
+                .map_err(errors::any)?
                 .to_string(),
-            name: row.try_get("name").map_err(Code::any)?,
-            nick_name: row.try_get("nick_name").map_err(Code::any)?,
-            desc: row.try_get("desc").map_err(Code::any)?,
-            email: row.try_get("email").map_err(Code::any)?,
-            mobile: row.try_get("mobile").map_err(Code::any)?,
-            sex: row.try_get("sex").map_err(Code::any)?,
-            image: row.try_get("image").map_err(Code::any)?,
-            created_at: row.try_get("created_at").map_err(Code::any)?,
-            updated_at: row.try_get("updated_at").map_err(Code::any)?,
+            name: row.try_get("name").map_err(errors::any)?,
+            nick_name: row.try_get("nick_name").map_err(errors::any)?,
+            desc: row.try_get("desc").map_err(errors::any)?,
+            email: row.try_get("email").map_err(errors::any)?,
+            mobile: row.try_get("mobile").map_err(errors::any)?,
+            sex: row.try_get("sex").map_err(errors::any)?,
+            image: row.try_get("image").map_err(errors::any)?,
+            created_at: row.try_get("created_at").map_err(errors::any)?,
+            updated_at: row.try_get("updated_at").map_err(errors::any)?,
         })
     }
     Ok(result)
@@ -322,7 +329,7 @@ pub async fn exist(
     let mut wheres = format!(r#"`id` = {}"#, id);
     if let Some(v) = account_id {
         let account_id_u64: u64 =
-            v.parse().map_err(|err| Code::bad_request(&err))?;
+            v.parse().map_err(|err| errors::bad_request(&err))?;
         wheres.push_str(" AND ");
         wheres
             .push_str(format!(r#"`account_id` = {}"#, account_id_u64).as_str());
@@ -341,8 +348,8 @@ pub async fn exist(
     )
     .fetch_one(pool)
     .await
-    .map_err(Code::any)?;
-    let count: i64 = result.try_get("count").map_err(Code::any)?;
+    .map_err(errors::any)?;
+    let count: i64 = result.try_get("count").map_err(errors::any)?;
     Ok(count != 0)
 }
 
@@ -369,18 +376,21 @@ pub async fn get_password(
         {
             Ok(v) => match v {
                 Some(value) => Ok(value),
-                None => Err(Code::not_found("no rows")),
+                None => Err(errors::not_found("no rows")),
             },
-            Err(err) => Err(Code::any(err)),
+            Err(err) => Err(errors::any(err)),
         }?;
 
     Ok(Password {
-        user_id: row.try_get::<u64, _>("id").map_err(Code::any)?.to_string(),
-        user_name: row.try_get("name").map_err(Code::any)?,
-        nick_name: row.try_get("nick_name").map_err(Code::any)?,
-        email: row.try_get("email").map_err(Code::any)?,
-        mobile: row.try_get("mobile").map_err(Code::any)?,
-        hash: row.try_get("password").map_err(Code::any)?,
-        secret: row.try_get("secret").map_err(Code::any)?,
+        user_id: row
+            .try_get::<u64, _>("id")
+            .map_err(errors::any)?
+            .to_string(),
+        user_name: row.try_get("name").map_err(errors::any)?,
+        nick_name: row.try_get("nick_name").map_err(errors::any)?,
+        email: row.try_get("email").map_err(errors::any)?,
+        mobile: row.try_get("mobile").map_err(errors::any)?,
+        hash: row.try_get("password").map_err(errors::any)?,
+        secret: row.try_get("secret").map_err(errors::any)?,
     })
 }

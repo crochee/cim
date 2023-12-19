@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use chrono::Utc;
 use rand::Rng;
 
-use cim_core::{next_id, Code, Result};
+use crate::{errors, next_id, Code, Result};
 
 use crate::{
     models::key::{KeyValue, VerificationKey},
@@ -47,7 +47,7 @@ where
         let keys = match self.store.get_key().await {
             Ok(v) => v,
             Err(err) => {
-                if !err.eq(&Code::not_found("")) {
+                if !err.eq(&errors::not_found("")) {
                     return Err(err);
                 }
 
@@ -75,7 +75,7 @@ where
     }
 
     fn get_key(&self, nk: &Keys) -> Result<Keys> {
-        let id = next_id().map_err(Code::any)?.to_string();
+        let id = next_id().map_err(errors::any)?.to_string();
         let key = KeyValue {
             id,
             value: Self::key_generator(),
@@ -86,7 +86,7 @@ where
             return Err(Code::Any(anyhow::anyhow!(
                 "keys already rotated by another server instance"
             ))
-            .with());
+            .into());
         }
         let mut result = Keys {
             signing_key: key.clone(),
@@ -110,8 +110,8 @@ where
 #[cfg(test)]
 mod test {
 
+    use crate::next_id;
     use chrono::Utc;
-    use cim_core::next_id;
 
     use crate::{
         models::key::{KeyValue, Keys, VerificationKey},

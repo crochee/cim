@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "INSERT INTO `group_role`\n            (`id`,`group_id`,`role_id`)\n            VALUES(?,?,?);",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "27ee660143125d91ce1532c4a5ecb95d4a8f59b43f05342ffd0d988cd5ec6a15"
+}

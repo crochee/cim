@@ -3,7 +3,7 @@ use std::{cmp::Ordering, sync::Mutex};
 use lru::LruCache;
 use regex::Regex;
 
-use cim_core::{Code, Result};
+use crate::{errors, Result};
 
 use crate::services::authorization::Matcher;
 
@@ -27,7 +27,7 @@ impl Matcher for Regexp {
                 continue;
             }
             {
-                let mut rlru = self.lru.lock().map_err(Code::any)?;
+                let mut rlru = self.lru.lock().map_err(errors::any)?;
                 if let Some(reg) = rlru.get(h) {
                     if reg.is_match(needle) {
                         return Ok(true);
@@ -38,9 +38,9 @@ impl Matcher for Regexp {
 
             let pattern = build_regex(h, delimiter_start, delimiter_end)?;
             let reg = Regex::new(pattern.as_str())
-                .map_err(|err| Code::bad_request(&err.to_string()))?;
+                .map_err(|err| errors::bad_request(&err.to_string()))?;
             {
-                let mut wlru = self.lru.lock().map_err(Code::any)?;
+                let mut wlru = self.lru.lock().map_err(errors::any)?;
                 wlru.put(h.to_owned(), reg.clone());
             };
 
@@ -69,7 +69,7 @@ fn delimiter_indices(
             level -= 1;
             match level.cmp(&0) {
                 Ordering::Less => {
-                    return Err(Code::bad_request(&format!(
+                    return Err(errors::bad_request(&format!(
                         "Unbalanced braces in {}",
                         s
                     )));
@@ -83,7 +83,10 @@ fn delimiter_indices(
         }
     }
     if level != 0 {
-        return Err(Code::bad_request(&format!("Unbalanced braces in {}", s)));
+        return Err(errors::bad_request(&format!(
+            "Unbalanced braces in {}",
+            s
+        )));
     }
     Ok(idxs)
 }
@@ -104,7 +107,7 @@ fn build_regex(
         let temp_id = match idx.get(i) {
             Some(v) => v.to_owned(),
             None => {
-                return Err(Code::bad_request(&format!(
+                return Err(errors::bad_request(&format!(
                     "not index {} in {:?}",
                     i, idx
                 )))
@@ -113,7 +116,7 @@ fn build_regex(
         let raw = match tpl.get(end..temp_id) {
             Some(v) => v,
             None => {
-                return Err(Code::bad_request(&format!(
+                return Err(errors::bad_request(&format!(
                     "not index {} to {} in {:?}",
                     end, temp_id, tpl
                 )))
@@ -123,7 +126,7 @@ fn build_regex(
         end = match idx.get(i + 1) {
             Some(v) => v.to_owned(),
             None => {
-                return Err(Code::bad_request(&format!(
+                return Err(errors::bad_request(&format!(
                     "not index {} in {:?}",
                     i + 1,
                     idx
@@ -133,7 +136,7 @@ fn build_regex(
         let patt = match tpl.get(temp_id + 1..end - 1) {
             Some(v) => v,
             None => {
-                return Err(Code::bad_request(&format!(
+                return Err(errors::bad_request(&format!(
                     "not index {} to {} in {:?}",
                     temp_id + 1,
                     end - 1,
@@ -143,13 +146,13 @@ fn build_regex(
         };
         buffer.push_str(format!("{}({})", regex::escape(raw), patt).as_str());
         Regex::new(format!("^{}$", patt).as_str())
-            .map_err(|err| Code::bad_request(&err.to_string()))?;
+            .map_err(|err| errors::bad_request(&err.to_string()))?;
         i += 2;
     }
     let raw = match tpl.get(end..) {
         Some(v) => v,
         None => {
-            return Err(Code::bad_request(&format!(
+            return Err(errors::bad_request(&format!(
                 "not index {} to end in {:?}",
                 end, tpl
             )))

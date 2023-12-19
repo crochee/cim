@@ -1,9 +1,9 @@
 use axum::{
     extract::Query,
-    headers::authorization::{Basic, Bearer, Credentials},
     routing::{get, post},
     Form, Json, Router,
 };
+use axum_extra::headers::authorization::{Basic, Bearer, Credentials};
 use chrono::Utc;
 use http::{
     header::{AUTHORIZATION, LOCATION},
@@ -11,7 +11,7 @@ use http::{
 };
 use tracing::info;
 
-use cim_core::{Code, Result};
+use crate::{errors, Code, Result};
 
 use crate::{
     models::{claim::Claims, req::Request, ID},
@@ -70,7 +70,7 @@ impl AuthRouter {
             }
             None => {
                 if body.client_id.is_none() || body.client_secret.is_none() {
-                    return Err(Code::bad_request(
+                    return Err(errors::bad_request(
                         "client_id or client_secret is none",
                     ));
                 }
@@ -117,7 +117,7 @@ impl AuthRouter {
                 return Ok((StatusCode::OK, claims.into()));
             }
         }
-        Err(Code::Unauthorized.with())
+        Err(Code::Unauthorized.into())
     }
 
     async fn approval_html(
@@ -130,10 +130,10 @@ impl AuthRouter {
             return Err(Code::Any(anyhow::anyhow!(
                 "Login process not yet finalized."
             ))
-            .with());
+            .into());
         }
         if verify(&approval_info.hmac, &auth_req.id, &auth_req.hmac_key)? {
-            return Err(Code::Unauthorized.with());
+            return Err(Code::Unauthorized.into());
         }
         let provider = app.store.get_provider(&auth_req.client_id).await?;
         Ok(HtmlTemplate(Approval {
@@ -150,27 +150,27 @@ impl AuthRouter {
     ) -> Result<(StatusCode, HeaderMap)> {
         info!("list query {:#?}", approval_info);
         if approval_info.approval.unwrap_or_default().ne("approve") {
-            return Err(Code::Any(anyhow::anyhow!("Approval rejected.")).with());
+            return Err(Code::Any(anyhow::anyhow!("Approval rejected.")).into());
         }
         let auth_req = app.store.get_authrequests(&approval_info.req).await?;
         if !auth_req.logged_in {
             return Err(Code::Any(anyhow::anyhow!(
                 "Login process not yet finalized."
             ))
-            .with());
+            .into());
         }
         if verify(&approval_info.hmac, &auth_req.id, &auth_req.hmac_key)? {
-            return Err(Code::Unauthorized.with());
+            return Err(Code::Unauthorized.into());
         }
         if auth_req.expiry < Utc::now().timestamp() {
             return Err(Code::Any(anyhow::anyhow!(
                 "User session has expired."
             ))
-            .with());
+            .into());
         }
         app.store.delete_authrequests(&auth_req.id).await?;
 
-        let u: Uri = auth_req.redirect_url.parse().map_err(Code::any)?;
+        let u: Uri = auth_req.redirect_url.parse().map_err(errors::any)?;
         let mut url = u.to_string();
         if u.query().is_none() {
             url.push('?');

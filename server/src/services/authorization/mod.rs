@@ -1,6 +1,6 @@
 pub mod matcher;
 
-use cim_core::{Code, Result};
+use crate::{errors, Result};
 
 use crate::{
     models::{
@@ -68,13 +68,13 @@ fn match_policies<T: Matcher>(
                 continue;
             }
             if let Effect::Deny = statement.effect {
-                return Err(Code::forbidden(&format!("The request was denied because a policy denied request.Please proofread the policy {}",policy.id)));
+                return Err(errors::forbidden(&format!("The request was denied because a policy denied request.Please proofread the policy {}",policy.id)));
             }
             allowed = true;
         }
     }
     if !allowed {
-        return Err(Code::forbidden(
+        return Err(errors::forbidden(
             "The request was denied because no matching policy was found.",
         ));
     }

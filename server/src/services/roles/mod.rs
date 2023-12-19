@@ -1,4 +1,4 @@
-use cim_core::Result;
+use crate::Result;
 
 use crate::{
     store::{roles, Store},

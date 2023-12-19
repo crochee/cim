@@ -4,7 +4,7 @@ use axum::{
     Json, Router,
 };
 
-use cim_core::Result;
+use crate::Result;
 use http::StatusCode;
 use tracing::info;
 

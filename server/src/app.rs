@@ -11,9 +11,8 @@ use axum::{
 use sqlx::MySqlPool;
 use tracing::info;
 
-use cim_core::WithBacktrace;
-
 use crate::{
+    errors::WithBacktrace,
     services::{
         authentication::key::{KeyRotator, RotationStrategy},
         authorization::matcher::reg::Regexp,

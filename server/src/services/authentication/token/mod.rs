@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use mockall::automock;
 use serde::{Deserialize, Serialize};
 
-use cim_core::Result;
+use crate::Result;
 
 use crate::models::claim::Claims;
 

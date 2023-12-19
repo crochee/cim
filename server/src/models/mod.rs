@@ -11,10 +11,10 @@ pub mod tag;
 pub mod user;
 pub mod usergroup;
 
-use serde::{Deserialize, Serialize};
-use validator::Validate;
+use std::str::FromStr;
 
-use cim_core::se::from_str;
+use serde::{de::Error, Deserialize, Serialize};
+use validator::Validate;
 
 use crate::pkg::valid::field::check_sort;
 
@@ -29,6 +29,16 @@ pub struct List<T> {
 #[derive(Debug, Serialize)]
 pub struct ID {
     pub id: String,
+}
+
+pub fn from_str<'de, D, S>(deserializer: D) -> Result<S, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    S: FromStr,
+{
+    let s = <&str as serde::Deserialize>::deserialize(deserializer)?;
+    S::from_str(s)
+        .map_err(|_| D::Error::custom(format!("could not parse string {}", s)))
 }
 
 #[derive(Debug, Default, Deserialize, Serialize, Validate)]

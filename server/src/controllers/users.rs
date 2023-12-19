@@ -1,6 +1,5 @@
 use axum::{extract::Path, routing::get, Json, Router};
 
-use cim_core::Result;
 use http::StatusCode;
 use tracing::info;
 
@@ -13,7 +12,7 @@ use crate::{
         Store,
     },
     var::SOURCE_SYSTEM,
-    AppState,
+    AppState, Result,
 };
 
 pub struct UsersRouter;

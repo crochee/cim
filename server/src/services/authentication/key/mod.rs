@@ -3,7 +3,7 @@ mod rotator;
 use async_trait::async_trait;
 use mockall::automock;
 
-use cim_core::Result;
+use crate::Result;
 
 pub use rotator::{KeyRotator, RotationStrategy};
 

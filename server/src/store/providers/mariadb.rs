@@ -1,10 +1,10 @@
-use cim_core::{next_id, Code, Result};
 use sqlx::MySqlPool;
 
 use crate::models::{provider::Provider, ID};
+use crate::{errors, next_id, Result};
 
 pub async fn create(pool: &MySqlPool, content: &super::Content) -> Result<ID> {
-    let uid = next_id().map_err(Code::any)?;
+    let uid = next_id().map_err(errors::any)?;
     sqlx::query!(
         r#"INSERT INTO `provider`
             (`id`,`secret`,`redirect_url`,`name`,`prompt`,`logo_url`)
@@ -18,7 +18,7 @@ pub async fn create(pool: &MySqlPool, content: &super::Content) -> Result<ID> {
     )
     .execute(pool)
     .await
-    .map_err(Code::any)?;
+    .map_err(errors::any)?;
 
     Ok(ID {
         id: uid.to_string(),
@@ -41,9 +41,9 @@ pub async fn get(pool: &MySqlPool, id: &str) -> Result<Provider> {
             {
                 Ok(v) => match v {
                     Some(value) => Ok(value),
-                    None => Err(Code::not_found("no rows")),
+                    None => Err(errors::not_found("no rows")),
                 },
-                Err(err) => Err(Code::any(err)),
+                Err(err) => Err(errors::any(err)),
             }
 }
 
@@ -60,5 +60,5 @@ pub async fn list(pool: &MySqlPool) -> Result<Vec<Provider>> {
             })
             .fetch_all(pool)
             .await
-            .map_err(Code::any)
+            .map_err(errors::any)
 }

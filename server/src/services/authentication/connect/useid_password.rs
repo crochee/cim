@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use cim_core::{Code, Result};
+use crate::{errors, Result};
 
 use crate::{
     pkg::security::verify,
@@ -71,10 +71,10 @@ where
             .user_get_password(&UserSubject::UserID(identity.user_id.clone()))
             .await?;
         if p.email != identity.email {
-            return Err(Code::not_found("user"));
+            return Err(errors::not_found("user"));
         }
         if p.mobile != identity.mobile {
-            return Err(Code::not_found("user"));
+            return Err(errors::not_found("user"));
         }
         let email_verified = p.email.is_some();
         Ok(Identity {

@@ -1,7 +1,7 @@
 use chrono::Utc;
 use sqlx::{MySqlPool, Row};
 
-use cim_core::{next_id, Code, Result};
+use crate::{errors, next_id, Result};
 
 use crate::models::{
     usergroup::{Kind, UserGroup, UserGroupBinding, UserGroupBindings},
@@ -14,17 +14,17 @@ pub async fn create(
     content: &super::Content,
 ) -> Result<ID> {
     let uid = match id {
-        Some(v) => v.parse().map_err(|err| Code::bad_request(&err))?,
-        None => next_id().map_err(Code::any)?,
+        Some(v) => v.parse().map_err(|err| errors::bad_request(&err))?,
+        None => next_id().map_err(errors::any)?,
     };
     let account_id: u64 = content
         .account_id
         .parse()
-        .map_err(|err| Code::bad_request(&err))?;
+        .map_err(|err| errors::bad_request(&err))?;
     let user_id: u64 = content
         .user_id
         .parse()
-        .map_err(|err| Code::bad_request(&err))?;
+        .map_err(|err| errors::bad_request(&err))?;
     sqlx::query!(
         r#"INSERT INTO `group`
             (`id`,`account_id`,`user_id`,`name`,`desc`)
@@ -37,7 +37,7 @@ pub async fn create(
     )
     .execute(pool)
     .await
-    .map_err(Code::any)?;
+    .map_err(errors::any)?;
 
     Ok(ID {
         id: uid.to_string(),
@@ -67,7 +67,7 @@ pub async fn update(
     let mut wheres = format!(r#"`id` = {}"#, id);
     if let Some(v) = account_id {
         let account_id_u64: u64 =
-            v.parse().map_err(|err| Code::bad_request(&err))?;
+            v.parse().map_err(|err| errors::bad_request(&err))?;
         wheres.push_str(" AND ");
         wheres
             .push_str(format!(r#"`account_id` = {}"#, account_id_u64).as_str());
@@ -93,7 +93,7 @@ pub async fn update(
     )
     .execute(pool)
     .await
-    .map_err(Code::any)?;
+    .map_err(errors::any)?;
     Ok(())
 }
 
@@ -105,7 +105,7 @@ pub async fn get(
     let mut wheres = format!(r#"`id` = {}"#, id);
     if let Some(v) = &filter.account_id {
         let account_id_u64: u64 =
-            v.parse().map_err(|err| Code::bad_request(&err))?;
+            v.parse().map_err(|err| errors::bad_request(&err))?;
         wheres.push_str(" AND ");
         wheres
             .push_str(format!(r#"`account_id` = {}"#, account_id_u64).as_str());
@@ -123,25 +123,28 @@ pub async fn get(
         {
             Ok(v) => match v {
                 Some(value) => Ok(value),
-                None => Err(Code::not_found("no rows")),
+                None => Err(errors::not_found("no rows")),
             },
-            Err(err) => Err(Code::any(err)),
+            Err(err) => Err(errors::any(err)),
         }?;
     let mut usergroup_binding = UserGroupBindings {
-        id: row.try_get::<u64, _>("id").map_err(Code::any)?.to_string(),
+        id: row
+            .try_get::<u64, _>("id")
+            .map_err(errors::any)?
+            .to_string(),
         account_id: row
             .try_get::<u64, _>("account_id")
-            .map_err(Code::any)?
+            .map_err(errors::any)?
             .to_string(),
         user_id: row
             .try_get::<u64, _>("user_id")
-            .map_err(Code::any)?
+            .map_err(errors::any)?
             .to_string(),
-        name: row.try_get("name").map_err(Code::any)?,
-        desc: row.try_get("desc").map_err(Code::any)?,
+        name: row.try_get("name").map_err(errors::any)?,
+        desc: row.try_get("desc").map_err(errors::any)?,
         links: Vec::new(),
-        created_at: row.try_get("created_at").map_err(Code::any)?,
-        updated_at: row.try_get("updated_at").map_err(Code::any)?,
+        created_at: row.try_get("created_at").map_err(errors::any)?,
+        updated_at: row.try_get("updated_at").map_err(errors::any)?,
     };
     let f = format!(
         "`group_id` = {} AND `deleted` = 0 {}",
@@ -165,12 +168,12 @@ pub async fn delete(
     let mut wheres = format!(r#"`id` = {}"#, id);
     if let Some(v) = account_id {
         let account_id_u64: u64 =
-            v.parse().map_err(|err| Code::bad_request(&err))?;
+            v.parse().map_err(|err| errors::bad_request(&err))?;
         wheres.push_str(" AND ");
         wheres
             .push_str(format!(r#"`account_id` = {}"#, account_id_u64).as_str());
     }
-    let mut tx = pool.begin().await.map_err(Code::any)?;
+    let mut tx = pool.begin().await.map_err(errors::any)?;
     sqlx::query(
         format!(
             r#"UPDATE `group` SET `deleted` = `id`,`deleted_at`= '{}'
@@ -180,28 +183,28 @@ pub async fn delete(
         )
         .as_str(),
     )
-    .execute(&mut tx)
+    .execute(&mut *tx)
     .await
-    .map_err(Code::any)?;
+    .map_err(errors::any)?;
     sqlx::query(
         r#"UPDATE  `group_user`  SET  `deleted` = `id`,`deleted_at` =  ?
             WHERE  `group_id`  =  ?  AND  `deleted`  = 0"#,
     )
     .bind(Utc::now())
     .bind(id)
-    .execute(&mut tx)
+    .execute(&mut *tx)
     .await
-    .map_err(Code::any)?;
+    .map_err(errors::any)?;
     sqlx::query(
         r#"UPDATE  `group_role`  SET  `deleted` = `id`,`deleted_at` =  ?
             WHERE  `group_id`  =  ?  AND  `deleted`  = 0"#,
     )
     .bind(Utc::now())
     .bind(id)
-    .execute(&mut tx)
+    .execute(&mut *tx)
     .await
-    .map_err(Code::any)?;
-    tx.commit().await.map_err(Code::any)?;
+    .map_err(errors::any)?;
+    tx.commit().await.map_err(errors::any)?;
     Ok(())
 }
 
@@ -211,8 +214,9 @@ pub async fn list(
 ) -> Result<List<UserGroup>> {
     let mut wheres = String::from("");
     if let Some(account_id) = &filter.account_id {
-        let account_id_u64: u64 =
-            account_id.parse().map_err(|err| Code::bad_request(&err))?;
+        let account_id_u64: u64 = account_id
+            .parse()
+            .map_err(|err| errors::bad_request(&err))?;
         if !wheres.is_empty() {
             wheres.push_str(" AND ");
         }
@@ -234,7 +238,7 @@ pub async fn list(
     )
     .fetch_one(pool)
     .await
-    .map_err(Code::any)?;
+    .map_err(errors::any)?;
     // 查询列表
     let query = filter.pagination.to_string();
     if !query.is_empty() {
@@ -251,28 +255,31 @@ pub async fn list(
         )
         .fetch_all(pool)
         .await
-        .map_err(Code::any)?;
+        .map_err(errors::any)?;
     let mut result = List {
         data: Vec::new(),
         limit: filter.pagination.limit,
         offset: filter.pagination.offset,
-        total: policy_result.try_get("count").map_err(Code::any)?,
+        total: policy_result.try_get("count").map_err(errors::any)?,
     };
     for row in rows.iter() {
         result.data.push(UserGroup {
-            id: row.try_get::<u64, _>("id").map_err(Code::any)?.to_string(),
+            id: row
+                .try_get::<u64, _>("id")
+                .map_err(errors::any)?
+                .to_string(),
             account_id: row
                 .try_get::<u64, _>("account_id")
-                .map_err(Code::any)?
+                .map_err(errors::any)?
                 .to_string(),
             user_id: row
                 .try_get::<u64, _>("user_id")
-                .map_err(Code::any)?
+                .map_err(errors::any)?
                 .to_string(),
-            name: row.try_get("name").map_err(Code::any)?,
-            desc: row.try_get("desc").map_err(Code::any)?,
-            created_at: row.try_get("created_at").map_err(Code::any)?,
-            updated_at: row.try_get("updated_at").map_err(Code::any)?,
+            name: row.try_get("name").map_err(errors::any)?,
+            desc: row.try_get("desc").map_err(errors::any)?,
+            created_at: row.try_get("created_at").map_err(errors::any)?,
+            updated_at: row.try_get("updated_at").map_err(errors::any)?,
         })
     }
     Ok(result)
@@ -287,7 +294,7 @@ pub async fn exist(
     let mut wheres = format!(r#"`id` = {}"#, id);
     if let Some(v) = account_id {
         let account_id_u64: u64 =
-            v.parse().map_err(|err| Code::bad_request(&err))?;
+            v.parse().map_err(|err| errors::bad_request(&err))?;
         wheres.push_str(" AND ");
         wheres
             .push_str(format!(r#"`account_id` = {}"#, account_id_u64).as_str());
@@ -306,8 +313,8 @@ pub async fn exist(
     )
     .fetch_one(pool)
     .await
-    .map_err(Code::any)?;
-    let count: i64 = result.try_get("count").map_err(Code::any)?;
+    .map_err(errors::any)?;
+    let count: i64 = result.try_get("count").map_err(errors::any)?;
     Ok(count != 0)
 }
 pub async fn add_user(
@@ -324,10 +331,12 @@ pub async fn add_user(
     )
     .fetch_optional(pool)
     .await
-    .map_err(Code::any)?
+    .map_err(errors::any)?
     .is_none()
     {
-        return Err(Code::not_found(&format!("not found user_group {}", id,)));
+        return Err(errors::not_found(
+            &format!("not found user_group {}", id,),
+        ));
     }
     if sqlx::query!(
         r#"SELECT `id` FROM `user`
@@ -337,22 +346,22 @@ pub async fn add_user(
     )
     .fetch_optional(pool)
     .await
-    .map_err(Code::any)?
+    .map_err(errors::any)?
     .is_none()
     {
-        return Err(Code::not_found(&format!("not found user {}", user_id)));
+        return Err(errors::not_found(&format!("not found user {}", user_id)));
     }
     sqlx::query!(
         r#"INSERT INTO `group_user`
             (`id`,`group_id`,`user_id`)
             VALUES(?,?,?);"#,
-        next_id().map_err(Code::any)?,
+        next_id().map_err(errors::any)?,
         id,
         user_id,
     )
     .execute(pool)
     .await
-    .map_err(Code::any)?;
+    .map_err(errors::any)?;
     Ok(())
 }
 pub async fn delete_user(
@@ -369,7 +378,7 @@ pub async fn delete_user(
     )
     .execute(pool)
     .await
-    .map_err(Code::any)?;
+    .map_err(errors::any)?;
     Ok(())
 }
 pub async fn add_role(
@@ -386,10 +395,12 @@ pub async fn add_role(
     )
     .fetch_optional(pool)
     .await
-    .map_err(Code::any)?
+    .map_err(errors::any)?
     .is_none()
     {
-        return Err(Code::not_found(&format!("not found user_group {}", id,)));
+        return Err(errors::not_found(
+            &format!("not found user_group {}", id,),
+        ));
     }
     if sqlx::query!(
         r#"SELECT `id` FROM `role`
@@ -399,22 +410,22 @@ pub async fn add_role(
     )
     .fetch_optional(pool)
     .await
-    .map_err(Code::any)?
+    .map_err(errors::any)?
     .is_none()
     {
-        return Err(Code::not_found(&format!("not found role {}", role_id)));
+        return Err(errors::not_found(&format!("not found role {}", role_id)));
     }
     sqlx::query!(
         r#"INSERT INTO `group_role`
             (`id`,`group_id`,`role_id`)
             VALUES(?,?,?);"#,
-        next_id().map_err(Code::any)?,
+        next_id().map_err(errors::any)?,
         id,
         role_id,
     )
     .execute(pool)
     .await
-    .map_err(Code::any)?;
+    .map_err(errors::any)?;
     Ok(())
 }
 
@@ -432,7 +443,7 @@ pub async fn delete_role(
     )
     .execute(pool)
     .await
-    .map_err(Code::any)?;
+    .map_err(errors::any)?;
     Ok(())
 }
 
@@ -451,12 +462,12 @@ async fn list_user_group_user(
     )
     .fetch_all(pool)
     .await
-    .map_err(Code::any)?;
+    .map_err(errors::any)?;
     let mut data = Vec::with_capacity(rows.len());
     for row in rows.iter() {
         data.push(UserGroupBinding {
             kind: Kind::User,
-            subject_id: row.try_get("user_id").map_err(Code::any)?,
+            subject_id: row.try_get("user_id").map_err(errors::any)?,
         })
     }
     Ok(data)
@@ -476,14 +487,14 @@ async fn list_user_group_role(
     )
     .fetch_all(pool)
     .await
-    .map_err(Code::any)?;
+    .map_err(errors::any)?;
 
     let mut data = Vec::with_capacity(rows.len());
 
     for row in rows.iter() {
         data.push(UserGroupBinding {
             kind: Kind::Role,
-            subject_id: row.try_get("role_id").map_err(Code::any)?,
+            subject_id: row.try_get("role_id").map_err(errors::any)?,
         })
     }
     Ok(data)
