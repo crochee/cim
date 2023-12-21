@@ -1,4 +1,3 @@
-use std::net::IpAddr;
 use std::sync::Arc;
 
 use anyhow::Context;
@@ -40,24 +39,17 @@ async fn async_run_server(config: AppConfig) -> anyhow::Result<()> {
 
     info!("migrations successfully run, initializing axum server...");
 
-    let port = config.port;
-    let endpoint = config.endpoint.clone();
     let app = Arc::new(App::new(store, config.clone())?);
 
     key_rotate(app.clone());
 
     let router = AppRouter::build(&config.cors_origin, AppState(app))
         .context("could not initialize application routes")?;
-
-    info!("routes initialized, listening on port {}", port);
-    let listener = TcpListener::bind((
-        endpoint
-            .parse::<IpAddr>()
-            .context("could not parse endpoint")?,
-        port,
-    ))
-    .await
-    .context("could not bind to endpoint")?;
+    let host = format!("{}:{}", config.endpoint, config.port);
+    info!("routes initialized, listening on {}", host);
+    let listener = TcpListener::bind(host)
+        .await
+        .context("could not bind to endpoint")?;
 
     axum::serve(listener, router.into_make_service())
         .await
