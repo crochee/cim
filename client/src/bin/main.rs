@@ -3,8 +3,8 @@ use clap::{Parser, Subcommand};
 use cimc::version;
 
 // A fictional versioning CLI
-#[derive(Debug, Parser)] // requires `derive` feature
-#[command(name = "server")]
+#[derive(Debug, Parser)]
+#[command(name = "cimctl")]
 #[command(author, about, long_about = None)]
 struct Cli {
     #[command(subcommand)]
@@ -13,7 +13,6 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Commands {
-    #[command(arg_required_else_help = true)]
     Run,
     #[command(short_flag = 'v')]
     Version,
@@ -24,7 +23,7 @@ fn main() {
     let args = Cli::parse();
     match args.command {
         Commands::Run => {
-            println!("run");
+            println!("run {}", 12);
         }
         Commands::Version => {
             println!("{}", version());
