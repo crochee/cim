@@ -36,22 +36,22 @@ pub async fn create(
         .map(char::from)
         .collect::<String>();
     let password = encrypt(&content.password, &secret)?;
-    sqlx::query!(
+    sqlx::query(
             r#"INSERT INTO `user`
             (`id`,`account_id`,`name`,`nick_name`,`desc`,`email`,`mobile`,`sex`,`image`,`secret`,`password`)
             VALUES(?,?,?,?,?,?,?,?,?,?,?);"#,
-            uid,
-            account_id,
-            content.name,
-            nick_name,
-            content.desc,
-            content.email,
-            content.mobile,
-            content.sex,
-            content.image,
-            secret,
-            password,
-        )
+            )
+           .bind( uid)
+           .bind( account_id)
+           .bind( &content.name)
+           .bind( nick_name)
+           .bind(& content.desc)
+           .bind(& content.email)
+           .bind(& content.mobile)
+           .bind(& content.sex)
+           .bind(& content.image)
+           .bind( secret)
+           .bind( password)
         .execute(pool)
         .await
         .map_err(errors::any)?;

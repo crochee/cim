@@ -5,17 +5,17 @@ use crate::{errors, next_id, Result};
 
 pub async fn create(pool: &MySqlPool, content: &super::Content) -> Result<ID> {
     let uid = next_id().map_err(errors::any)?;
-    sqlx::query!(
+    sqlx::query(
         r#"INSERT INTO `provider`
             (`id`,`secret`,`redirect_url`,`name`,`prompt`,`logo_url`)
             VALUES(?,?,?,?,?,?);"#,
-        uid,
-        content.secret,
-        content.redirect_url,
-        content.name,
-        content.prompt,
-        content.logo_url,
     )
+    .bind(uid)
+    .bind(&content.secret)
+    .bind(&content.redirect_url)
+    .bind(&content.name)
+    .bind(&content.prompt)
+    .bind(&content.logo_url)
     .execute(pool)
     .await
     .map_err(errors::any)?;

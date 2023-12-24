@@ -33,13 +33,13 @@ pub async fn update(pool: &MySqlPool, nk: &Keys) -> Result<()> {
         serde_json::to_string(&nk.signing_key).map_err(errors::any)?;
     let verification_keys =
         serde_json::to_string(&nk.verification_keys).map_err(errors::any)?;
-    sqlx::query!(
+    sqlx::query(
                 r#"UPDATE `key` SET `signing_key` = ?,`verification_keys`= ?,`next_rotation` = ?
                 WHERE `enable` = 1 AND `deleted` = 0;"#,
-                signing_key,
-                verification_keys,
-                nk.next_rotation,
-            )
+                )
+              .bind(  signing_key)
+              .bind(  verification_keys)
+              .bind(  nk.next_rotation)
             .execute(pool)
             .await
             .map_err(errors::any)?;
@@ -51,14 +51,14 @@ pub async fn create(pool: &MySqlPool, nk: &Keys) -> Result<()> {
         serde_json::to_string(&nk.signing_key).map_err(errors::any)?;
     let verification_keys =
         serde_json::to_string(&nk.verification_keys).map_err(errors::any)?;
-    sqlx::query!(
+    sqlx::query(
         r#"INSERT INTO `key`
             (`signing_key`,`verification_keys`,`next_rotation`,`enable`)
         VALUES(?,?,?,1);"#,
-        signing_key,
-        verification_keys,
-        nk.next_rotation,
     )
+    .bind(signing_key)
+    .bind(verification_keys)
+    .bind(nk.next_rotation)
     .execute(pool)
     .await
     .map_err(errors::any)?;

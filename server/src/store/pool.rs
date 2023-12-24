@@ -16,7 +16,7 @@ pub async fn connection_manager(
 
     if run_migrations {
         tracing::info!("migrations enabled, running...");
-        sqlx::migrate!()
+        sqlx::migrate!("../migrations")
             .run(&pool)
             .await
             .context("error while running database migrations")?;

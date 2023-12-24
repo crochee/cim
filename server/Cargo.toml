@@ -40,7 +40,8 @@ prometheus = { version = "=0.13.3", default-features = false }
 lazy_static = "1.4"
 sqlx = { version = "0.7", features = [
     "mysql",
-    "runtime-tokio-rustls",
+    "runtime-tokio",
+    "tls-rustls",
     "chrono",
 ] }
 regex = "1.7"

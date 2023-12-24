@@ -25,16 +25,16 @@ pub async fn create(
         .user_id
         .parse()
         .map_err(|err| errors::bad_request(&err))?;
-    sqlx::query!(
+    sqlx::query(
         r#"INSERT INTO `role`
             (`id`,`account_id`,`user_id`,`name`,`desc`)
             VALUES(?,?,?,?,?);"#,
-        uid,
-        account_id,
-        user_id,
-        content.name,
-        content.desc,
     )
+    .bind(uid)
+    .bind(account_id)
+    .bind(user_id)
+    .bind(&content.name)
+    .bind(&content.desc)
     .execute(pool)
     .await
     .map_err(errors::any)?;
@@ -322,12 +322,12 @@ pub async fn add_user(
     account_id: &str,
     user_id: &str,
 ) -> Result<()> {
-    if sqlx::query!(
+    if sqlx::query(
         r#"SELECT `id` FROM `role`
             WHERE `id` = ? AND `account_id` = ? AND `deleted` = 0 LIMIT 1;"#,
-        id,
-        account_id,
     )
+    .bind(id)
+    .bind(account_id)
     .fetch_optional(pool)
     .await
     .map_err(errors::any)?
@@ -335,12 +335,12 @@ pub async fn add_user(
     {
         return Err(errors::not_found(&format!("not found role {}", id,)));
     }
-    if sqlx::query!(
+    if sqlx::query(
         r#"SELECT `id` FROM `user`
             WHERE `id` = ? AND `account_id` = ? AND `deleted` = 0 LIMIT 1;"#,
-        user_id,
-        account_id,
     )
+    .bind(user_id)
+    .bind(account_id)
     .fetch_optional(pool)
     .await
     .map_err(errors::any)?
@@ -348,14 +348,14 @@ pub async fn add_user(
     {
         return Err(errors::not_found(&format!("not found user {}", user_id)));
     }
-    sqlx::query!(
+    sqlx::query(
         r#"INSERT INTO `user_role`
             (`id`,`user_id`,`role_id`)
             VALUES(?,?,?);"#,
-        next_id().map_err(errors::any)?,
-        user_id,
-        id,
     )
+    .bind(next_id().map_err(errors::any)?)
+    .bind(user_id)
+    .bind(id)
     .execute(pool)
     .await
     .map_err(errors::any)?;
@@ -366,13 +366,13 @@ pub async fn delete_user(
     id: &str,
     user_id: &str,
 ) -> Result<()> {
-    sqlx::query!(
+    sqlx::query(
         r#"UPDATE `user_role` SET `deleted` = `id`,`deleted_at`= ?
             WHERE `user_id` = ? AND `role_id` = ? AND `deleted` = 0;"#,
-        Utc::now().naive_utc(),
-        user_id,
-        id,
     )
+    .bind(Utc::now().naive_utc())
+    .bind(user_id)
+    .bind(id)
     .execute(pool)
     .await
     .map_err(errors::any)?;
@@ -384,12 +384,12 @@ pub async fn add_policy(
     account_id: &str,
     policy_id: &str,
 ) -> Result<()> {
-    if sqlx::query!(
+    if sqlx::query(
         r#"SELECT `id` FROM `role`
             WHERE `id` = ? AND `account_id` = ? AND `deleted` = 0 LIMIT 1;"#,
-        id,
-        account_id,
     )
+    .bind(id)
+    .bind(account_id)
     .fetch_optional(pool)
     .await
     .map_err(errors::any)?
@@ -397,12 +397,12 @@ pub async fn add_policy(
     {
         return Err(errors::not_found(&format!("not found role {}", id,)));
     }
-    if sqlx::query!(
+    if sqlx::query(
             r#"SELECT `id` FROM `policy`
             WHERE `id` = ? AND `account_id` IN(0,?) AND `deleted` = 0 LIMIT 1;"#,
-            policy_id,
-            account_id,
-        )
+            )
+           .bind( policy_id)
+           .bind( account_id)
         .fetch_optional(pool)
         .await
         .map_err(errors::any)?
@@ -413,14 +413,14 @@ pub async fn add_policy(
                 policy_id
             )));
         }
-    sqlx::query!(
+    sqlx::query(
         r#"INSERT INTO `role_policy`
             (`id`,`role_id`,`policy_id`)
             VALUES(?,?,?);"#,
-        next_id().map_err(errors::any)?,
-        id,
-        policy_id,
     )
+    .bind(next_id().map_err(errors::any)?)
+    .bind(id)
+    .bind(policy_id)
     .execute(pool)
     .await
     .map_err(errors::any)?;
@@ -432,13 +432,13 @@ pub async fn delete_policy(
     id: &str,
     policy_id: &str,
 ) -> Result<()> {
-    sqlx::query!(
+    sqlx::query(
         r#"UPDATE `role_policy` SET `deleted` = `id`,`deleted_at`= ?
             WHERE `role_id` = ? AND `policy_id` = ? AND `deleted` = 0;"#,
-        Utc::now().naive_utc(),
-        id,
-        policy_id,
     )
+    .bind(Utc::now().naive_utc())
+    .bind(id)
+    .bind(policy_id)
     .execute(pool)
     .await
     .map_err(errors::any)?;

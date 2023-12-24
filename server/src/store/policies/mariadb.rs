@@ -38,17 +38,17 @@ pub async fn create(
     let statement =
         serde_json::to_string(&content.statement).map_err(errors::any)?;
 
-    sqlx::query!(
+    sqlx::query(
         r#"INSERT INTO `policy`
             (`id`,`account_id`,`user_id`,`desc`,`version`,`content`)
             VALUES(?,?,?,?,?,?);"#,
-        uid,
-        account_id,
-        user_id,
-        content.desc,
-        content.version,
-        statement,
     )
+    .bind(uid)
+    .bind(account_id)
+    .bind(user_id)
+    .bind(&content.desc)
+    .bind(&content.version)
+    .bind(statement)
     .execute(pool)
     .await
     .map_err(errors::any)?;

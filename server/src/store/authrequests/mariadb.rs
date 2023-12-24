@@ -18,22 +18,22 @@ pub async fn create(pool: &MySqlPool, content: &Content) -> Result<ID> {
         .take(255)
         .map(char::from)
         .collect::<String>();
-    sqlx::query!(
+    sqlx::query(
             r#"INSERT INTO `auth_request`
             (`id`,`client_id`,`response_type`,`scope`,`redirect_url`,`nonce`,`state`,`force_approval`,`expiry`,`logged_in`,`hmac_key`)
             VALUES(?,?,?,?,?,?,?,?,?,?,?);"#,
-            uid,
-            content.client_id,
-            response_type,
-            scope,
-            content.redirect_url,
-            content.nonce,
-            content.state,
-            content.force_approval,
-            content.expiry,
-            content.logged_in,
-            hmac_key,
-        )
+            )
+           .bind( uid)
+           .bind( &content.client_id)
+           .bind( response_type)
+           .bind( scope)
+           .bind( &content.redirect_url)
+           .bind( &content.nonce)
+           .bind( &content.state)
+           .bind( content.force_approval)
+           .bind( content.expiry)
+           .bind( content.logged_in)
+           .bind( hmac_key)
         .execute(pool)
         .await
         .map_err(errors::any)?;
@@ -43,10 +43,11 @@ pub async fn create(pool: &MySqlPool, content: &Content) -> Result<ID> {
 }
 
 pub async fn get(pool: &MySqlPool, id: &str) -> Result<AuthRequest> {
-    let row=match sqlx::query!(r#"SELECT `id`,`client_id`,`response_type`,`scope`,`redirect_url`,`nonce`,`state`,`force_approval`,`expiry`,`logged_in`,`claims`,`hmac_key` 
+    let row: AuthRequest = match  sqlx::query(r#"SELECT `id`,`client_id`,`response_type`,`scope`,`redirect_url`,`nonce`,`state`,`force_approval`,`expiry`,`logged_in`,`claims`,`hmac_key`
         FROM `auth_request` 
         WHERE `id` = ? AND `deleted` = 0"#,
-        id)
+        )
+        .bind(id)
         .fetch_optional(pool)
         .await
         {
@@ -82,13 +83,13 @@ pub async fn update(
     opts: &UpdateOpts,
 ) -> Result<()> {
     let claims = serde_json::to_string(&opts.claims).map_err(errors::any)?;
-    sqlx::query!(
+    sqlx::query(
         r#"UPDATE `auth_request` SET `logged_in` = ?,`claims`= ?
         WHERE `id` = ? AND `deleted` = 0;"#,
-        opts.logged_in,
-        claims,
-        id,
     )
+    .bind(opts.logged_in)
+    .bind(claims)
+    .bind(id)
     .execute(pool)
     .await
     .map_err(errors::any)?;
@@ -96,12 +97,12 @@ pub async fn update(
 }
 
 pub async fn delete(pool: &MySqlPool, id: &str) -> Result<()> {
-    sqlx::query!(
+    sqlx::query(
         r#"UPDATE `auth_request` SET `deleted` = `id`,`deleted_at`= ?
         WHERE `id` = ? AND `deleted` = 0;"#,
-        Utc::now().naive_utc(),
-        id,
     )
+    .bind(Utc::now().naive_utc())
+    .bind(id)
     .execute(pool)
     .await
     .map_err(errors::any)?;
