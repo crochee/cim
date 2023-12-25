@@ -1,6 +1,6 @@
 use chrono::Utc;
 use rand::Rng;
-use sqlx::MySqlPool;
+use sqlx::{MySqlPool, Row};
 
 use crate::{errors, next_id, Result};
 
@@ -43,7 +43,7 @@ pub async fn create(pool: &MySqlPool, content: &Content) -> Result<ID> {
 }
 
 pub async fn get(pool: &MySqlPool, id: &str) -> Result<AuthRequest> {
-    let row: AuthRequest = match  sqlx::query(r#"SELECT `id`,`client_id`,`response_type`,`scope`,`redirect_url`,`nonce`,`state`,`force_approval`,`expiry`,`logged_in`,`claims`,`hmac_key`
+    let row  = match  sqlx::query(r#"SELECT `id`,`client_id`,`response_type`,`scope`,`redirect_url`,`nonce`,`state`,`force_approval`,`expiry`,`logged_in`,`claims`,`hmac_key`
         FROM `auth_request` 
         WHERE `id` = ? AND `deleted` = 0"#,
         )
@@ -58,22 +58,37 @@ pub async fn get(pool: &MySqlPool, id: &str) -> Result<AuthRequest> {
             Err(err) => Err(errors::any(err)),
         }?;
     Ok(AuthRequest {
-        id: row.id.to_string(),
-        client_id: row.client_id,
-        response_types: serde_json::from_str(&row.response_type)
-            .map_err(errors::any)?,
-        scopes: serde_json::from_str(&row.scope).map_err(errors::any)?,
-        redirect_url: row.redirect_url,
-        nonce: row.nonce,
-        state: row.state,
-        force_approval: row.force_approval == 0,
-        expiry: row.expiry,
-        logged_in: row.logged_in == 0,
-        claims: match row.claims {
+        id: row
+            .try_get::<u64, _>("id")
+            .map_err(errors::any)?
+            .to_string(),
+        client_id: row.try_get("client_id").map_err(errors::any)?,
+        response_types: serde_json::from_str(
+            row.try_get("response_type").map_err(errors::any)?,
+        )
+        .map_err(errors::any)?,
+        scopes: serde_json::from_str(
+            row.try_get("scope").map_err(errors::any)?,
+        )
+        .map_err(errors::any)?,
+        redirect_url: row.try_get("redirect_url").map_err(errors::any)?,
+        nonce: row.try_get("nonce").map_err(errors::any)?,
+        state: row.try_get("state").map_err(errors::any)?,
+        force_approval: row
+            .try_get::<u64, _>("force_approval")
+            .map_err(errors::any)?
+            == 0,
+        expiry: row.try_get("expiry").map_err(errors::any)?,
+        logged_in: row.try_get::<u64, _>("logged_in").map_err(errors::any)?
+            == 0,
+        claims: match row
+            .try_get::<Option<String>, _>("claims")
+            .map_err(errors::any)?
+        {
             Some(v) => serde_json::from_str(&v).map_err(errors::any)?,
             None => None,
         },
-        hmac_key: row.hmac_key,
+        hmac_key: row.try_get("hmac_key").map_err(errors::any)?,
     })
 }
 
