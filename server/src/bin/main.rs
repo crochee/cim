@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use clap::Parser;
-use tokio::{net::TcpListener, runtime::Builder, sync::oneshot};
+use tokio::{net::TcpListener, runtime::Builder, signal};
 use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -52,6 +52,7 @@ async fn async_run_server(config: AppConfig) -> anyhow::Result<()> {
         .context("could not bind to endpoint")?;
 
     axum::serve(listener, router.into_make_service())
+        // .with_graceful_shutdown(shutdown_signal())
         .await
         .context("error while starting API server")?;
 
@@ -59,35 +60,52 @@ async fn async_run_server(config: AppConfig) -> anyhow::Result<()> {
 }
 
 fn key_rotate(app: Arc<App>) {
-    tokio::spawn(async {
-        let (tx, mut rx) = oneshot::channel();
-        tokio::spawn(async move {
-            let _ = tokio::signal::ctrl_c().await;
-            let _ = tx.send(true);
-        });
-        tokio::spawn(async move {
-            info!("start first rotate...");
-            if let Err(err) = app.key_rotator.rotate().await {
-                error!("{}", err);
-            }
-            info!("start first finish!");
-            let mut interval =
-                tokio::time::interval(tokio::time::Duration::from_secs(60));
+    tokio::spawn(async move {
+        info!("start first rotate...");
+        if let Err(err) = app.key_rotator.rotate().await {
+            error!("{}", err);
+        }
+        info!("start first finish!");
+        let mut interval =
+            tokio::time::interval(tokio::time::Duration::from_secs(60));
 
-            loop {
-                tokio::select! {
-                    _ = interval.tick() => {
-                        info!("start rotate...");
-                if let Err(err) = app.key_rotator.rotate().await {
-                    error!("{}", err);
-                }
-                info!("start rotate finish!");
-                    },
-                    _ = &mut rx => {
-                        break;
+        loop {
+            tokio::select! {
+                _ = interval.tick() => {
+                    info!("start rotate...");
+                    if let Err(err) = app.key_rotator.rotate().await {
+                        error!("{}", err);
                     }
+                    info!("start rotate finish!");
+                },
+                _ = shutdown_signal() => {
+                    break;
                 }
             }
-        });
+        }
     });
+}
+
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("failed to install signal handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
 }
