@@ -1,4 +1,3 @@
-#![allow(unused)]
 #![feature(backtrace)]
 
 use std::{error::Error as StdError, fmt, str::FromStr};
@@ -69,15 +68,6 @@ impl StdError for WithBacktrace {
     }
 }
 
-impl From<Code> for WithBacktrace {
-    fn from(source: Code) -> Self {
-        WithBacktrace {
-            source,
-            backtrace: Backtrace::new(),
-        }
-    }
-}
-
 impl PartialEq for WithBacktrace {
     fn eq(&self, other: &Self) -> bool {
         self.source.code() == other.source.code()
@@ -141,6 +131,14 @@ pub fn forbidden<S: ToString + ?Sized>(err: &S) -> WithBacktrace {
         backtrace: Backtrace::new(),
     }
 }
+
+pub fn unauthorized() -> WithBacktrace {
+    WithBacktrace {
+        source: Code::Unauthorized,
+        backtrace: Backtrace::new(),
+    }
+}
+
 pub fn bad_request<S: ToString + ?Sized>(err: &S) -> WithBacktrace {
     WithBacktrace {
         source: Code::BadRequest(err.to_string()),
