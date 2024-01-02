@@ -7,22 +7,24 @@ use anyhow::Result;
 
 use matcher::Matcher;
 use req::Request;
-use statement::{Effect, Manager, Statement};
+use statement::{Effect, Statement};
 
-pub struct Padon<S, M> {
-    manager: S,
+pub struct Padon<M> {
     matcher: M,
 }
 
-impl<S, M> Padon<S, M> {
-    pub fn new(manager: S, matcher: M) -> Self {
-        Self { manager, matcher }
+impl<M> Padon<M> {
+    pub fn new(matcher: M) -> Self {
+        Self { matcher }
     }
 }
 
-impl<S: Manager, M: Matcher> Padon<S, M> {
-    pub async fn is_allow(&self, input: Request) -> Result<()> {
-        let list = self.manager.get_statements(input.clone()).await?;
+impl<M: Matcher> Padon<M> {
+    pub fn is_allow(
+        &self,
+        list: Vec<Statement>,
+        input: &Request,
+    ) -> Result<()> {
         let mut allowed = false;
         for statement in list.iter() {
             if !self.matcher.matches(
@@ -49,17 +51,17 @@ impl<S: Manager, M: Matcher> Padon<S, M> {
             )? {
                 continue;
             }
-            if !evaluate_conditions(statement, &input)? {
+            if !evaluate_conditions(statement, input)? {
                 continue;
             }
             if let Effect::Deny = statement.effect {
-                return Err(anyhow::anyhow!("The request was denied because a policy denied request.Please proofread the policy {:?}",statement));
+                return Err(anyhow::anyhow!("The request was denied because a statement denied request.Please proofread the policy {:?}",statement));
             }
             allowed = true;
         }
         if !allowed {
             return Err(anyhow::anyhow!(
-                "The request was denied because no matching policy was found.",
+                "The request was denied because no matching statement was found.",
             ));
         }
         Ok(())
@@ -84,6 +86,8 @@ fn evaluate_conditions(statement: &Statement, input: &Request) -> Result<bool> {
 mod tests {
     use std::collections::HashMap;
 
+    use chrono::prelude::*;
+
     use crate::{
         condition::{
             boolean::Boolean, cidr::Cidr, numeric_cmp::NumericCmp,
@@ -93,12 +97,11 @@ mod tests {
         },
         matcher::reg::Regexp,
     };
-    use chrono::prelude::*;
 
     use super::*;
 
-    #[tokio::test]
-    async fn auth_match() {
+    #[test]
+    fn is_allow() {
         let sts = vec![Statement {
             sid: None,
             effect: Effect::Allow,
@@ -191,51 +194,51 @@ mod tests {
             ])),
             meta: None,
         }];
-        let mut m = statement::MockManager::new();
-        m.expect_get_statements()
-            .returning(move |_| Ok(sts.clone()));
 
-        let p = super::Padon::new(m, Regexp::new(256));
-        p.is_allow(Request {
-            resource: "myrn:some.domain.com:resource:123".to_owned(),
-            action: "delete".to_owned(),
-            subject: "peter".to_owned(),
-            context: HashMap::from([
-                (
-                    "owner".to_owned(),
-                    serde_json::value::to_raw_value("peter").unwrap(),
-                ),
-                (
-                    "clientIP".to_owned(),
-                    serde_json::value::to_raw_value("192.168.1.67").unwrap(),
-                ),
-                (
-                    "year".to_owned(),
-                    serde_json::value::to_raw_value("2023").unwrap(),
-                ),
-                (
-                    "password".to_owned(),
-                    serde_json::value::to_raw_value("a12345678901234567")
+        let p = super::Padon::new(Regexp::new(256));
+        p.is_allow(
+            sts,
+            &Request {
+                resource: "myrn:some.domain.com:resource:123".to_owned(),
+                action: "delete".to_owned(),
+                subject: "peter".to_owned(),
+                context: HashMap::from([
+                    (
+                        "owner".to_owned(),
+                        serde_json::value::to_raw_value("peter").unwrap(),
+                    ),
+                    (
+                        "clientIP".to_owned(),
+                        serde_json::value::to_raw_value("192.168.1.67")
+                            .unwrap(),
+                    ),
+                    (
+                        "year".to_owned(),
+                        serde_json::value::to_raw_value("2023").unwrap(),
+                    ),
+                    (
+                        "password".to_owned(),
+                        serde_json::value::to_raw_value("a12345678901234567")
+                            .unwrap(),
+                    ),
+                    (
+                        "enable".to_owned(),
+                        serde_json::value::to_raw_value(&true).unwrap(),
+                    ),
+                    (
+                        "count".to_owned(),
+                        serde_json::value::to_raw_value(&6.0).unwrap(),
+                    ),
+                    (
+                        "login".to_owned(),
+                        serde_json::value::to_raw_value(
+                            &Local::now().format("%d/%m/%Y %H:%M").to_string(),
+                        )
                         .unwrap(),
-                ),
-                (
-                    "enable".to_owned(),
-                    serde_json::value::to_raw_value(&true).unwrap(),
-                ),
-                (
-                    "count".to_owned(),
-                    serde_json::value::to_raw_value(&6.0).unwrap(),
-                ),
-                (
-                    "login".to_owned(),
-                    serde_json::value::to_raw_value(
-                        &Local::now().format("%d/%m/%Y %H:%M").to_string(),
-                    )
-                    .unwrap(),
-                ),
-            ]),
-        })
-        .await
+                    ),
+                ]),
+            },
+        )
         .unwrap();
     }
 }

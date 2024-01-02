@@ -34,9 +34,3 @@ pub enum Effect {
     Allow,
     Deny,
 }
-
-#[mockall::automock]
-#[async_trait::async_trait]
-pub trait Manager {
-    async fn get_statements(&self, req: Request) -> Result<Vec<Statement>>;
-}
