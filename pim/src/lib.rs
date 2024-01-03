@@ -9,17 +9,17 @@ use matcher::Matcher;
 use req::Request;
 use statement::{Effect, Statement};
 
-pub struct Padon<M> {
+pub struct Pim<M> {
     matcher: M,
 }
 
-impl<M> Padon<M> {
+impl<M> Pim<M> {
     pub fn new(matcher: M) -> Self {
         Self { matcher }
     }
 }
 
-impl<M: Matcher> Padon<M> {
+impl<M: Matcher> Pim<M> {
     pub fn is_allow(
         &self,
         list: Vec<Statement>,
@@ -207,7 +207,7 @@ mod tests {
             meta: None,
         }];
 
-        let p = super::Padon::new(Regexp::new(256));
+        let p = super::Pim::new(Regexp::new(256));
         p.is_allow(
             sts,
             &Request {
