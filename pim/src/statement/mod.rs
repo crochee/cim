@@ -1,12 +1,10 @@
 use std::collections::HashMap;
 
-use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
 use validator::Validate;
 
 use crate::condition::JsonCondition;
-use crate::req::Request;
 
 #[derive(Debug, Deserialize, Serialize, Validate, Clone)]
 pub struct Statement {

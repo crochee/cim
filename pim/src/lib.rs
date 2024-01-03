@@ -86,8 +86,6 @@ fn evaluate_conditions(statement: &Statement, input: &Request) -> Result<bool> {
 mod tests {
     use std::collections::HashMap;
 
-    use chrono::prelude::*;
-
     use crate::{
         condition::{
             boolean::Boolean, cidr::Cidr, numeric_cmp::NumericCmp,
@@ -118,6 +116,13 @@ mod tests {
                 "myrn:some.domain.com:resource:<\\d+>".to_owned(),
             ],
             conditions: Some(HashMap::from([
+                (
+                    "owner".to_owned(),
+                    JsonCondition {
+                        jtype: "EqualsSubject".to_owned(),
+                        options: serde_json::value::to_raw_value("{}").unwrap(),
+                    },
+                ),
                 (
                     "clientIP".to_owned(),
                     JsonCondition {
@@ -183,12 +188,19 @@ mod tests {
                         options: serde_json::value::to_raw_value(&TimeCmp {
                             values: vec![TimeCmpInner {
                                 symbol: ">=".to_owned(),
-                                value: "15/01/2023 12:50".to_owned(),
+                                value: "10/01/2023 12:50".to_owned(),
                                 format: "%d/%m/%Y %H:%M".to_owned(),
                                 location: Some("LOCAL".to_owned()),
                             }],
                         })
                         .unwrap(),
+                    },
+                ),
+                (
+                    "resource".to_owned(),
+                    JsonCondition {
+                        jtype: "ResourceContains".to_owned(),
+                        options: serde_json::value::to_raw_value("{}").unwrap(),
                     },
                 ),
             ])),
@@ -231,9 +243,15 @@ mod tests {
                     ),
                     (
                         "login".to_owned(),
-                        serde_json::value::to_raw_value(
-                            &Local::now().format("%d/%m/%Y %H:%M").to_string(),
-                        )
+                        serde_json::value::to_raw_value("15/01/2023 12:50")
+                            .unwrap(),
+                    ),
+                    (
+                        "resource".to_owned(),
+                        serde_json::value::to_raw_value(&HashMap::from([
+                            ("value".to_owned(), "123".to_owned()),
+                            ("delimiter".to_owned(), "".to_owned()),
+                        ]))
                         .unwrap(),
                     ),
                 ]),

@@ -1,6 +1,8 @@
 pub(crate) mod boolean;
 pub(crate) mod cidr;
+pub(crate) mod equals_subject;
 pub(crate) mod numeric_cmp;
+pub(crate) mod resource_contains;
 pub(crate) mod string_cmp;
 pub(crate) mod string_match;
 pub(crate) mod time_cmp;
@@ -39,6 +41,7 @@ impl JsonCondition {
                         .context("Could not parse Cidr")?;
                 Ok(Box::new(result))
             }
+            "EqualsSubject" => Ok(Box::new(equals_subject::EqualsSubject)),
             "Boolean" => {
                 let result: boolean::Boolean =
                     serde_json::from_str(self.options.get())
@@ -56,6 +59,9 @@ impl JsonCondition {
                     serde_json::from_str(self.options.get())
                         .context("Could not parse TimeCmp")?;
                 Ok(Box::new(result))
+            }
+            "ResourceContains" => {
+                Ok(Box::new(resource_contains::ResourceContains))
             }
             v => Err(anyhow::anyhow!("Could not find condition type {}", v)),
         }
