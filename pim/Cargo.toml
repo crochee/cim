@@ -12,8 +12,6 @@ chrono = { workspace = true }
 anyhow = { workspace = true }
 regex = { workspace = true }
 validator = { workspace = true }
-mockall = { workspace = true }
-async-trait = { workspace = true }
 
 cidr-utils = "0.6"
 lru = "0.12"
