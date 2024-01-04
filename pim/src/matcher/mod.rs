@@ -1,4 +1,4 @@
-pub mod reg;
+pub(crate) mod reg;
 
 use anyhow::Result;
 

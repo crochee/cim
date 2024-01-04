@@ -8,7 +8,7 @@ use regex::Regex;
 use super::Matcher;
 
 pub struct Regexp {
-    pub lru: Mutex<LruCache<String, Regex>>,
+    lru: Mutex<LruCache<String, Regex>>,
 }
 
 impl Regexp {

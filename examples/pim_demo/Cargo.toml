@@ -1,19 +1,11 @@
 [package]
-name = "pim"
+name = "pim_demo"
 version.workspace = true
 edition.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+pim = { path = "../../pim" }
 serde_json = { workspace = true }
-serde = { workspace = true }
-chrono = { workspace = true }
 anyhow = { workspace = true }
-regex = { workspace = true }
-validator = { workspace = true }
-mockall = { workspace = true }
-async-trait = { workspace = true }
-
-cidr-utils = "0.6"
-lru = "0.12"

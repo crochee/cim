@@ -25,10 +25,10 @@ serde = { workspace = true }
 chrono = { workspace = true }
 validator = { workspace = true }
 regex = { workspace = true }
-tokio = { workspace = true }
 mockall = { workspace = true }
 async-trait = { workspace = true }
 
+tokio = { version = "1.35", features = ["full"] }
 backtrace = "0.3"
 mime = "0.3"
 sonyflake = "0.2"
@@ -44,10 +44,10 @@ metrics-exporter-prometheus = "0.12"
 prometheus = { version = "=0.13.3", default-features = false }
 lazy_static = "1.4"
 sqlx = { version = "0.7", features = [
-  "mysql",
-  "runtime-tokio",
-  "tls-rustls",
-  "chrono",
+    "mysql",
+    "runtime-tokio",
+    "tls-rustls",
+    "chrono",
 ] }
 serde_urlencoded = "0.7"
 lru = "0.12"
@@ -56,8 +56,8 @@ rand = "0.8"
 askama = "0.12"
 oauth2 = "4.3"
 reqwest = { version = "0.11", default-features = false, features = [
-  "rustls-tls",
-  "json",
+    "rustls-tls",
+    "json",
 ] }
 base64 = "0.21"
 jsonwebtoken = "9.2"

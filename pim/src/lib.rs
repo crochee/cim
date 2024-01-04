@@ -1,13 +1,14 @@
 mod condition;
-pub mod matcher;
-pub mod req;
-pub mod statement;
+mod matcher;
+mod req;
+mod statement;
 
 use anyhow::Result;
 
-use matcher::Matcher;
-use req::Request;
-use statement::{Effect, Statement};
+pub use condition::JsonCondition;
+pub use matcher::{reg::Regexp, Matcher};
+pub use req::Request;
+pub use statement::{Effect, Statement};
 
 pub struct Pim<M> {
     matcher: M,
@@ -86,14 +87,11 @@ fn evaluate_conditions(statement: &Statement, input: &Request) -> Result<bool> {
 mod tests {
     use std::collections::HashMap;
 
-    use crate::{
-        condition::{
-            boolean::Boolean, cidr::Cidr, numeric_cmp::NumericCmp,
-            string_cmp::StringCmp, string_cmp::StringCmpInner,
-            string_match::StringMatch, time_cmp::TimeCmp,
-            time_cmp::TimeCmpInner, JsonCondition,
-        },
-        matcher::reg::Regexp,
+    use crate::condition::{
+        boolean::Boolean, cidr::Cidr, numeric_cmp::NumericCmp,
+        string_cmp::StringCmp, string_cmp::StringCmpInner,
+        string_match::StringMatch, time_cmp::TimeCmp, time_cmp::TimeCmpInner,
+        JsonCondition,
     };
 
     use super::*;
