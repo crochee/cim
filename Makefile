@@ -1,39 +1,62 @@
-.PHONY: all
-all: fmt check clippy test
 
-.PHONY: fmt
-fmt:
-	# @cargo fmt -- --check
-	@cargo fmt
-.PHONY: clippy
-clippy:
-	# @cargo clippy --all-targets --all-features --tests --benches -- -D warnings
-	@cargo clippy --all-targets --tests --benches
-.PHONY: check
-check:
-	@cargo check --all
-.PHONY: test
-test:
-	# @cargo test --all-features --all
-	@cargo test --all
+##@ Build
 
 .PHONY: build
-build:
+build: ## Build cim binaries.
 	@cargo build --release
 
-.PHONY: server
-server:
-	@cargo run --release --bin server
+.PHONY: fmt
+fmt: ## fmt projects
+	# @cargo fmt -- --check
+	@cargo fmt
+
+##@ Generate
+
+.PHONY: generate
+generate:
 
 .PHONY: migrate
-migrate:
+migrate: ## migrate database
 	@sqlx database create && sqlx migrate run
 
-.PHONY: database
-database:
-	@cargo install sqlx-cli --no-default-features --features rustls,mysql
-
 .PHONY: rs
-rs:
+rs: ## run server
 	sudo docker build -f ./server/build/Dockerfile -t server:latest . && \
 	sudo docker run -itd -p 30050:30050 --restart=always --name server server:latest
+
+.PHONY: database
+database: ## install database cli
+	@cargo install sqlx-cli --no-default-features --features rustls,mysql
+
+##@ Test and Lint
+
+.PHONY: test
+test: ## Test go code.
+	@cargo test
+
+.PHONY: check
+check: ## check rust code
+	@cargo check --all
+
+.PHONY: clippy
+clippy: ## run rust linter
+	@cargo clippy
+
+##@ Clean
+clean: ## Delete all builds
+	@cargo clean
+
+
+FORMATTING_BEGIN_YELLOW = \033[0;33m
+FORMATTING_BEGIN_BLUE = \033[36m
+FORMATTING_END = \033[0m
+
+.PHONY: help
+help:
+	@awk 'BEGIN {\
+	    FS = ":.*##"; \
+	    printf                "Usage: ${FORMATTING_BEGIN_BLUE}OPTION${FORMATTING_END}=<value> make ${FORMATTING_BEGIN_YELLOW}<target>${FORMATTING_END}\n"\
+	  } \
+	  /^[a-zA-Z0-9_-]+:.*?##/ { printf "  ${FORMATTING_BEGIN_BLUE}%-46s${FORMATTING_END} %s\n", $$1, $$2 } \
+	  /^.?.?##~/              { printf "   %-46s${FORMATTING_BEGIN_YELLOW}%-46s${FORMATTING_END}\n", "", substr($$1, 6) } \
+	  /^##@/                  { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
