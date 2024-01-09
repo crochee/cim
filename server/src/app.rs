@@ -1,6 +1,5 @@
-use std::num::NonZeroUsize;
 use std::ops::Deref;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -8,24 +7,69 @@ use axum::{
     extract::{FromRef, FromRequestParts},
     http::request::Parts,
 };
+use pim::{Pim, Regexp};
 use sqlx::MySqlPool;
 use tracing::info;
 
 use crate::{
-    errors::WithBacktrace,
-    services::{
-        authentication::key::{KeyRotator, RotationStrategy},
-        authorization::matcher::reg::Regexp,
-    },
-    store::MariadbStore,
+    services::authentication::key::{KeyRotator, RotationStrategy},
     AppConfig,
 };
 
 pub struct App {
     pub config: AppConfig,
-    pub store: MariadbStore,
-    pub matcher: Regexp,
-    pub key_rotator: KeyRotator<MariadbStore>,
+    pub matcher: Pim<Regexp>,
+    pub store: Store,
+    pub key_rotator: KeyRotator<storage::keys::MockKeyStore>,
+}
+
+impl App {
+    pub fn new(pool: MySqlPool, config: AppConfig) -> Result<Self> {
+        info!("initializing utility services...");
+
+        let matcher = Pim::new(Regexp::new(config.cache_size)?);
+
+        let store = Store::new(pool);
+
+        let key_rotator = KeyRotator::new(
+            storage::keys::MockKeyStore::new(),
+            RotationStrategy {
+                rotation_frequency: 6 * 60 * 60,
+                keep: 6 * 60 * 60,
+            },
+        );
+
+        info!("feature services successfully initialized!");
+        Ok(Self {
+            config,
+            store,
+            matcher,
+            key_rotator,
+        })
+    }
+}
+
+pub struct Store {
+    pub user: storage::users::mariadb::UserImpl,
+    pub role: storage::roles::mariadb::RoleImpl,
+    pub group: storage::groups::mariadb::GroupImpl,
+    pub policy: storage::policies::mariadb::PolicyImpl,
+}
+
+impl Store {
+    pub fn new(pool: MySqlPool) -> Self {
+        let user = storage::users::mariadb::UserImpl::new(pool.clone());
+        let role = storage::roles::mariadb::RoleImpl::new(pool.clone());
+        let group = storage::groups::mariadb::GroupImpl::new(pool.clone());
+        let policy = storage::policies::mariadb::PolicyImpl::new(pool);
+
+        Self {
+            user,
+            role,
+            group,
+            policy,
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -46,42 +90,11 @@ where
     Self: FromRef<S>,
     S: Send + Sync,
 {
-    type Rejection = WithBacktrace;
+    type Rejection = slo::errors::WithBacktrace;
     async fn from_request_parts(
         _: &mut Parts,
         state: &S,
     ) -> Result<Self, Self::Rejection> {
         Ok(Self::from_ref(state))
-    }
-}
-
-impl App {
-    pub fn new(pool: MySqlPool, config: AppConfig) -> Result<Self> {
-        info!("initializing utility services...");
-
-        let matcher = Regexp {
-            lru: Mutex::new(lru::LruCache::new(
-                NonZeroUsize::new(config.cache_size).ok_or_else(|| {
-                    anyhow::anyhow!("panic on {}", config.cache_size)
-                })?,
-            )),
-        };
-        let store = MariadbStore::new(pool);
-
-        let key_rotator = KeyRotator::new(
-            store.clone(),
-            RotationStrategy {
-                rotation_frequency: 6 * 60 * 60,
-                keep: 6 * 60 * 60,
-            },
-        );
-
-        info!("feature services successfully initialized!");
-        Ok(Self {
-            config,
-            store,
-            matcher,
-            key_rotator,
-        })
     }
 }

@@ -205,7 +205,7 @@ mod tests {
             meta: None,
         }];
 
-        let p = super::Pim::new(Regexp::new(256));
+        let p = super::Pim::new(Regexp::new(256).unwrap());
         p.is_allow(
             sts,
             &Request {

@@ -12,12 +12,12 @@ pub struct Regexp {
 }
 
 impl Regexp {
-    pub fn new(cache_size: usize) -> Self {
-        Self {
+    pub fn new(cache_size: usize) -> Result<Self> {
+        Ok(Self {
             lru: Mutex::new(lru::LruCache::new(
-                NonZeroUsize::new(cache_size).unwrap(),
+                NonZeroUsize::new(cache_size).context("invalid cache size")?,
             )),
-        }
+        })
     }
 }
 

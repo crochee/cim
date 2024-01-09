@@ -1,5 +1,5 @@
 [package]
-name = "cims"
+name = "server"
 edition.workspace = true
 version.workspace = true
 
@@ -13,7 +13,9 @@ name = "server"
 path = "src/bin/main.rs"
 
 [dependencies]
-component = { path = "../component" }
+pim = { path = "../pim" }
+storage = { path = "../storage" }
+slo = { path = "../slo", features = ["axum-resp"] }
 
 dotenv = { workspace = true }
 clap = { workspace = true }
@@ -53,7 +55,6 @@ serde_urlencoded = "0.7"
 lru = "0.12"
 rust-argon2 = "2.0"
 rand = "0.8"
-askama = "0.12"
 oauth2 = "4.3"
 reqwest = { version = "0.11", default-features = false, features = [
     "rustls-tls",
@@ -62,6 +63,8 @@ reqwest = { version = "0.11", default-features = false, features = [
 base64 = "0.21"
 jsonwebtoken = "9.2"
 sha2 = "0.10"
+utoipa = { version = "4.2", features = ["axum_extras", "chrono"] }
+utoipa-swagger-ui = { version = "6.0", features = ["axum"] }
 
 mimalloc = { version = "0.1", default-features = false, optional = true }
 

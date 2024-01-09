@@ -109,7 +109,7 @@ fn main() -> anyhow::Result<()> {
         meta: None,
     }];
 
-    let p = Pim::new(Regexp::new(256));
+    let p = Pim::new(Regexp::new(256)?);
     p.is_allow(
         sts,
         &Request {

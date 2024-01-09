@@ -7,7 +7,7 @@ use crate::{
     errors,
     models::{claim::Claims, provider::Provider},
     store::Store,
-    AppState, Code, Result,
+    AppState, Result,
 };
 
 use super::{
@@ -39,7 +39,7 @@ pub async fn password_grant_token(
         Ok(v) => v,
         Err(err) => {
             if err.eq(&errors::not_found("")) {
-                return Err(Code::Unauthorized.into());
+                return Err(errors::unauthorized());
             }
             return Err(err);
         }
@@ -61,7 +61,7 @@ async fn password_grant<T: Token, C: PasswordConnector>(
         .secret
         .ne(&body.client_secret.clone().unwrap_or_default())
     {
-        return Err(Code::Unauthorized.into());
+        return Err(errors::unauthorized());
     }
     let scopes: Vec<String> = body
         .scope
@@ -92,7 +92,7 @@ async fn password_grant<T: Token, C: PasswordConnector>(
         .await?;
 
     if !ok {
-        return Err(Code::Unauthorized.into());
+        return Err(errors::unauthorized());
     }
 
     let claims = Claims {

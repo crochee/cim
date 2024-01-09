@@ -1,26 +1,23 @@
-use crate::Result;
+use slo::Result;
+use storage::users;
 
-use crate::{
-    store::{users, Store},
-    AppState,
-};
-
-pub async fn put(
-    app: &AppState,
+pub async fn put_user<U>(
+    user_store: &U,
     id: &str,
     content: &users::Content,
-) -> Result<()> {
-    let found = app
-        .store
+) -> Result<()>
+where
+    U: users::UserStore,
+{
+    let found = user_store
         .user_exist(id, content.account_id.clone(), true)
         .await?;
     if found {
-        return app
-            .store
+        return user_store
             .update_user(
                 id,
                 content.account_id.clone(),
-                &users::Opts {
+                &users::UpdateOpts {
                     name: Some(content.name.clone()),
                     nick_name: content.nick_name.clone(),
                     desc: Some(content.desc.clone()),
@@ -34,16 +31,6 @@ pub async fn put(
             )
             .await;
     }
-    app.store.create_user(Some(id.to_owned()), content).await?;
+    user_store.create_user(Some(id.to_owned()), content).await?;
     Ok(())
-}
-
-pub trait UserSrv {
-	async fn create(&self, user:users::User, opts metav1.CreateOptions) error
-	async fn update(&self.Context, user *v1.User, opts metav1.UpdateOptions) error
-	async fn delete(&self.Context, username string, opts metav1.DeleteOptions) error
-	async fn deleteCollection(&self, usernames []string, opts metav1.DeleteOptions) error
-	async fn get(&self, username string, opts metav1.GetOptions) (*v1.User, error)
-	async fn list(&self, opts metav1.ListOptions) (*v1.UserList, error)
-	async fn changePassword(&self, user *v1.User) error
 }

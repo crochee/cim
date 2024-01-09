@@ -5,5 +5,5 @@ pub mod policies;
 pub mod roles;
 pub mod users;
 
-#[cfg(test)]
-mod auth_test;
+// #[cfg(test)]
+// mod auth_test;

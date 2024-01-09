@@ -6,7 +6,9 @@ use tokio::{net::TcpListener, runtime::Builder, signal};
 use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use cims::{connection_manager, version, App, AppConfig, AppRouter, AppState};
+use storage::connection_manager;
+
+use server::{version, App, AppConfig, AppRouter, AppState};
 
 fn main() -> anyhow::Result<()> {
     dotenv::dotenv().ok();
@@ -51,8 +53,8 @@ async fn async_run_server(config: AppConfig) -> anyhow::Result<()> {
         .await
         .context("could not bind to endpoint")?;
 
-    axum::serve(listener, router.into_make_service())
-        // .with_graceful_shutdown(shutdown_signal())
+    axum::serve(listener, router)
+        .with_graceful_shutdown(shutdown_signal())
         .await
         .context("error while starting API server")?;
 

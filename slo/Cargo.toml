@@ -1,0 +1,27 @@
+[package]
+name = "slo"
+version.workspace = true
+edition.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+default = []
+
+axum-resp = ["axum", "tracing", "serde_json"]
+
+[dependencies]
+serde_json = { workspace = true, optional = true }
+chrono = { workspace = true }
+anyhow = { workspace = true }
+validator = { workspace = true }
+regex = { workspace = true }
+tracing = { workspace = true, optional = true }
+axum = { workspace = true, optional = true }
+
+lazy_static = "1.4"
+backtrace = "0.3"
+thiserror = "1.0"
+http = "1.0"
+sonyflake = "0.2"
+rust-argon2 = "2.0"
+rand = "0.8"

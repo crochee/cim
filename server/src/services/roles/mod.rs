@@ -1,26 +1,23 @@
-use crate::Result;
+use slo::Result;
+use storage::roles;
 
-use crate::{
-    store::{roles, Store},
-    AppState,
-};
-
-pub async fn put(
-    app: &AppState,
+pub async fn put_role<R>(
+    role_store: &R,
     id: &str,
     content: &roles::Content,
-) -> Result<()> {
-    let found = app
-        .store
+) -> Result<()>
+where
+    R: roles::RoleStore,
+{
+    let found = role_store
         .role_exist(id, Some(content.account_id.clone()), true)
         .await?;
     if found {
-        return app
-            .store
+        return role_store
             .update_role(
                 id,
                 Some(content.account_id.clone()),
-                &roles::Opts {
+                &roles::UpdateOpts {
                     name: Some(content.name.clone()),
                     desc: Some(content.desc.clone()),
                     unscoped: Some(true),
@@ -28,6 +25,6 @@ pub async fn put(
             )
             .await;
     }
-    app.store.create_role(Some(id.to_owned()), content).await?;
+    role_store.create_role(Some(id.to_owned()), content).await?;
     Ok(())
 }

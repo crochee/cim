@@ -1,26 +1,20 @@
-use crate::Result;
+use slo::Result;
+use storage::groups;
 
-use crate::{
-    store::{groups, Store},
-    AppState,
-};
-
-pub async fn put(
-    app: &AppState,
+pub async fn put_group<G: groups::GroupStore>(
+    group_store: &G,
     id: &str,
     content: &groups::Content,
 ) -> Result<()> {
-    let found = app
-        .store
-        .user_group_exist(id, Some(content.account_id.clone()), true)
+    let found = group_store
+        .group_exist(id, Some(content.account_id.clone()), true)
         .await?;
     if found {
-        return app
-            .store
-            .update_user_group(
+        return group_store
+            .update_group(
                 id,
                 Some(content.account_id.clone()),
-                &groups::Opts {
+                &groups::UpdateOpts {
                     name: Some(content.name.clone()),
                     desc: Some(content.desc.clone()),
                     unscoped: Some(true),
@@ -28,8 +22,8 @@ pub async fn put(
             )
             .await;
     }
-    app.store
-        .create_user_group(Some(id.to_owned()), content)
+    group_store
+        .create_group(Some(id.to_owned()), content)
         .await?;
     Ok(())
 }

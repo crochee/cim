@@ -3,10 +3,11 @@ resolver = "2"
 members = [
     "server",
     "client",
-    "component",
     "pim",
     "examples/pim_demo",
     "connect",
+    "storage",
+    "slo",
 ]
 default-members = ["server"]
 
@@ -15,7 +16,6 @@ version = "0.1.0"
 edition = "2021"
 
 [workspace.dependencies]
-
 dotenv = "0.15"
 clap = { version = "4.4", features = ["derive", "env"] }
 tracing = "0.1"
@@ -28,3 +28,4 @@ validator = { version = "0.16", features = ["derive"] }
 regex = "1.10"
 mockall = "0.12"
 async-trait = "0.1"
+axum = { version = "0.7", features = ["tracing"] }

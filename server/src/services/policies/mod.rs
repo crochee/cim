@@ -1,26 +1,20 @@
-use crate::Result;
+use slo::Result;
+use storage::policies;
 
-use crate::{
-    store::{policies, Store},
-    AppState,
-};
-
-pub async fn put(
-    app: &AppState,
+pub async fn put_policy<P: policies::PolicyStore>(
+    policy_store: &P,
     id: &str,
     content: &policies::Content,
 ) -> Result<()> {
-    let found = app
-        .store
+    let found = policy_store
         .policy_exist(id, content.account_id.clone(), true)
         .await?;
     if found {
-        return app
-            .store
+        return policy_store
             .update_policy(
                 id,
                 content.account_id.clone(),
-                &policies::Opts {
+                &policies::UpdateOpts {
                     desc: Some(content.desc.clone()),
                     version: Some(content.version.clone()),
                     statement: Some(content.statement.clone()),
@@ -29,7 +23,7 @@ pub async fn put(
             )
             .await;
     }
-    app.store
+    policy_store
         .create_policy(Some(id.to_owned()), content)
         .await?;
     Ok(())

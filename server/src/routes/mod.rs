@@ -21,13 +21,11 @@ use tower_http::{
     LatencyUnit,
 };
 use tracing::Level;
+use utoipa::OpenApi;
+use utoipa_swagger_ui::SwaggerUi;
 
 use crate::{
-    controllers::{
-        auth::AuthRouter, groups::GroupsRouter, policies::PoliciesRouter,
-        roles::RolesRouter, users::UsersRouter,
-    },
-    errors,
+    controllers::{auth, groups, policies, roles, users},
     middlewares::MakeSpanWithTrace,
     AppState,
 };
@@ -35,6 +33,14 @@ use crate::{
 lazy_static::lazy_static! {
     static ref EXPONENTIAL_SECONDS: &'static [f64] = &[0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0,];
 }
+
+#[derive(OpenApi)]
+#[openapi(
+    servers(
+        (url = "/v1", description = "Local server"),
+    ),
+)]
+struct ApiDoc;
 
 pub struct AppRouter;
 
@@ -52,14 +58,18 @@ impl AppRouter {
         let router = Router::new()
             .nest_service("/static", ServeDir::new("static"))
             .nest_service("/theme", ServeDir::new("theme"))
+            .merge(
+                SwaggerUi::new("/swagger-ui")
+                    .url("/v1/api-docs/openapi.json", ApiDoc::openapi()),
+            )
             .nest(
                 "/v1",
                 Router::new()
-                    .merge(PoliciesRouter::new_router(state.clone()))
-                    .merge(AuthRouter::new_router(state.clone()))
-                    .merge(UsersRouter::new_router(state.clone()))
-                    .merge(RolesRouter::new_router(state.clone()))
-                    .merge(GroupsRouter::new_router(state)),
+                    .merge(policies::new_router(state.clone()))
+                    .merge(auth::new_router(state.clone()))
+                    .merge(users::new_router(state.clone()))
+                    .merge(roles::new_router(state.clone()))
+                    .merge(groups::new_router(state)),
             )
             .layer(
                 ServiceBuilder::new().layer(
@@ -153,6 +163,6 @@ impl AppRouter {
     }
 
     async fn not_found(uri: Uri) -> impl IntoResponse {
-        errors::not_found(&format!("no route for {}", uri))
+        slo::errors::not_found(&format!("no route for {}", uri))
     }
 }
