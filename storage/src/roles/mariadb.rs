@@ -43,8 +43,8 @@ impl RoleStore for RoleImpl {
         )
         .bind(uid)
         .bind(account_id)
-        .bind(convert_field(&content.name))
-        .bind(convert_field(&content.desc))
+        .bind(&content.name)
+        .bind(&content.desc)
         .execute(&self.pool)
         .await
         .map_err(errors::any)?;
@@ -354,7 +354,7 @@ impl RoleStore for RoleImpl {
         )
         .bind(id)
         .bind(user_type as u8)
-        .bind(convert_field(user_id))
+        .bind(user_id)
         .execute(&self.pool)
         .await
         .map_err(errors::any)?;
@@ -372,7 +372,7 @@ impl RoleStore for RoleImpl {
         )
         .bind(id.parse::<u64>().map_err(|err| errors::bad_request(&err))?)
         .bind(user_type as u8)
-        .bind(convert_field(user_id))
+        .bind(user_id)
         .execute(&self.pool)
         .await
         .map_err(errors::any)?;

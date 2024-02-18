@@ -3,10 +3,7 @@ use sqlx::{MySqlPool, Row};
 
 use slo::{errors, next_id, Result};
 
-use crate::{
-    convert::{convert_field, update_set_param},
-    List, ID,
-};
+use crate::{convert::update_set_param, List, ID};
 
 use super::{Content, Group, GroupStore, ListOpts, UpdateOpts};
 
@@ -42,8 +39,8 @@ impl GroupStore for GroupImpl {
         )
         .bind(uid)
         .bind(account_id)
-        .bind(convert_field(&content.name))
-        .bind(convert_field(&content.desc))
+        .bind(&content.name)
+        .bind(&content.desc)
         .execute(&self.pool)
         .await
         .map_err(errors::any)?;

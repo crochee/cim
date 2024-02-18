@@ -9,7 +9,7 @@ use super::{
     nick_name_generator, Content, ListOpts, UpdateOpts, User, UserStore,
 };
 use crate::{
-    convert::{convert_field, convert_option_field, update_set_param},
+    convert::{convert_field, update_set_param},
     List, ID,
 };
 
@@ -59,13 +59,13 @@ impl UserStore for UserImpl {
             )
            .bind(uid)
            .bind(account_id)
-           .bind(convert_field(&content.name))
+           .bind(&content.name)
            .bind(nick_name)
-           .bind(convert_field(&content.desc))
-           .bind(convert_option_field(&content.email))
-           .bind(convert_option_field(&content.mobile))
-           .bind(convert_option_field(&content.sex))
-           .bind(convert_option_field(&content.image))
+           .bind(&content.desc)
+           .bind(&content.email)
+           .bind(&content.mobile)
+           .bind(&content.sex)
+           .bind(&content.image)
            .bind(password)
         .execute(&self.pool)
         .await

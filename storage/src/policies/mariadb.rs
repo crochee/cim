@@ -5,7 +5,7 @@ use sqlx::{MySqlPool, Row};
 use slo::{errors, next_id, Result};
 
 use crate::{
-    convert::{convert_field, convert_param, update_set_param},
+    convert::{convert_param, update_set_param},
     List, ID,
 };
 
@@ -50,8 +50,8 @@ impl PolicyStore for PolicyImpl {
         )
         .bind(uid)
         .bind(account_id)
-        .bind(convert_field(&content.desc))
-        .bind(convert_field(&content.version))
+        .bind(&content.desc)
+        .bind(&content.version)
         .bind(statement)
         .execute(&self.pool)
         .await
