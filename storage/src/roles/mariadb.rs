@@ -218,7 +218,7 @@ impl RoleStore for RoleImpl {
             if !wheres.is_empty() {
                 wheres.push_str(" AND ");
             }
-            wheres.push_str(format!(r#"`id` IN (SELECT `role_id` FROM `role_bindings` WHERE `user_id` = {})"#,
+            wheres.push_str(format!(r#"`id` IN (SELECT `role_id` FROM `role_bindings` WHERE `user_id` = {} AND `deleted` = 0)"#,
             convert_field(user_id)).as_str());
         }
         if !wheres.is_empty() {

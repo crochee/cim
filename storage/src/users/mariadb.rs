@@ -290,7 +290,7 @@ impl UserStore for UserImpl {
             }
             let group_id_u64: u64 =
                 group_id.parse().map_err(|err| errors::bad_request(&err))?;
-            wheres.push_str(format!(r#"`id` IN (SELECT `user_id` FROM `group_user` WHERE `group_id` = {})"#,
+            wheres.push_str(format!(r#"`id` IN (SELECT `user_id` FROM `group_user` WHERE `group_id` = {} AND `deleted` = 0)"#,
             group_id_u64).as_str());
         };
 
