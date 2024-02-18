@@ -237,7 +237,7 @@ impl UserStore for UserImpl {
         .bind(id)
         .fetch_one(&self.pool)
         .await
-        .map_err(errors::any)?.try_get::<i64,_>("count").map_err(errors::any)?==0{
+        .map_err(errors::any)?.try_get::<i64,_>("count").map_err(errors::any)?!=0{
             return Err(errors::forbidden(&"can't delete user, because it is attached to group".to_string()));
         };
         if sqlx::query(
@@ -246,7 +246,7 @@ impl UserStore for UserImpl {
         .bind(id)
         .fetch_one(&self.pool)
         .await
-        .map_err(errors::any)?.try_get::<i64,_>("count").map_err(errors::any)?==0{
+        .map_err(errors::any)?.try_get::<i64,_>("count").map_err(errors::any)?!=0{
             return Err(errors::forbidden(&"can't delete user, because it is attached by policy".to_string()));
         };
         sqlx::query(

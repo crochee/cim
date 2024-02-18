@@ -202,7 +202,7 @@ impl PolicyStore for PolicyImpl {
         .bind(id)
         .fetch_one(&self.pool)
         .await
-        .map_err(errors::any)?.try_get::<i64,_>("count").map_err(errors::any)?==0{
+        .map_err(errors::any)?.try_get::<i64,_>("count").map_err(errors::any)?!=0{
             return Err(errors::forbidden(&"can't delete policy, because it is used".to_string()));
         }
         sqlx::query(

@@ -178,7 +178,7 @@ impl GroupStore for GroupImpl {
         .bind(id)
         .fetch_one(&self.pool)
         .await
-        .map_err(errors::any)?.try_get::<i64,_>("count").map_err(errors::any)?==0{
+        .map_err(errors::any)?.try_get::<i64,_>("count").map_err(errors::any)?!=0{
             return Err(errors::forbidden(&"can't delete group, because it is used by user".to_string()));
         };
         if sqlx::query(
@@ -187,7 +187,7 @@ impl GroupStore for GroupImpl {
         .bind(id)
         .fetch_one(&self.pool)
         .await
-        .map_err(errors::any)?.try_get::<i64,_>("count").map_err(errors::any)?==0{
+        .map_err(errors::any)?.try_get::<i64,_>("count").map_err(errors::any)?!=0{
             return Err(errors::forbidden(&"can't delete group, because it is attached by policy".to_string()));
         };
         sqlx::query(
