@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use chrono::Utc;
 use sqlx::{MySqlPool, Row};
 
 use slo::{errors, next_id, Result};
@@ -192,9 +191,8 @@ impl GroupStore for GroupImpl {
         };
         sqlx::query(
             format!(
-                r#"UPDATE `group` SET `deleted` = `id`,`deleted_at`= '{}'
+                r#"UPDATE `group` SET `deleted` = `id`,`deleted_at`= now()
             WHERE {} AND `deleted` = 0;"#,
-                Utc::now().naive_utc(),
                 wheres
             )
             .as_str(),
@@ -390,10 +388,9 @@ impl GroupStore for GroupImpl {
 
     async fn detach_user(&self, id: &str, user_id: &str) -> Result<()> {
         sqlx::query(
-            r#"UPDATE `group_user` SET `deleted` = `id`,`deleted_at`= ?
+            r#"UPDATE `group_user` SET `deleted` = `id`,`deleted_at`= now()
             WHERE `group_id` = ? AND `user_id` = ? AND `deleted` = 0;"#,
         )
-        .bind(Utc::now().naive_utc())
         .bind(id.parse::<u64>().map_err(|err| errors::bad_request(&err))?)
         .bind(
             user_id

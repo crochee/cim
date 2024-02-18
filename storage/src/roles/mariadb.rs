@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use chrono::Utc;
 use sqlx::{MySqlPool, Row};
 
 use slo::{errors, next_id, Result};
@@ -191,9 +190,8 @@ impl RoleStore for RoleImpl {
         };
         sqlx::query(
             format!(
-                r#"UPDATE `role` SET `deleted` = `id`,`deleted_at`= '{}'
+                r#"UPDATE `role` SET `deleted` = `id`,`deleted_at`= now()
             WHERE {} AND `deleted` = 0;"#,
-                Utc::now().naive_utc(),
                 wheres
             )
             .as_str(),
@@ -369,10 +367,9 @@ impl RoleStore for RoleImpl {
         user_type: UserType,
     ) -> Result<()> {
         sqlx::query(
-            r#"UPDATE `role_bindings` SET `deleted` = `id`,`deleted_at`= ?
+            r#"UPDATE `role_bindings` SET `deleted` = `id`,`deleted_at`= now()
             WHERE `role_id` = ? AND `user_type` = ? AND `user_id` = ? AND `deleted` = 0;"#,
         )
-        .bind(Utc::now().naive_utc())
         .bind(id.parse::<u64>().map_err(|err| errors::bad_request(&err))?)
         .bind(user_type as u8)
         .bind(convert_field(user_id))

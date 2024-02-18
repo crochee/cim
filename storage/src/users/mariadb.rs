@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use chrono::Utc;
 use rand::Rng;
 use sqlx::{MySqlPool, Row};
 use tracing::debug;
@@ -255,9 +254,8 @@ impl UserStore for UserImpl {
         };
         sqlx::query(
             format!(
-                r#"UPDATE `user` SET `deleted` = `id`,`deleted_at`= '{}'
+                r#"UPDATE `user` SET `deleted` = `id`,`deleted_at`= now()
             WHERE {} AND `deleted` = 0;"#,
-                Utc::now().naive_utc(),
                 wheres
             )
             .as_str(),

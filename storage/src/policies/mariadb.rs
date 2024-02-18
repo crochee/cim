@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use chrono::Utc;
 use pim::{Request, Statement};
 use sqlx::{MySqlPool, Row};
 
@@ -207,9 +206,8 @@ impl PolicyStore for PolicyImpl {
         }
         sqlx::query(
             format!(
-                r#"UPDATE `policy` SET `deleted` = `id`,`deleted_at`= '{}'
-            WHERE {} AND `deleted` = 0;"#,
-                Utc::now().naive_utc(),
+                r#"UPDATE `policy` SET `deleted` = `id`,`deleted_at`= now()
+                WHERE {} AND `deleted` = 0;"#,
                 wheres
             )
             .as_str(),
@@ -518,10 +516,9 @@ impl PolicyStore for PolicyImpl {
         bindings_type: BindingsType,
     ) -> Result<()> {
         sqlx::query(
-            r#"UPDATE `policy_bindings` SET `deleted` = `id`,`deleted_at`= ?
+            r#"UPDATE `policy_bindings` SET `deleted` = `id`,`deleted_at`= now()
             WHERE `policy_id` = ? AND bindings_type = ? AND `bindings_id` = ?` AND `deleted` = 0;"#,
         )
-        .bind(Utc::now().naive_utc())
         .bind(id.parse::<u64>().map_err(|err| errors::bad_request(&err))?)
         .bind(bindings_type as u8)
         .bind(
