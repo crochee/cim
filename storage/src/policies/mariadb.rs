@@ -73,6 +73,7 @@ impl PolicyStore for PolicyImpl {
 
         update_set_param(&mut update_content, r#"`version` = "#, &opts.version);
 
+        let mut statement_content = None;
         if let Some(statement) = &opts.statement {
             if !update_content.is_empty() {
                 update_content.push_str(" , ");
@@ -80,8 +81,8 @@ impl PolicyStore for PolicyImpl {
             let content =
                 serde_json::to_string(statement).map_err(errors::any)?;
 
-            update_content.push_str(r#"`content` = "#);
-            convert_param(&mut update_content, &content);
+            update_content.push_str(r#"`content` = ? "#);
+            statement_content = Some(content);
         };
 
         if update_content.is_empty() {
@@ -111,17 +112,16 @@ impl PolicyStore for PolicyImpl {
             }
             update_content.push_str(r#"`deleted` = 0 , `deleted_at` = NULL"#);
         };
-        sqlx::query(
-            format!(
-                r#"UPDATE `policy` SET {}
+        let sqlx_query_sts = format!(
+            r#"UPDATE `policy` SET {}
                 WHERE {};"#,
-                update_content, wheres,
-            )
-            .as_str(),
-        )
-        .execute(&self.pool)
-        .await
-        .map_err(errors::any)?;
+            update_content, wheres,
+        );
+        let mut sqlx_query = sqlx::query(sqlx_query_sts.as_str());
+        if let Some(v) = statement_content {
+            sqlx_query = sqlx_query.bind(v);
+        }
+        sqlx_query.execute(&self.pool).await.map_err(errors::any)?;
         Ok(())
     }
 
@@ -163,6 +163,7 @@ impl PolicyStore for PolicyImpl {
         let v = row.try_get::<u64, _>("account_id").map_err(errors::any)?;
         let account_id_str = if v == 0 { None } else { Some(v.to_string()) };
         let v = row.try_get::<String, _>("content").map_err(errors::any)?;
+        tracing::debug!("content: {}", v);
         let statement: Vec<Statement> =
             serde_json::from_str(&v).map_err(errors::any)?;
         Ok(Policy {

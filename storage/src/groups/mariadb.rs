@@ -232,7 +232,7 @@ impl GroupStore for GroupImpl {
         filter.pagination.convert(&mut wheres);
         let rows = sqlx::query(
             format!(
-                r#"SELECT `id`,`account_id`,`user_id`,`name`,`desc`,`created_at`,`updated_at`
+                r#"SELECT `id`,`account_id`,`name`,`desc`,`created_at`,`updated_at`
                 FROM `group`
                 WHERE {};"#,
                 wheres,
