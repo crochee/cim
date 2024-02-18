@@ -6,7 +6,6 @@ use pim::{Effect, JsonCondition, Pim, Regexp, Request, Statement};
 
 fn main() -> anyhow::Result<()> {
     let sts = vec![Statement {
-        sid: None,
         effect: Effect::Allow,
         subjects: vec![
             "max".to_owned(),

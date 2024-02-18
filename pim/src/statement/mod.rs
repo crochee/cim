@@ -8,7 +8,6 @@ use crate::condition::JsonCondition;
 
 #[derive(Debug, Deserialize, Serialize, Validate, Clone)]
 pub struct Statement {
-    pub sid: Option<String>,
     pub effect: Effect,
     pub subjects: Vec<String>,
     pub actions: Vec<String>,

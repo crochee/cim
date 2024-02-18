@@ -13,7 +13,7 @@ where
     P: storage::policies::StatementStore,
     R: pim::Matcher,
 {
-    let statements = policy.get_statement_by_request(input).await?;
+    let statements = policy.get_statement(input).await?;
     debug!("{:#?}", statements);
     matcher
         .is_allow(statements, input)
@@ -34,9 +34,8 @@ mod tests {
     #[tokio::test]
     async fn test_authorize() {
         let mut p = storage::policies::MockStatementStore::new();
-        p.expect_get_statement_by_request().returning(|_| {
+        p.expect_get_statement().returning(|_| {
             Ok(vec![Statement {
-            sid: None,
             effect: Effect::Allow,
             subjects: vec![
                 "max".to_owned(),
@@ -192,6 +191,6 @@ mod tests {
             },
         )
         .await
-        .unwrap();
+        .unwrap()
     }
 }

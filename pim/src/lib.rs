@@ -99,7 +99,6 @@ mod tests {
     #[test]
     fn is_allow() {
         let sts = vec![Statement {
-            sid: None,
             effect: Effect::Allow,
             subjects: vec![
                 "max".to_owned(),

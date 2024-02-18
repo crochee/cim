@@ -123,8 +123,5 @@ pub trait PolicyStore {
 #[automock]
 #[async_trait]
 pub trait StatementStore {
-    async fn get_statement_by_request(
-        &self,
-        req: &Request,
-    ) -> Result<Vec<Statement>>;
+    async fn get_statement(&self, req: &Request) -> Result<Vec<Statement>>;
 }
