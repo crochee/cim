@@ -172,7 +172,7 @@ impl RoleStore for RoleImpl {
             );
         }
         if sqlx::query(
-            r#"SELECT COUNT(*) FROM `role_bindings` WHERE `role_id` = ? AND `deleted` = 0"#,
+            r#"SELECT COUNT(*) as count FROM `role_bindings` WHERE `role_id` = ? AND `deleted` = 0"#,
         )
         .bind(id)
         .fetch_one(&self.pool)
@@ -181,7 +181,7 @@ impl RoleStore for RoleImpl {
             return Err(errors::forbidden(&"can't delete role, because it is used by user".to_string()));
         };
         if sqlx::query(
-            r#"SELECT COUNT(*) FROM `policy_bindings` WHERE `bindings_type` = 3 AND `bindings_id` = ? AND `deleted` = 0"#,
+            r#"SELECT COUNT(*) as count FROM `policy_bindings` WHERE `bindings_type` = 3 AND `bindings_id` = ? AND `deleted` = 0"#,
         )
         .bind(id)
         .fetch_one(&self.pool)
@@ -334,7 +334,7 @@ impl RoleStore for RoleImpl {
         }
         if sqlx::query(
             format!(
-                r#"SELECT COUNT(*) FROM `role`
+                r#"SELECT COUNT(*) as count FROM `role`
             WHERE {} AND `deleted` = 0 LIMIT 1;"#,
                 role_wheres,
             )

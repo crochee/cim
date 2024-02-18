@@ -173,7 +173,7 @@ impl GroupStore for GroupImpl {
             );
         }
         if sqlx::query(
-            r#"SELECT COUNT(*) FROM `group_user` WHERE `group_id` = ? AND `deleted` = 0"#,
+            r#"SELECT COUNT(*) as count FROM `group_user` WHERE `group_id` = ? AND `deleted` = 0"#,
         )
         .bind(id)
         .fetch_one(&self.pool)
@@ -182,7 +182,7 @@ impl GroupStore for GroupImpl {
             return Err(errors::forbidden(&"can't delete group, because it is used by user".to_string()));
         };
         if sqlx::query(
-            r#"SELECT COUNT(*) FROM `policy_bindings` WHERE `bindings_type` = 2 AND `bindings_id` = ? AND `deleted` = 0"#,
+            r#"SELECT COUNT(*) as count FROM `policy_bindings` WHERE `bindings_type` = 2 AND `bindings_id` = ? AND `deleted` = 0"#,
         )
         .bind(id)
         .fetch_one(&self.pool)
@@ -340,7 +340,7 @@ impl GroupStore for GroupImpl {
 
         if sqlx::query(
             format!(
-                r#"SELECT COUNT(*) FROM `group`
+                r#"SELECT COUNT(*) as count FROM `group`
             WHERE {} AND `deleted` = 0 LIMIT 1;"#,
                 group_wheres,
             )
@@ -357,7 +357,7 @@ impl GroupStore for GroupImpl {
         }
         if sqlx::query(
             format!(
-                r#"SELECT COUNT(*) FROM `user`
+                r#"SELECT COUNT(*) as count FROM `user`
             WHERE {} AND `deleted` = 0 LIMIT 1;"#,
                 user_wheres,
             )

@@ -232,7 +232,7 @@ impl UserStore for UserImpl {
             );
         }
         if sqlx::query(
-            r#"SELECT COUNT(*) FROM `group_user` WHERE `user_id` = ? AND `deleted` = 0"#,
+            r#"SELECT COUNT(*) as count FROM `group_user` WHERE `user_id` = ? AND `deleted` = 0"#,
         )
         .bind(id)
         .fetch_one(&self.pool)
@@ -241,7 +241,7 @@ impl UserStore for UserImpl {
             return Err(errors::forbidden(&"can't delete user, because it is attached to group".to_string()));
         };
         if sqlx::query(
-            r#"SELECT COUNT(*) FROM `policy_bindings` WHERE `bindings_type` = 1 AND `bindings_id` = ? AND `deleted` = 0"#,
+            r#"SELECT COUNT(*) as count FROM `policy_bindings` WHERE `bindings_type` = 1 AND `bindings_id` = ? AND `deleted` = 0"#,
         )
         .bind(id)
         .fetch_one(&self.pool)

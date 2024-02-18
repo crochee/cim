@@ -197,7 +197,7 @@ impl PolicyStore for PolicyImpl {
             );
         }
         if sqlx::query(
-            r#"SELECT COUNT(*) FROM `policy_bindings` WHERE `policy_id` = ? AND `deleted` = 0"#,
+            r#"SELECT COUNT(*) as count FROM `policy_bindings` WHERE `policy_id` = ? AND `deleted` = 0"#,
         )
         .bind(id)
         .fetch_one(&self.pool)
@@ -396,7 +396,7 @@ impl PolicyStore for PolicyImpl {
 
                 if sqlx::query(
                     format!(
-                        r#"SELECT COUNT(*) FROM `user`
+                        r#"SELECT COUNT(*) as count FROM `user`
             WHERE {} AND `deleted` = 0 LIMIT 1;"#,
                         user_wheres,
                     )
@@ -426,7 +426,7 @@ impl PolicyStore for PolicyImpl {
 
                 if sqlx::query(
                     format!(
-                        r#"SELECT COUNT(*) FROM `group`
+                        r#"SELECT COUNT(*) as count FROM `group`
             WHERE {} AND `deleted` = 0 LIMIT 1;"#,
                         group_wheres,
                     )
@@ -456,7 +456,7 @@ impl PolicyStore for PolicyImpl {
 
                 if sqlx::query(
                     format!(
-                        r#"SELECT COUNT(*) FROM `role`
+                        r#"SELECT COUNT(*) as count FROM `role`
             WHERE {} AND `deleted` = 0 LIMIT 1;"#,
                         role_wheres,
                     )
@@ -483,7 +483,7 @@ impl PolicyStore for PolicyImpl {
         set_account_id(&mut policy_wheres, &account_id)?;
         if sqlx::query(
             format!(
-                r#"SELECT COUNT(*) FROM `policy`
+                r#"SELECT COUNT(*) as count FROM `policy`
             WHERE {} AND `deleted` = 0 LIMIT 1;"#,
                 policy_wheres,
             )
