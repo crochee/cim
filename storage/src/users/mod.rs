@@ -119,3 +119,7 @@ pub trait UserStore {
         unscoped: bool,
     ) -> Result<bool>;
 }
+
+pub fn nick_name_generator(name: &str) -> String {
+    format!("用户_{}", name)
+}

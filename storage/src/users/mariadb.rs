@@ -6,7 +6,9 @@ use tracing::debug;
 
 use slo::{crypto::password::encrypt, errors, next_id, Result};
 
-use super::{Content, ListOpts, UpdateOpts, User, UserStore};
+use super::{
+    nick_name_generator, Content, ListOpts, UpdateOpts, User, UserStore,
+};
 use crate::{
     convert::{convert_field, convert_option_field, update_set_param},
     List, ID,
@@ -40,9 +42,7 @@ impl UserStore for UserImpl {
         };
         let nick_name = match &content.nick_name {
             Some(v) => convert_field(v),
-            None => {
-                format!("用户{}", uid)
-            }
+            None => nick_name_generator(&content.name),
         };
         debug!("start create secret");
         let secret = rand::thread_rng()
