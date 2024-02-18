@@ -29,14 +29,14 @@ mod tests {
 
     #[test]
     fn encrypt_verify() {
-        let password = String::from("a1234567890123456789");
+        let password = String::from("ag1234567890123456789");
         let secret = rand::thread_rng()
             .sample_iter(&rand::distributions::Alphanumeric)
             .take(64)
             .map(char::from)
             .collect::<String>();
         let h = encrypt(&password, &secret).unwrap();
-        assert_eq!(h.len(), 414);
+        assert_eq!(h.len(), 416);
         assert!(verify(&h, &password, &secret).unwrap())
     }
 }

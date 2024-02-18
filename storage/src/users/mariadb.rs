@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use chrono::Utc;
 use rand::Rng;
 use sqlx::{MySqlPool, Row};
+use tracing::debug;
 
 use slo::{crypto::password::encrypt, errors, next_id, Result};
 
@@ -28,6 +29,7 @@ impl UserStore for UserImpl {
         id: Option<String>,
         content: &Content,
     ) -> Result<ID> {
+        debug!("create user {:#?}", content);
         let uid = match id {
             Some(v) => v.parse().map_err(|err| errors::bad_request(&err))?,
             None => next_id().map_err(errors::any)?,
@@ -42,16 +44,19 @@ impl UserStore for UserImpl {
                 format!("用户{}", uid)
             }
         };
+        debug!("start create secret");
         let secret = rand::thread_rng()
             .sample_iter(&rand::distributions::Alphanumeric)
             .take(64)
             .map(char::from)
             .collect::<String>();
+        debug!("end create secret {}", secret);
         let password = encrypt(&content.password, &secret)?;
+        debug!("end encrypt password");
         sqlx::query(
             r#"INSERT INTO `user`
-            (`id`,`account_id`,`name`,`nick_name`,`desc`,`email`,`mobile`,`sex`,`image`,`secret`,`password`)
-            VALUES(?,?,?,?,?,?,?,?,?,?,?);"#,
+            (`id`,`account_id`,`name`,`nick_name`,`desc`,`email`,`mobile`,`sex`,`image`,`password`)
+            VALUES(?,?,?,?,?,?,?,?,?,?);"#,
             )
            .bind(uid)
            .bind(account_id)
@@ -62,7 +67,6 @@ impl UserStore for UserImpl {
            .bind(convert_option_field(&content.mobile))
            .bind(convert_option_field(&content.sex))
            .bind(convert_option_field(&content.image))
-           .bind(secret)
            .bind(password)
         .execute(&self.pool)
         .await
