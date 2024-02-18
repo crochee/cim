@@ -9,7 +9,10 @@ use crate::{
     List, ID,
 };
 
-use super::{BindingsType, Content, ListOpts, Policy, PolicyStore, UpdateOpts};
+use super::{
+    BindingsType, Content, ListOpts, Policy, PolicyStore, StatementStore,
+    UpdateOpts,
+};
 
 pub struct PolicyImpl {
     pool: MySqlPool,
@@ -532,11 +535,14 @@ impl PolicyStore for PolicyImpl {
         .map_err(errors::any)?;
         Ok(())
     }
+}
 
-    async fn get_policy_by_request(
+#[async_trait]
+impl StatementStore for PolicyImpl {
+    async fn get_statement_by_request(
         &self,
         req: &Request,
-    ) -> Result<Vec<Policy>> {
+    ) -> Result<Vec<Statement>> {
         let (user_id, _object_id) = parse_request(req)?;
 
         let sql = format!(
@@ -556,25 +562,10 @@ impl PolicyStore for PolicyImpl {
         let mut result = Vec::with_capacity(rows.len());
 
         for row in rows.iter() {
-            let v = row.try_get::<u64, _>("account_id").map_err(errors::any)?;
-            let account_id_str =
-                if v == 0 { None } else { Some(v.to_string()) };
             let v = row.try_get::<String, _>("content").map_err(errors::any)?;
-            let statement: Vec<Statement> =
+            let mut statement: Vec<Statement> =
                 serde_json::from_str(&v).map_err(errors::any)?;
-
-            result.push(Policy {
-                id: row
-                    .try_get::<u64, _>("id")
-                    .map_err(errors::any)?
-                    .to_string(),
-                account_id: account_id_str,
-                desc: row.try_get("desc").map_err(errors::any)?,
-                version: row.try_get("version").map_err(errors::any)?,
-                statement,
-                created_at: row.try_get("created_at").map_err(errors::any)?,
-                updated_at: row.try_get("updated_at").map_err(errors::any)?,
-            })
+            result.append(&mut statement);
         }
         Ok(result)
     }

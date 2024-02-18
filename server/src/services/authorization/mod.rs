@@ -10,17 +10,11 @@ pub async fn authorize<P, R>(
     input: &Request,
 ) -> Result<()>
 where
-    P: storage::policies::PolicyStore,
+    P: storage::policies::StatementStore,
     R: pim::Matcher,
 {
-    let list = policy.get_policy_by_request(input).await?;
-    debug!("{:#?}", list);
-    let mut statements = Vec::with_capacity(list.len());
-    for policy in list.iter() {
-        for statement in policy.statement.iter() {
-            statements.push(statement.clone());
-        }
-    }
+    let statements = policy.get_statement_by_request(input).await?;
+    debug!("{:#?}", statements);
     matcher
         .is_allow(statements, input)
         .map_err(|err| errors::forbidden(&err.to_string()))
@@ -34,17 +28,14 @@ mod tests {
     use serde_json::json;
 
     use pim::*;
-    use storage::policies;
 
     use super::authorize;
 
     #[tokio::test]
     async fn test_authorize() {
-        let mut p = storage::policies::MockPolicyStore::new();
-        p.expect_get_policy_by_request().returning(|_| {
-            Ok(vec![policies::Policy {
-                version: "1.0".to_owned(),
-                statement: vec![Statement {
+        let mut p = storage::policies::MockStatementStore::new();
+        p.expect_get_statement_by_request().returning(|_| {
+            Ok(vec![Statement {
             sid: None,
             effect: Effect::Allow,
             subjects: vec![
@@ -146,19 +137,7 @@ mod tests {
                 ),
             ])),
             meta: None,
-        }],
-                id: "".to_owned(),
-                account_id: None,
-                desc: "test".to_owned(),
-                created_at: chrono::NaiveDate::from_ymd_opt(2016, 7, 8)
-                    .unwrap()
-                    .and_hms_opt(9, 10, 11)
-                    .unwrap(),
-                updated_at: chrono::NaiveDate::from_ymd_opt(2016, 7, 8)
-                    .unwrap()
-                    .and_hms_opt(9, 10, 11)
-                    .unwrap(),
-            }])
+        }])
         });
 
         let matcher = Pim::new(Regexp::new(256).unwrap());

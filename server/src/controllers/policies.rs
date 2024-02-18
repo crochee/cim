@@ -107,8 +107,7 @@ async fn put_policy(
 async fn attach_user(
     header: Header,
     app: AppState,
-    Path(id): Path<String>,
-    Path(user_id): Path<String>,
+    Path((id, user_id)): Path<(String, String)>,
 ) -> Result<StatusCode> {
     let mut account_id = None;
     if header.source.ne(&Some(SOURCE_SYSTEM.to_owned())) {
@@ -124,8 +123,7 @@ async fn attach_user(
 async fn detach_user(
     _header: Header,
     app: AppState,
-    Path(id): Path<String>,
-    Path(user_id): Path<String>,
+    Path((id, user_id)): Path<(String, String)>,
 ) -> Result<StatusCode> {
     app.store
         .policy
@@ -137,8 +135,7 @@ async fn detach_user(
 async fn attach_group(
     header: Header,
     app: AppState,
-    Path(id): Path<String>,
-    Path(group_id): Path<String>,
+    Path((id, group_id)): Path<(String, String)>,
 ) -> Result<StatusCode> {
     let mut account_id = None;
     if header.source.ne(&Some(SOURCE_SYSTEM.to_owned())) {
@@ -154,8 +151,7 @@ async fn attach_group(
 async fn detach_group(
     _header: Header,
     app: AppState,
-    Path(id): Path<String>,
-    Path(group_id): Path<String>,
+    Path((id, group_id)): Path<(String, String)>,
 ) -> Result<StatusCode> {
     app.store
         .policy
@@ -167,8 +163,7 @@ async fn detach_group(
 async fn attach_role(
     header: Header,
     app: AppState,
-    Path(id): Path<String>,
-    Path(role_id): Path<String>,
+    Path((id, role_id)): Path<(String, String)>,
 ) -> Result<StatusCode> {
     let mut account_id = None;
     if header.source.ne(&Some(SOURCE_SYSTEM.to_owned())) {
@@ -184,8 +179,7 @@ async fn attach_role(
 async fn detach_role(
     _header: Header,
     app: AppState,
-    Path(id): Path<String>,
-    Path(role_id): Path<String>,
+    Path((id, role_id)): Path<(String, String)>,
 ) -> Result<StatusCode> {
     app.store
         .policy

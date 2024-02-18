@@ -118,7 +118,13 @@ pub trait PolicyStore {
         bindings_id: &str,
         bindings_type: BindingsType,
     ) -> Result<()>;
+}
 
-    async fn get_policy_by_request(&self, req: &Request)
-        -> Result<Vec<Policy>>;
+#[automock]
+#[async_trait]
+pub trait StatementStore {
+    async fn get_statement_by_request(
+        &self,
+        req: &Request,
+    ) -> Result<Vec<Statement>>;
 }
