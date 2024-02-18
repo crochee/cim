@@ -1,4 +1,8 @@
-use axum::{extract::Path, routing::get, Json, Router};
+use axum::{
+    extract::Path,
+    routing::{get, post},
+    Json, Router,
+};
 use http::StatusCode;
 use tracing::info;
 
@@ -15,9 +19,22 @@ use crate::{
 pub fn new_router(state: AppState) -> Router {
     Router::new()
         .route("/policies", get(list_policy).post(create_policy))
-        .route(
+        .nest(
             "/policies/:id",
-            get(get_policy).delete(delete_policy).put(put_policy),
+            Router::new()
+                .route(
+                    "/",
+                    get(get_policy).delete(delete_policy).put(put_policy),
+                )
+                .route("/users/:user_id", post(attach_user).delete(detach_user))
+                .route(
+                    "/groups/:group_id",
+                    post(attach_group).delete(detach_group),
+                )
+                .route(
+                    "/roles/:role_id",
+                    post(attach_role).delete(detach_role),
+                ),
         )
         .with_state(state)
 }
@@ -84,5 +101,95 @@ async fn put_policy(
         content.account_id = Some(header.account_id);
     }
     policies::put_policy(&app.store.policy, &id, &content).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn attach_user(
+    header: Header,
+    app: AppState,
+    Path(id): Path<String>,
+    Path(user_id): Path<String>,
+) -> Result<StatusCode> {
+    let mut account_id = None;
+    if header.source.ne(&Some(SOURCE_SYSTEM.to_owned())) {
+        account_id = Some(header.account_id);
+    }
+    app.store
+        .policy
+        .attach(&id, account_id, &user_id, BindingsType::User)
+        .await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn detach_user(
+    _header: Header,
+    app: AppState,
+    Path(id): Path<String>,
+    Path(user_id): Path<String>,
+) -> Result<StatusCode> {
+    app.store
+        .policy
+        .detach(&id, &user_id, BindingsType::User)
+        .await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn attach_group(
+    header: Header,
+    app: AppState,
+    Path(id): Path<String>,
+    Path(group_id): Path<String>,
+) -> Result<StatusCode> {
+    let mut account_id = None;
+    if header.source.ne(&Some(SOURCE_SYSTEM.to_owned())) {
+        account_id = Some(header.account_id);
+    }
+    app.store
+        .policy
+        .attach(&id, account_id, &group_id, BindingsType::Group)
+        .await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn detach_group(
+    _header: Header,
+    app: AppState,
+    Path(id): Path<String>,
+    Path(group_id): Path<String>,
+) -> Result<StatusCode> {
+    app.store
+        .policy
+        .detach(&id, &group_id, BindingsType::Group)
+        .await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn attach_role(
+    header: Header,
+    app: AppState,
+    Path(id): Path<String>,
+    Path(role_id): Path<String>,
+) -> Result<StatusCode> {
+    let mut account_id = None;
+    if header.source.ne(&Some(SOURCE_SYSTEM.to_owned())) {
+        account_id = Some(header.account_id);
+    }
+    app.store
+        .policy
+        .attach(&id, account_id, &role_id, BindingsType::Role)
+        .await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn detach_role(
+    _header: Header,
+    app: AppState,
+    Path(id): Path<String>,
+    Path(role_id): Path<String>,
+) -> Result<StatusCode> {
+    app.store
+        .policy
+        .detach(&id, &role_id, BindingsType::Role)
+        .await?;
     Ok(StatusCode::NO_CONTENT)
 }
