@@ -45,7 +45,7 @@ async fn async_run_server(config: AppConfig) -> anyhow::Result<()> {
 
     key_rotate(app.clone());
 
-    let router = AppRouter::build(&config.cors_origin, AppState(app))
+    let router = AppRouter::build(AppState(app))
         .context("could not initialize application routes")?;
     let host = format!("{}:{}", config.endpoint, config.port);
     info!("routes initialized, listening on {}", host);

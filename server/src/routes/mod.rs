@@ -25,7 +25,7 @@ use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
 use crate::{
-    controllers::{auth, groups, policies, roles, users},
+    controllers::{auth, groups, oidc, policies, roles, users},
     middlewares::MakeSpanWithTrace,
     AppState,
 };
@@ -45,7 +45,8 @@ struct ApiDoc;
 pub struct AppRouter;
 
 impl AppRouter {
-    pub fn build(cors_origin: &str, state: AppState) -> Result<Router> {
+    pub fn build(state: AppState) -> Result<Router> {
+        let cors_origin = state.config.cors_origin.parse::<HeaderValue>()?;
         let recorder_handle = PrometheusBuilder::new()
             .set_buckets_for_metric(
                 Matcher::Full(String::from("http_requests_duration_seconds")),
@@ -58,6 +59,7 @@ impl AppRouter {
         let router = Router::new()
             .nest_service("/static", ServeDir::new("static"))
             .nest_service("/theme", ServeDir::new("theme"))
+            .merge(oidc::new_router(state.clone()))
             .merge(
                 SwaggerUi::new("/swagger-ui")
                     .url("/v1/api-docs/openapi.json", ApiDoc::openapi()),
@@ -96,7 +98,7 @@ impl AppRouter {
                     ]))
                     .allow_headers(AllowHeaders::mirror_request())
                     .allow_methods(AllowMethods::mirror_request())
-                    .allow_origin(cors_origin.parse::<HeaderValue>()?)
+                    .allow_origin(cors_origin)
                     .allow_credentials(true)
                     .max_age(Duration::from_secs(60) * 60 * 12),
             )
