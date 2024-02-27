@@ -542,14 +542,28 @@ impl StatementStore for PolicyImpl {
     async fn get_statement(&self, req: &Request) -> Result<Vec<Statement>> {
         let user_id = req.subject.parse::<u64>().map_err(errors::any)?;
 
-        let rows = sqlx::query(r#"SELECT t3.`content`
+        let rows = sqlx::query(r#"SELECT t2.`content`
             FROM (
-                (SELECT a3.`id` FROM `user` a1 RIGHT JOIN `policy_bindings` a2 ON a1.`id`=a2.`user_id` RIGHT JOIN `role` a3 ON a2.`role_id`=a3.`id` WHERE a1.`id`= ? AND a1.`deleted`=0 AND a2.`deleted`=0 AND a3.`deleted`=0)
-            UNION
-                (SELECT b4.`id` FROM `user` b1 RIGHT JOIN `group_user` b2 ON b1.`id`=b2.`user_id` RIGHT JOIN `group_role` b3 ON b2.`group_id`=b3.`group_id` RIGHT JOIN `role` b4 ON b3.`role_id`=b4.`id`
-                WHERE b1.`id`= ? AND b1.`deleted`=0 AND b2.`deleted`=0 AND b3.`deleted`=0 AND b4.`deleted`=0)
+                (
+                SELECT `policy_id` FROM `policy_bindings` WHERE `bindings_id` = ? AND `bindings_type` = 1 AND `deleted` = 0
+                )
+                UNION
+                (
+                SELECT a3.`policy_id` FROM `group_user` a1 RIGHT JOIN `group` a2 ON a1.`group_id` = a2.`id`
+                RIGHT JOIN `policy_bindings` a3 ON a2.`id` = a3.`bindings_id`
+                WHERE a1.`user_id` = ? AND a1.`deleted` = 0 AND
+                a2.`deleted` = 0 AND a3.`bindings_type` = 2 AND a3.`deleted` = 0
+                )
+                UNION
+                (
+                SELECT b3.`policy_id` FROM `role_bindings` b1 RIGHT JOIN `role` b2 ON b1.`role_id` = b2.`id`
+                RIGHT JOIN `policy_bindings` b3 ON b2.`id` = b3.`bindings_id`
+                WHERE b1.`user_id` = ? AND b1.`deleted` = 0 AND
+                b2.`deleted` = 0 AND b3.`bindings_type` = 3 AND b3.`deleted` = 0
+                )
             )
-            t1 RIGHT JOIN `role_policy` t2 ON t1.`id`=t2.`role_id` RIGHT JOIN `policy` t3 ON t2.`policy_id`=t3.`id` WHERE t2.`deleted`=0 AND t3.`deleted`=0;"#)
+            t1 RIGHT JOIN `policy` t2 ON t1.`policy_id`=t2.`id` WHERE t2.`deleted`=0;"#)
+            .bind(user_id)
             .bind(user_id)
             .bind(user_id)
             .fetch_all(&self.pool)
@@ -563,6 +577,17 @@ impl StatementStore for PolicyImpl {
             let mut statement: Vec<Statement> =
                 serde_json::from_str(&v).map_err(errors::any)?;
             result.append(&mut statement);
+        }
+        Ok(result)
+    }
+}
+
+#[async_trait]
+impl<T: StatementStore + Sync> StatementStore for Vec<T> {
+    async fn get_statement(&self, req: &Request) -> Result<Vec<Statement>> {
+        let mut result = Vec::with_capacity(self.len());
+        for store in self.iter() {
+            result.append(&mut store.get_statement(req).await?);
         }
         Ok(result)
     }

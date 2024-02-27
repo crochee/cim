@@ -14,7 +14,7 @@ where
     R: pim::Matcher,
 {
     let statements = policy.get_statement(input).await?;
-    debug!("{:#?}", statements);
+    debug!("statements:{:#?}", statements);
     matcher
         .is_allow(statements, input)
         .map_err(|err| errors::forbidden(&err.to_string()))
