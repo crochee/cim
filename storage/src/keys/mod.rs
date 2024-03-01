@@ -1,27 +1,24 @@
+pub mod mariadb;
+
 use async_trait::async_trait;
+use jsonwebkey as jwk;
 use mockall::automock;
 use serde::{Deserialize, Serialize};
 
 use slo::Result;
 
-#[derive(Debug, Deserialize, Serialize, Default)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Keys {
-    pub signing_key: KeyValue,
+    pub signing_key: jwk::JsonWebKey,
+    pub signing_key_pub: jwk::JsonWebKey,
     pub verification_keys: Vec<VerificationKey>,
     pub next_rotation: i64,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct VerificationKey {
-    pub value: KeyValue,
+    pub public_key: jwk::JsonWebKey,
     pub expiry: i64,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, Default)]
-pub struct KeyValue {
-    pub id: String,
-    pub value: String,
-    pub alg: String,
 }
 
 #[automock]

@@ -1,13 +1,18 @@
 use axum::routing::get;
 use axum::{Json, Router};
+use chrono::Utc;
 use serde::Serialize;
+use slo::Result;
 use utoipa::ToSchema;
 
-use crate::AppState;
+use storage::keys::*;
+
+use crate::{services::oidc::key, AppState};
 
 pub fn new_router(state: AppState) -> Router {
     Router::new()
         .route("/.well-known/openid-configuration", get(discovery_handler))
+        .route("/jwks", get(jwk_handler))
         .with_state(state)
 }
 
@@ -34,7 +39,7 @@ async fn discovery_handler(app: AppState) -> Json<OpenIDConfiguration> {
         issuer: issuer.to_string(),
         authorization_endpoint: format!("{issuer}/auth"),
         token_endpoint: format!("{issuer}/token"),
-        jwks_uri: format!("{issuer}/certs"),
+        jwks_uri: format!("{issuer}/jwks"),
         userinfo_endpoint: format!("{issuer}/userinfo"),
         device_authorization_endpoint: format!("{issuer}/device/code"),
         id_token_signing_alg_values_supported: vec!["RS256".to_string()],
@@ -70,4 +75,29 @@ async fn discovery_handler(app: AppState) -> Json<OpenIDConfiguration> {
             "preferred_username".to_string(),
         ],
     })
+}
+
+async fn jwk_handler(
+    app: AppState,
+) -> Result<(http::HeaderMap, Json<key::JsonWebKeySet>)> {
+    let keys = app.store.key.get_key().await?;
+    let mut jwks = key::JsonWebKeySet {
+        keys: Vec::with_capacity(keys.verification_keys.len() + 1),
+    };
+    jwks.keys.push(keys.signing_key_pub.clone());
+    keys.verification_keys.iter().for_each(|vk| {
+        jwks.keys.push(vk.public_key.clone());
+    });
+    let mut headers = http::HeaderMap::new();
+    let mut max_age = keys.next_rotation - Utc::now().timestamp();
+    if max_age < 120 {
+        max_age = 120
+    }
+    headers.insert(
+        http::header::CACHE_CONTROL,
+        format!("max-age={}, must-revalidate", max_age)
+            .parse()
+            .unwrap(),
+    );
+    Ok((headers, Json(jwks)))
 }

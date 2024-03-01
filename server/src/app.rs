@@ -12,7 +12,7 @@ use sqlx::MySqlPool;
 use tracing::info;
 
 use crate::{
-    services::authentication::key::{KeyRotator, RotationStrategy},
+    services::oidc::key::{KeyRotator, RotationStrategy},
     AppConfig,
 };
 
@@ -20,7 +20,7 @@ pub struct App {
     pub config: AppConfig,
     pub matcher: Pim<Regexp>,
     pub store: Store,
-    pub key_rotator: KeyRotator<storage::keys::MockKeyStore>,
+    pub key_rotator: KeyRotator<storage::keys::mariadb::KeyImpl>,
 }
 
 impl App {
@@ -29,10 +29,10 @@ impl App {
 
         let matcher = Pim::new(Regexp::new(config.cache_size)?);
 
-        let store = Store::new(pool);
+        let store = Store::new(pool.clone());
 
         let key_rotator = KeyRotator::new(
-            storage::keys::MockKeyStore::new(),
+            storage::keys::mariadb::KeyImpl::new(pool),
             RotationStrategy {
                 rotation_frequency: 6 * 60 * 60,
                 keep: 6 * 60 * 60,
@@ -54,6 +54,7 @@ pub struct Store {
     pub role: storage::roles::mariadb::RoleImpl,
     pub group: storage::groups::mariadb::GroupImpl,
     pub policy: storage::policies::mariadb::PolicyImpl,
+    pub key: storage::keys::mariadb::KeyImpl,
 }
 
 impl Store {
@@ -61,13 +62,15 @@ impl Store {
         let user = storage::users::mariadb::UserImpl::new(pool.clone());
         let role = storage::roles::mariadb::RoleImpl::new(pool.clone());
         let group = storage::groups::mariadb::GroupImpl::new(pool.clone());
-        let policy = storage::policies::mariadb::PolicyImpl::new(pool);
+        let policy = storage::policies::mariadb::PolicyImpl::new(pool.clone());
+        let key = storage::keys::mariadb::KeyImpl::new(pool);
 
         Self {
             user,
             role,
             group,
             policy,
+            key,
         }
     }
 }

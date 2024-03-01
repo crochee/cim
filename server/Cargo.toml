@@ -30,6 +30,7 @@ regex = { workspace = true }
 mockall = { workspace = true }
 axum = { workspace = true }
 async-trait = { workspace = true }
+jsonwebkey = { workspace = true }
 
 tokio = { version = "1.35", features = ["full"] }
 backtrace = "0.3"
