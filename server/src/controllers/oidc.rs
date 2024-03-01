@@ -60,8 +60,6 @@ async fn discovery_handler(app: AppState) -> Json<OpenIDConfiguration> {
             "email".to_string(),
             "email_verified".to_string(),
             "exp".to_string(),
-            "family_name".to_string(),
-            "given_name".to_string(),
             "iat".to_string(),
             "iss".to_string(),
             "name".to_string(),
