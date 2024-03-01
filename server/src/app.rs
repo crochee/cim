@@ -35,7 +35,7 @@ impl App {
             storage::keys::mariadb::KeyImpl::new(pool),
             RotationStrategy {
                 rotation_frequency: 6 * 60 * 60,
-                keep: 6 * 60 * 60,
+                keep: 24 * 60 * 60,
             },
         );
 
