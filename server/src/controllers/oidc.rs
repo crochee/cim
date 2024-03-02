@@ -1,18 +1,28 @@
-use axum::routing::get;
-use axum::{Json, Router};
+use axum::{
+    routing::get,
+    {Json, Router},
+};
 use chrono::Utc;
+use http::{header, HeaderMap, StatusCode};
 use serde::Serialize;
-use slo::Result;
+use slo::{errors, Result};
 use utoipa::ToSchema;
 
 use storage::keys::*;
 
+use crate::{
+    services::oidc::auth::{auth, AuthRequest},
+    valid::Valid,
+};
 use crate::{services::oidc::key, AppState};
 
-pub fn new_router(state: AppState) -> Router {
+pub fn new_op_router(state: AppState) -> Router {
     Router::new()
+        // op common api
         .route("/.well-known/openid-configuration", get(discovery_handler))
         .route("/jwks", get(jwk_handler))
+        // auth api
+        .route("/auth", get(auth_handler))
         .with_state(state)
 }
 
@@ -88,16 +98,27 @@ async fn jwk_handler(
     keys.verification_keys.iter().for_each(|vk| {
         jwks.keys.push(vk.public_key.clone());
     });
-    let mut headers = http::HeaderMap::new();
+    let mut headers = HeaderMap::new();
     let mut max_age = keys.next_rotation - Utc::now().timestamp();
     if max_age < 120 {
         max_age = 120
     }
     headers.insert(
-        http::header::CACHE_CONTROL,
+        header::CACHE_CONTROL,
         format!("max-age={}, must-revalidate", max_age)
             .parse()
-            .unwrap(),
+            .map_err(errors::any)?,
     );
     Ok((headers, Json(jwks)))
+}
+
+async fn auth_handler(
+    _app: AppState,
+    Valid(mut auth_request): Valid<AuthRequest>,
+) -> Result<(StatusCode, HeaderMap)> {
+    let login_uri = auth(&mut auth_request).await?;
+    // redirect to EU login uri
+    let mut headers = HeaderMap::new();
+    headers.insert(header::LOCATION, login_uri.parse().map_err(errors::any)?);
+    Ok((StatusCode::FOUND, headers))
 }
