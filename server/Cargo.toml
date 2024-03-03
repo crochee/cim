@@ -31,6 +31,7 @@ mockall = { workspace = true }
 axum = { workspace = true }
 async-trait = { workspace = true }
 jsonwebkey = { workspace = true }
+askama = { workspace = true }
 
 tokio = { version = "1.35", features = ["full"] }
 backtrace = "0.3"
@@ -47,10 +48,10 @@ metrics-exporter-prometheus = "0.12"
 prometheus = { version = "=0.13.3", default-features = false }
 lazy_static = "1.4"
 sqlx = { version = "0.7", features = [
-    "mysql",
-    "runtime-tokio",
-    "tls-rustls",
-    "chrono",
+  "mysql",
+  "runtime-tokio",
+  "tls-rustls",
+  "chrono",
 ] }
 serde_urlencoded = "0.7"
 lru = "0.12"
@@ -58,10 +59,10 @@ rust-argon2 = "2.0"
 rand = "0.8"
 oauth2 = "4.3"
 reqwest = { version = "0.11", default-features = false, features = [
-    "rustls-tls",
-    "json",
+  "rustls-tls",
+  "json",
 ] }
-base64 = "0.21"
+base64 = "0.22"
 jsonwebtoken = "9.2"
 sha2 = "0.10"
 utoipa = { version = "4.2", features = ["axum_extras", "chrono"] }

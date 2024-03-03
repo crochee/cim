@@ -16,7 +16,7 @@ use crate::{
 };
 use crate::{services::oidc::key, AppState};
 
-pub fn new_op_router(state: AppState) -> Router {
+pub fn new_router(state: AppState) -> Router {
     Router::new()
         // op common api
         .route("/.well-known/openid-configuration", get(discovery_handler))

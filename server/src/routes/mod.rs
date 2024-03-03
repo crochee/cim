@@ -59,7 +59,8 @@ impl AppRouter {
         let router = Router::new()
             .nest_service("/static", ServeDir::new("static"))
             .nest_service("/theme", ServeDir::new("theme"))
-            .merge(oidc::new_op_router(state.clone()))
+            .merge(oidc::op::new_router(state.clone()))
+            .merge(oidc::eu::new_router(state.clone()))
             .merge(
                 SwaggerUi::new("/swagger-ui")
                     .url("/v1/api-docs/openapi.json", ApiDoc::openapi()),
