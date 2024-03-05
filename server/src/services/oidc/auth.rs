@@ -41,3 +41,9 @@ pub async fn auth(req: &mut AuthRequest) -> Result<String> {
     connector.push_str(&serde_urlencoded::to_string(req).map_err(errors::any)?);
     Ok(connector)
 }
+
+#[derive(Debug, Deserialize, Serialize, Validate, ToSchema)]
+pub struct ReqHmac {
+    pub req: String,
+    pub hmac: String,
+}

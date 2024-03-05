@@ -31,6 +31,10 @@ pub async fn password_login(
     if !implicit_or_hybrid {
         return Err(errors::bad_request("invalid response_type"));
     }
+    // 跳转到授权界面
+    if !req.skip_approval.unwrap_or_default() {
+        return Ok("".to_string());
+    }
 
     let mut redirect_uri = req.redirect_uri.clone();
     let uri = redirect_uri.parse::<Uri>().map_err(errors::any)?;
