@@ -32,8 +32,9 @@
       <div>
         <div class="theme-form-row">
           <form method="post">
-            <input type="hidden" name="req" value="{{ auth_req_id }}" />
+            <input type="hidden" name="req" value="{{ req }}" />
             <input type="hidden" name="approval" value="approve">
+            <input type="hidden" name="hmac" value={{ hmac }}>
             <button type="submit" class="dex-btn theme-btn--success">
               <span class="dex-btn-text">Grant Access</span>
             </button>
@@ -41,8 +42,9 @@
         </div>
         <div class="theme-form-row">
           <form method="post">
-            <input type="hidden" name="req" value="{{ auth_req_id }}" />
+            <input type="hidden" name="req" value="{{ req }}" />
             <input type="hidden" name="approval" value="rejected">
+            <input type="hidden" name="hmac" value={{ hmac }}>
             <button type="submit" class="dex-btn theme-btn-provider">
               <span class="dex-btn-text">Cancel</span>
             </button>

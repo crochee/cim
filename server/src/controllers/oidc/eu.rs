@@ -20,7 +20,7 @@ pub fn new_router(state: AppState) -> Router {
     Router::new()
         .route("/login/:id", get(login_html))
         .route("/login", get(login_html).post(login))
-        .route("/approval", get(approval_html))
+        .route("/approval", get(approval_html).post(post_approval))
         .with_state(state)
 }
 
@@ -56,7 +56,9 @@ pub struct Approval {
     pub issuer: String,
     pub scopes: Vec<String>,
     pub client: String,
-    pub auth_req_id: String,
+    pub req: String,
+    pub hmac: String,
+    pub approval: Option<String>,
 }
 
 async fn approval_html(
@@ -70,8 +72,34 @@ async fn approval_html(
             "profile".to_string(),
             "email".to_string(),
         ],
-        client: req_hmac.req,
-        auth_req_id: req_hmac.hmac,
+        client: "cim".to_string(),
+        req: req_hmac.req,
+        hmac: req_hmac.hmac,
+        approval: req_hmac.approval,
+    }))
+}
+
+async fn post_approval(
+    _app: AppState,
+    Valid(Form(req_hmac)): Valid<Form<ReqHmac>>,
+) -> Result<HtmlTemplate<Approval>> {
+    tracing::debug!("{:?}", req_hmac);
+    if let Some(approval) = &req_hmac.approval {
+        if approval.eq("approve") {
+            return Err(errors::unauthorized());
+        }
+    }
+    Ok(HtmlTemplate(Approval {
+        issuer: "Cim".to_string(),
+        scopes: vec![
+            "openid".to_string(),
+            "profile".to_string(),
+            "email".to_string(),
+        ],
+        client: "cim".to_string(),
+        req: req_hmac.req,
+        hmac: req_hmac.hmac,
+        approval: Some("approval".to_string()),
     }))
 }
 

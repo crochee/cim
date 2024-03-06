@@ -43,15 +43,15 @@ http = "1.0"
 tower = { version = "0.4", features = ["full"] }
 tower-http = { version = "0.5", features = ["trace", "cors", "fs"] }
 uuid = { version = "1.6", features = ["v4"] }
-metrics = "0.21"
-metrics-exporter-prometheus = "0.12"
+metrics = "0.22"
+metrics-exporter-prometheus = "0.13"
 prometheus = { version = "=0.13.3", default-features = false }
 lazy_static = "1.4"
 sqlx = { version = "0.7", features = [
-  "mysql",
-  "runtime-tokio",
-  "tls-rustls",
-  "chrono",
+    "mysql",
+    "runtime-tokio",
+    "tls-rustls",
+    "chrono",
 ] }
 serde_urlencoded = "0.7"
 lru = "0.12"
@@ -59,8 +59,8 @@ rust-argon2 = "2.0"
 rand = "0.8"
 oauth2 = "4.3"
 reqwest = { version = "0.11", default-features = false, features = [
-  "rustls-tls",
-  "json",
+    "rustls-tls",
+    "json",
 ] }
 base64 = "0.22"
 jsonwebtoken = "9.2"

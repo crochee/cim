@@ -12,9 +12,11 @@ pub struct AuthRequest {
     pub client_id: String,
     #[validate(url)]
     pub redirect_uri: String,
-    pub scope: Option<String>,
+    pub scope: String,
     #[validate(length(min = 1, max = 255))]
     pub state: String,
+    #[validate(length(min = 1, max = 255))]
+    pub nonce: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub connector_id: Option<String>,
@@ -46,4 +48,5 @@ pub async fn auth(req: &mut AuthRequest) -> Result<String> {
 pub struct ReqHmac {
     pub req: String,
     pub hmac: String,
+    pub approval: Option<String>,
 }
