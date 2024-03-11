@@ -1,18 +1,19 @@
-use std::{
-    future::ready,
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use axum::{
+    body::Body,
     extract::{MatchedPath, Request},
     middleware::{self, Next},
-    response::IntoResponse,
+    response::{IntoResponse, Response},
     routing::get,
     Router,
 };
-use http::{header::HeaderName, HeaderValue, Uri};
-use metrics_exporter_prometheus::{Matcher, PrometheusBuilder};
+use http::{
+    header::{HeaderName, CONTENT_TYPE},
+    HeaderValue, Uri,
+};
+use prometheus::{Encoder, TextEncoder};
 use tower::ServiceBuilder;
 use tower_http::{
     cors::{AllowHeaders, AllowMethods, CorsLayer, ExposeHeaders},
@@ -27,12 +28,9 @@ use utoipa_swagger_ui::SwaggerUi;
 use crate::{
     controllers::{auth, groups, oidc, policies, roles, users},
     middlewares::MakeSpanWithTrace,
+    var::{HTTP_REQUESTS_DURATION_SECONDS, HTTP_REQUESTS_TOTAL},
     AppState,
 };
-
-lazy_static::lazy_static! {
-    static ref EXPONENTIAL_SECONDS: &'static [f64] = &[0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0,];
-}
 
 #[derive(OpenApi)]
 #[openapi(
@@ -47,14 +45,6 @@ pub struct AppRouter;
 impl AppRouter {
     pub fn build(state: AppState) -> Result<Router> {
         let cors_origin = state.config.cors_origin.parse::<HeaderValue>()?;
-        let recorder_handle = PrometheusBuilder::new()
-            .set_buckets_for_metric(
-                Matcher::Full(String::from("http_requests_duration_seconds")),
-                &EXPONENTIAL_SECONDS,
-            )
-            .context("could not setup buckets for metrics, verify matchers are correct")?
-            .install_recorder()
-            .context("could not install metrics recorder")?;
 
         let router = Router::new()
             .nest_service("/static", ServeDir::new("static"))
@@ -104,7 +94,7 @@ impl AppRouter {
                     .max_age(Duration::from_secs(60) * 60 * 12),
             )
             .route_layer(middleware::from_fn(Self::track_metrics))
-            .route("/metrics", get(move || ready(recorder_handle.render())));
+            .route("/metrics", get(Self::metrics));
 
         Ok(router)
     }
@@ -143,26 +133,30 @@ impl AppRouter {
         } else {
             request.uri().path().to_owned()
         };
-
         let start = Instant::now();
-        let method = request.method().clone();
+        let method = request.method().to_string();
         let response = next.run(request).await;
-        let latency = start.elapsed().as_secs_f64();
-        let status = response.status().as_u16().to_string();
+        let latency = start.elapsed();
 
-        let mut labels = vec![
-            ("method", method.to_string()),
-            ("path", path),
-            ("status", status),
-        ];
-        if let Some(trace_id) = response.headers().get("X-Trace-Id") {
-            labels.push(("x_trace_id", trace_id.to_str().unwrap().to_owned()));
-        }
-
-        metrics::increment_counter!("http_requests_total", &labels);
-        metrics::histogram!("http_requests_duration_seconds", latency, &labels);
+        let labels = vec![method.as_str(), path.as_str()];
+        HTTP_REQUESTS_TOTAL.with_label_values(&labels).inc();
+        HTTP_REQUESTS_DURATION_SECONDS
+            .with_label_values(&labels)
+            .observe(latency.as_secs_f64());
 
         response
+    }
+    async fn metrics() -> impl IntoResponse {
+        let encoder = TextEncoder::new();
+        let metric_families = prometheus::gather();
+        let mut buffer = vec![];
+        encoder.encode(&metric_families, &mut buffer).unwrap();
+
+        Response::builder()
+            .status(200)
+            .header(CONTENT_TYPE, encoder.format_type())
+            .body(Body::from(buffer))
+            .unwrap()
     }
 
     async fn not_found(uri: Uri) -> impl IntoResponse {

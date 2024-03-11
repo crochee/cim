@@ -33,7 +33,7 @@ async-trait = { workspace = true }
 jsonwebkey = { workspace = true }
 askama = { workspace = true }
 
-tokio = { version = "1.35", features = ["full"] }
+tokio = { version = "1.36", features = ["full"] }
 backtrace = "0.3"
 mime = "0.3"
 sonyflake = "0.2"
@@ -43,9 +43,7 @@ http = "1.0"
 tower = { version = "0.4", features = ["full"] }
 tower-http = { version = "0.5", features = ["trace", "cors", "fs"] }
 uuid = { version = "1.6", features = ["v4"] }
-metrics = "0.22"
-metrics-exporter-prometheus = "0.13"
-prometheus = { version = "=0.13.3", default-features = false }
+prometheus = { version = "0.13", default-features = false }
 lazy_static = "1.4"
 sqlx = { version = "0.7", features = [
     "mysql",

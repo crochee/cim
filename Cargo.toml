@@ -1,13 +1,13 @@
 [workspace]
 resolver = "2"
 members = [
-  "server",
-  "client",
-  "pim",
-  "examples/pim_demo",
-  "connect",
-  "storage",
-  "slo",
+    "server",
+    "client",
+    "pim",
+    "examples/pim_demo",
+    "connect",
+    "storage",
+    "slo",
 ]
 default-members = ["server"]
 
