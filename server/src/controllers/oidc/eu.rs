@@ -1,5 +1,6 @@
 use askama::Template;
 use axum::{
+    extract::Path,
     response::{IntoResponse, Response},
     routing::get,
     Form, Router,
@@ -18,8 +19,7 @@ use crate::{
 
 pub fn new_router(state: AppState) -> Router {
     Router::new()
-        .route("/login/:id", get(login_html))
-        .route("/login", get(login_html).post(login))
+        .route("/login/:name", get(login_html).post(login))
         .route("/approval", get(approval_html).post(post_approval))
         .with_state(state)
 }
@@ -35,19 +35,65 @@ pub struct Password {
 }
 
 async fn login_html(
-    _app: AppState,
+    Path(name): Path<String>,
     Valid(auth_request): Valid<AuthRequest>,
 ) -> Result<HtmlTemplate<Password>> {
     Ok(HtmlTemplate(Password {
-        issuer: "Cim".to_string(),
+        issuer: name.clone(),
         post_url: format!(
-            "/login?{}",
+            "/login/{}?{}",
+            name,
             serde_urlencoded::to_string(auth_request).map_err(errors::any)?
         ),
         username: "".to_string(),
         username_prompt: "Enter your username".to_string(),
         invalid: "".to_string(),
     }))
+}
+
+async fn login(
+    _app: AppState,
+    Path(name): Path<String>,
+    Valid(auth_request): Valid<AuthRequest>,
+    Valid(Form(login_data)): Valid<Form<LoginData>>,
+) -> Response {
+    // 登录成功则跳转，否则返回登录页面
+    match password_login(&auth_request, &login_data).await {
+        Ok(v) => {
+            let mut headers = HeaderMap::new();
+            let redirect_uri = match v.parse().map_err(errors::any) {
+                Ok(value) => value,
+                Err(err) => {
+                    return HtmlTemplate(Password {
+                        issuer: name.clone(),
+                        post_url: format!(
+                            "/login/{}?{}",
+                            name,
+                            serde_urlencoded::to_string(auth_request).unwrap()
+                        ),
+                        username: login_data.login.clone(),
+                        username_prompt: "Enter your username".to_string(),
+                        invalid: err.to_string(),
+                    })
+                    .into_response()
+                }
+            };
+            headers.insert(header::LOCATION, redirect_uri);
+            (StatusCode::SEE_OTHER, headers).into_response()
+        }
+        Err(err) => HtmlTemplate(Password {
+            issuer: name.clone(),
+            post_url: format!(
+                "/login/{}?{}",
+                name,
+                serde_urlencoded::to_string(auth_request).unwrap()
+            ),
+            username: login_data.login.clone(),
+            username_prompt: "Enter your username".to_string(),
+            invalid: err.to_string(),
+        })
+        .into_response(),
+    }
 }
 
 #[derive(Template)]
@@ -82,14 +128,16 @@ async fn approval_html(
 async fn post_approval(
     _app: AppState,
     Valid(Form(req_hmac)): Valid<Form<ReqHmac>>,
-) -> Result<HtmlTemplate<Approval>> {
+) -> Response {
     tracing::debug!("{:?}", req_hmac);
     if let Some(approval) = &req_hmac.approval {
         if approval.eq("approve") {
-            return Err(errors::unauthorized());
+            let mut headers = HeaderMap::new();
+            headers.insert(header::LOCATION, "/".parse().unwrap());
+            return (StatusCode::SEE_OTHER, headers).into_response();
         }
     }
-    Ok(HtmlTemplate(Approval {
+    HtmlTemplate(Approval {
         issuer: "Cim".to_string(),
         scopes: vec![
             "openid".to_string(),
@@ -100,47 +148,6 @@ async fn post_approval(
         req: req_hmac.req,
         hmac: req_hmac.hmac,
         approval: Some("approval".to_string()),
-    }))
-}
-
-async fn login(
-    _app: AppState,
-    Valid(auth_request): Valid<AuthRequest>,
-    Valid(Form(login_data)): Valid<Form<LoginData>>,
-) -> Response {
-    // 登录成功则跳转，否则返回登录页面
-    match password_login(&auth_request, &login_data).await {
-        Ok(v) => {
-            let mut headers = HeaderMap::new();
-            let redirect_uri = match v.parse().map_err(errors::any) {
-                Ok(value) => value,
-                Err(err) => {
-                    return HtmlTemplate(Password {
-                        issuer: "Cim".to_string(),
-                        post_url: format!(
-                            "/login?{}",
-                            serde_urlencoded::to_string(auth_request).unwrap()
-                        ),
-                        username: login_data.login.clone(),
-                        username_prompt: "Enter your username".to_string(),
-                        invalid: err.to_string(),
-                    })
-                    .into_response()
-                }
-            };
-            headers.insert(header::LOCATION, redirect_uri);
-            (StatusCode::SEE_OTHER, headers).into_response()
-        }
-        Err(err) => HtmlTemplate(Password {
-            issuer: "Cim".to_string(),
-            post_url: format!(
-                "/login?{}",
-                serde_urlencoded::to_string(auth_request).unwrap()
-            ),
-            username: login_data.login.clone(),
-            username_prompt: "Enter your username".to_string(),
-            invalid: err.to_string(),
-        })
-        .into_response(),
-    }
+    })
+    .into_response()
 }

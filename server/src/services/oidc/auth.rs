@@ -1,6 +1,7 @@
 use http::Uri;
 use serde::{Deserialize, Serialize};
 use slo::{errors, Result};
+use storage::connector;
 use utoipa::ToSchema;
 use validator::Validate;
 
@@ -18,6 +19,9 @@ pub struct AuthRequest {
     #[validate(length(min = 1, max = 255))]
     pub nonce: String,
 
+    pub code_challenge: String,
+    pub code_challenge_method: Option<String>,
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub connector_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -26,18 +30,20 @@ pub struct AuthRequest {
     pub skip_approval: Option<bool>,
 }
 
-pub async fn auth(req: &mut AuthRequest) -> Result<String> {
-    let mut connector = String::from("/login");
-    if let Some(connector_id) = &req.connector_id {
-        connector.push('/');
-        connector.push_str(connector_id);
+pub async fn auth<S: connector::ConnectorStore>(
+    connector_store: &S,
+    req: &mut AuthRequest,
+) -> Result<String> {
+    let mut connector = String::from("/login/");
+    match &req.connector_id {
+        Some(connector_id) => {
+            let connector_data =
+                connector_store.get_connector(connector_id).await?;
+            connector.push_str(&connector_data.connector_type);
+        }
+        None => connector.push_str("cim"),
     }
-    let uri = connector.parse::<Uri>().map_err(errors::any)?;
-    if uri.query().is_none() {
-        connector.push('?');
-    } else {
-        connector.push('&');
-    }
+    connector.push('&');
     req.back = Some("/auth".to_string());
     req.connector_id = None;
     connector.push_str(&serde_urlencoded::to_string(req).map_err(errors::any)?);

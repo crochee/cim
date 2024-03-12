@@ -113,10 +113,10 @@ async fn jwk_handler(
 }
 
 async fn auth_handler(
-    _app: AppState,
+    app: AppState,
     Valid(mut auth_request): Valid<AuthRequest>,
 ) -> Result<(StatusCode, HeaderMap)> {
-    let login_uri = auth(&mut auth_request).await?;
+    let login_uri = auth(&app.store.connector, &mut auth_request).await?;
     // redirect to EU login uri
     let mut headers = HeaderMap::new();
     headers.insert(header::LOCATION, login_uri.parse().map_err(errors::any)?);

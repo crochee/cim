@@ -118,7 +118,7 @@ CREATE TABLE `client` (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = 'client info';
 
 CREATE TABLE `auth_request` (
-    `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'auth_request ID',
+    `id` CHAR(36) NOT NULL COMMENT 'auth_request ID',
     `client_id` BIGINT(20) UNSIGNED NOT NULL COMMENT 'client id',
 	`response_types` TEXT NOT NULL, -- JSON array of strings
 	`scopes` TEXT NOT NULL, -- JSON array of strings
@@ -244,5 +244,6 @@ CREATE TABLE `connector` (
     `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT 'update time',
     `deleted_at` DATETIME(3) NULL DEFAULT NULL COMMENT 'delete time',
 	PRIMARY KEY (`id`),
+    UNIQUE `udx_type` (`type`) USING BTREE,
     INDEX `idx_deleted` (`deleted`) USING BTREE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = 'connector info';
