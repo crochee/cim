@@ -1,4 +1,4 @@
-mod useid_password;
+// mod useid_password;
 
 use async_trait::async_trait;
 use http::Request;
@@ -7,11 +7,9 @@ use serde::Deserialize;
 use serde_json::value::RawValue;
 use validator::Validate;
 
-use crate::Result;
+use slo::{regexp::check_password, Result};
 
-use crate::pkg::valid::field::check_password;
-
-pub use useid_password::UserIDPassword;
+// pub use useid_password::UserIDPassword;
 
 #[automock]
 #[async_trait]

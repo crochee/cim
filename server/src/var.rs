@@ -4,7 +4,6 @@ use prometheus::{
 };
 
 pub const SOURCE_SYSTEM: &str = "SYSTEM";
-pub const CIM: &str = "cim";
 
 lazy_static::lazy_static! {
     pub static ref HTTP_REQUESTS_TOTAL: IntCounterVec=register_int_counter_vec!(

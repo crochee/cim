@@ -1,4 +1,3 @@
-use http::Uri;
 use serde::{Deserialize, Serialize};
 use slo::{errors, Result};
 use storage::connector;
@@ -17,7 +16,7 @@ pub struct AuthRequest {
     #[validate(length(min = 1, max = 255))]
     pub state: String,
     #[validate(length(min = 1, max = 255))]
-    pub nonce: String,
+    pub nonce: Option<String>,
 
     pub code_challenge: String,
     pub code_challenge_method: Option<String>,
@@ -34,14 +33,14 @@ pub async fn auth<S: connector::ConnectorStore>(
     connector_store: &S,
     req: &mut AuthRequest,
 ) -> Result<String> {
-    let mut connector = String::from("/login/");
+    let mut connector = String::from("/auth/");
     match &req.connector_id {
         Some(connector_id) => {
             let connector_data =
                 connector_store.get_connector(connector_id).await?;
-            connector.push_str(&connector_data.connector_type);
+            connector.push_str(&connector_data.id);
         }
-        None => connector.push_str("cim"),
+        None => connector.push('1'),
     }
     connector.push('&');
     req.back = Some("/auth".to_string());

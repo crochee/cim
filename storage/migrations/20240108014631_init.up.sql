@@ -244,6 +244,5 @@ CREATE TABLE `connector` (
     `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT 'update time',
     `deleted_at` DATETIME(3) NULL DEFAULT NULL COMMENT 'delete time',
 	PRIMARY KEY (`id`),
-    UNIQUE `udx_type` (`type`) USING BTREE,
     INDEX `idx_deleted` (`deleted`) USING BTREE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = 'connector info';

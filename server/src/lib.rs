@@ -8,13 +8,15 @@ mod valid;
 mod var;
 mod version;
 
-// #[cfg(all(feature = "mimalloc"))]
-// #[global_allocator]
-// static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
-//
-// #[cfg(all(feature = "jemalloc", not(target_env = "msvc")))]
-// #[global_allocator]
-// static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
+#[cfg(target_env = "msvc")]
+#[global_allocator]
+#[cfg(target_env = "msvc")]
+static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
+#[cfg(not(target_env = "msvc"))]
+#[global_allocator]
+#[cfg(not(target_env = "msvc"))]
+static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 pub use app::{App, AppState};
 pub use config::AppConfig;

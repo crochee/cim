@@ -5,12 +5,13 @@ use axum::{
     routing::get,
     Form, Router,
 };
-use http::{header, HeaderMap, StatusCode};
+use http::{header, HeaderMap, StatusCode, Uri};
 use slo::{errors, HtmlTemplate, Result};
 
 use crate::{
     services::oidc::{
         auth::{AuthRequest, ReqHmac},
+        get_connector_name, parse_auth_request,
         password::{password_login, LoginData},
     },
     valid::Valid,
@@ -19,15 +20,53 @@ use crate::{
 
 pub fn new_router(state: AppState) -> Router {
     Router::new()
-        .route("/login/:name", get(login_html).post(login))
+        .route("/auth/:connector_id", get(auth_html))
+        .route("/auth/:connector_id/login", get(login_html).post(login))
         .route("/approval", get(approval_html).post(post_approval))
         .with_state(state)
+}
+
+async fn auth_html(
+    app: AppState,
+    Path(connector_id): Path<String>,
+    Valid(auth_request): Valid<AuthRequest>,
+) -> Response {
+    let auth_req = match parse_auth_request(&app.store.client, &auth_request)
+        .await
+    {
+        Ok(v) => v,
+        Err(err) => {
+            // 跳转会起始页面
+            let mut redirect = String::from(auth_request.redirect_uri.as_str());
+            if auth_request
+                .redirect_uri
+                .parse::<Uri>()
+                .unwrap()
+                .query()
+                .is_none()
+            {
+                redirect.push_str("?err=");
+                redirect.push_str(&err.to_string());
+            } else {
+                redirect.push_str("&err=");
+                redirect.push_str(&err.to_string());
+            }
+
+            let mut headers = HeaderMap::new();
+            headers.insert(header::LOCATION, redirect.parse().unwrap());
+            return (StatusCode::SEE_OTHER, headers).into_response();
+        }
+    };
+    tracing::debug!("{:?}", auth_req);
+
+    let mut headers = HeaderMap::new();
+    headers.insert(header::LOCATION, "/auth".parse().unwrap());
+    (StatusCode::FOUND, headers).into_response()
 }
 
 #[derive(Template)]
 #[template(path = "password.html")]
 pub struct Password {
-    pub issuer: String,
     pub post_url: String,
     pub username: String,
     pub username_prompt: String,
@@ -35,40 +74,70 @@ pub struct Password {
 }
 
 async fn login_html(
-    Path(name): Path<String>,
+    app: AppState,
+    Path(connector_id): Path<String>,
     Valid(auth_request): Valid<AuthRequest>,
 ) -> Result<HtmlTemplate<Password>> {
+    let name = get_connector_name(&app.store.connector, &connector_id).await?;
     Ok(HtmlTemplate(Password {
-        issuer: name.clone(),
         post_url: format!(
             "/login/{}?{}",
-            name,
+            connector_id,
             serde_urlencoded::to_string(auth_request).map_err(errors::any)?
         ),
         username: "".to_string(),
-        username_prompt: "Enter your username".to_string(),
+        username_prompt: format!("Enter your {name}"),
         invalid: "".to_string(),
     }))
 }
 
 async fn login(
-    _app: AppState,
-    Path(name): Path<String>,
-    Valid(auth_request): Valid<AuthRequest>,
+    app: AppState,
+    Path(connector_id): Path<String>,
+    Valid(mut auth_request): Valid<AuthRequest>,
     Valid(Form(login_data)): Valid<Form<LoginData>>,
 ) -> Response {
+    let auth_req = match parse_auth_request(&app.store.client, &auth_request)
+        .await
+    {
+        Ok(v) => v,
+        Err(err) => {
+            // 跳转会起始页面
+            let mut redirect = String::from(auth_request.redirect_uri.as_str());
+            if auth_request
+                .redirect_uri
+                .parse::<Uri>()
+                .unwrap()
+                .query()
+                .is_none()
+            {
+                redirect.push_str("?err=");
+                redirect.push_str(&err.to_string());
+            } else {
+                redirect.push_str("&err=");
+                redirect.push_str(&err.to_string());
+            }
+
+            let mut headers = HeaderMap::new();
+            headers.insert(header::LOCATION, redirect.parse().unwrap());
+            return (StatusCode::SEE_OTHER, headers).into_response();
+        }
+    };
+    tracing::debug!("{:?}", auth_req);
+
     // 登录成功则跳转，否则返回登录页面
-    match password_login(&auth_request, &login_data).await {
+    match password_login(&app.store.client, &mut auth_request, &login_data)
+        .await
+    {
         Ok(v) => {
             let mut headers = HeaderMap::new();
             let redirect_uri = match v.parse().map_err(errors::any) {
                 Ok(value) => value,
                 Err(err) => {
                     return HtmlTemplate(Password {
-                        issuer: name.clone(),
                         post_url: format!(
                             "/login/{}?{}",
-                            name,
+                            connector_id,
                             serde_urlencoded::to_string(auth_request).unwrap()
                         ),
                         username: login_data.login.clone(),
@@ -82,10 +151,9 @@ async fn login(
             (StatusCode::SEE_OTHER, headers).into_response()
         }
         Err(err) => HtmlTemplate(Password {
-            issuer: name.clone(),
             post_url: format!(
                 "/login/{}?{}",
-                name,
+                connector_id,
                 serde_urlencoded::to_string(auth_request).unwrap()
             ),
             username: login_data.login.clone(),

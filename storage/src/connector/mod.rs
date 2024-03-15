@@ -38,6 +38,5 @@ pub trait ConnectorStore {
         content: &Content,
     ) -> Result<ID>;
     async fn get_connector(&self, id: &str) -> Result<Connector>;
-    async fn get_connector_by_name(&self, cname: &str) -> Result<Connector>;
     async fn delete_connector(&self, id: &str) -> Result<()>;
 }

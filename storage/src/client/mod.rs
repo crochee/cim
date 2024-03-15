@@ -9,10 +9,11 @@ use slo::Result;
 
 use crate::ID;
 
-#[derive(Debug, Deserialize, Serialize, Validate, ToSchema)]
+#[derive(Debug, Default, Deserialize, Serialize, Validate, ToSchema)]
 pub struct Client {
     pub id: String,
     pub secret: String,
+    pub public: bool,
     pub redirect_uris: Vec<String>,
     pub trusted_peers: Vec<String>,
     pub name: String,

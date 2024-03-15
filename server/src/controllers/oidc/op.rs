@@ -40,6 +40,7 @@ pub struct OpenIDConfiguration {
     pub response_types_supported: Vec<String>,
     pub scopes_supported: Vec<String>,
     pub token_endpoint_auth_methods_supported: Vec<String>,
+    pub code_challenge_methods_supported: Vec<String>,
     pub claims_supported: Vec<String>,
 }
 
@@ -60,15 +61,23 @@ async fn discovery_handler(app: AppState) -> Json<OpenIDConfiguration> {
             "urn:ietf:params:oauth:grant-type:jwt-bearer".to_string(),
         ],
         subject_types_supported: vec!["public".to_string()],
-        response_types_supported: vec!["code".to_string()],
+        response_types_supported: vec![
+            "code".to_string(),
+            "token".to_string(),
+            "id_token".to_string(),
+            "none".to_string(),
+        ],
         scopes_supported: vec![
             "openid".to_string(),
             "profile".to_string(),
             "email".to_string(),
         ],
         token_endpoint_auth_methods_supported: vec![
-            "client_secret_basic".to_string(),
-            "client_secret_post".to_string(),
+            "client_secret_basic".to_string()
+        ],
+        code_challenge_methods_supported: vec![
+            "plain".to_string(),
+            "S256".to_string(),
         ],
         claims_supported: vec![
             "aud".to_string(),

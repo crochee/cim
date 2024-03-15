@@ -65,12 +65,10 @@ jsonwebtoken = "9.2"
 sha2 = "0.10"
 utoipa = { version = "4.2", features = ["axum_extras", "chrono"] }
 utoipa-swagger-ui = { version = "6.0", features = ["axum"] }
-mimalloc = { version = "0.1", default-features = false, optional = true }
-openidconnect = "3.5.0"
+openidconnect = "3.5"
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
-jemallocator = { version = "0.5", package = "tikv-jemallocator", optional = true }
+jemallocator = { version = "0.5", package = "tikv-jemallocator" }
 
-[features]
-default = ["mimalloc"]
-jemalloc = ["jemallocator"]
+[target.'cfg(target_env = "msvc")'.dependencies]
+mimalloc = { version = "0.1", default-features = false }
