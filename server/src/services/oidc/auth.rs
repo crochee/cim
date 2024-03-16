@@ -18,12 +18,15 @@ pub struct AuthRequest {
     #[validate(length(min = 1, max = 255))]
     pub nonce: Option<String>,
 
+    #[validate(length(min = 1))]
     pub code_challenge: String,
     pub code_challenge_method: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[validate(length(min = 1))]
     pub connector_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[validate(length(min = 1))]
     pub back: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub skip_approval: Option<bool>,

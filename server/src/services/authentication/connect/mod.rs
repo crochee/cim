@@ -1,7 +1,7 @@
 // mod useid_password;
 
 use async_trait::async_trait;
-use http::Request;
+use axum::extract::Request;
 use mockall::automock;
 use serde::Deserialize;
 use serde_json::value::RawValue;
@@ -33,8 +33,9 @@ pub trait RefreshConnector {
 
 /// CallbackConnector is an interface implemented by connectors which use an OAuth
 /// style redirect flow to determine user information.
+#[automock]
 #[async_trait]
-pub trait CallbackConnector<B> {
+pub trait CallbackConnector {
     /// The initial URL to redirect the user to.
     ///
     /// OAuth2 implementations should request different scopes from the upstream
@@ -59,7 +60,7 @@ pub trait CallbackConnector<B> {
     async fn handle_callback(
         &self,
         s: &Scopes,
-        req: Request<B>,
+        req: Request,
     ) -> Result<Identity>;
 }
 
@@ -69,6 +70,7 @@ pub trait CallbackConnector<B> {
 ///
 /// See: https://docs.oasis-open.org/security/saml/v2.0/saml-bindings-2.0-os.pdf
 /// "3.5 HTTP POST Binding"
+#[automock]
 #[async_trait]
 pub trait SAMLConnector {
     /// POSTData returns an encoded SAML request and SSO URL for the server to

@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use chrono::NaiveDateTime;
 use mockall::automock;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;

@@ -26,18 +26,35 @@ const RESPONSE_TYPE_CODE: &str = "code"; // "Regular" flow
 const RESPONSE_TYPE_TOKEN: &str = "token"; // Implicit flow for frontend apps.
 const RESPONSE_TYPE_IDTOKEN: &str = "id_token"; // ID Token in url fragment
 
-pub async fn get_connector_name<C: connector::ConnectorStore>(
-    connector_store: &C,
-    id: &str,
-) -> Result<String> {
-    Ok(connector_store.get_connector(id).await?.name)
-}
-
 pub async fn get_connector<C: connector::ConnectorStore>(
     connector_store: &C,
-    name: &str,
-) -> Result<Box<dyn connect::PasswordConnector>> {
-    todo!();
+    id: &str,
+) -> Result<connector::Connector> {
+    connector_store.get_connector(id).await
+}
+
+pub enum Connector {
+    Password(Box<dyn connect::PasswordConnector>),
+    Callback(Box<dyn connect::CallbackConnector>),
+    Saml(Box<dyn connect::SAMLConnector>),
+}
+
+pub fn open_connector(conn: &connector::Connector) -> Result<Connector> {
+    match conn.connector_type.as_str() {
+        "cim" => Ok(Connector::Password(Box::new(
+            connect::MockPasswordConnector::new(),
+        ))),
+        "mockCallback" => Ok(Connector::Password(Box::new(
+            connect::MockPasswordConnector::new(),
+        ))),
+        "mockPassword" => Ok(Connector::Password(Box::new(
+            connect::MockPasswordConnector::new(),
+        ))),
+        "saml" => {
+            Ok(Connector::Saml(Box::new(connect::MockSAMLConnector::new())))
+        }
+        _ => Err(errors::bad_request("unsupported connector type")),
+    }
 }
 
 pub async fn parse_auth_request<C: client::ClientStore>(
