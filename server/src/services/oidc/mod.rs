@@ -2,6 +2,7 @@ pub mod auth;
 pub mod key;
 pub mod password;
 
+use chrono::Utc;
 use http::Uri;
 use rand::Rng;
 use slo::{errors, Result};
@@ -34,9 +35,9 @@ pub async fn get_connector<C: connector::ConnectorStore>(
 }
 
 pub enum Connector {
-    Password(Box<dyn connect::PasswordConnector>),
-    Callback(Box<dyn connect::CallbackConnector>),
-    Saml(Box<dyn connect::SAMLConnector>),
+    Password(Box<dyn connect::PasswordConnector + Send>),
+    Callback(Box<dyn connect::CallbackConnector + Send>),
+    Saml(Box<dyn connect::SAMLConnector + Send>),
 }
 
 pub fn open_connector(conn: &connector::Connector) -> Result<Connector> {
@@ -44,8 +45,8 @@ pub fn open_connector(conn: &connector::Connector) -> Result<Connector> {
         "cim" => Ok(Connector::Password(Box::new(
             connect::MockPasswordConnector::new(),
         ))),
-        "mockCallback" => Ok(Connector::Password(Box::new(
-            connect::MockPasswordConnector::new(),
+        "mockCallback" => Ok(Connector::Callback(Box::new(
+            connect::MockCallbackConnector::new(),
         ))),
         "mockPassword" => Ok(Connector::Password(Box::new(
             connect::MockPasswordConnector::new(),
@@ -54,6 +55,70 @@ pub fn open_connector(conn: &connector::Connector) -> Result<Connector> {
             Ok(Connector::Saml(Box::new(connect::MockSAMLConnector::new())))
         }
         _ => Err(errors::bad_request("unsupported connector type")),
+    }
+}
+
+pub async fn run_connector<S: authrequest::AuthRequestStore>(
+    auth_request_store: &S,
+    conn: &connector::Connector,
+    connector_id: &str,
+    auth_req: &mut authrequest::AuthRequest,
+    expires_in: i64,
+) -> Result<String> {
+    let connector_impl = open_connector(conn)?;
+    auth_req.connector_id = connector_id.to_string();
+    auth_req.expires_in = Utc::now().timestamp() + expires_in;
+    let id = auth_request_store
+        .put_auth_request(
+            Some(uuid::Uuid::new_v4().to_string()),
+            &authrequest::Content {
+                client_id: auth_req.client_id.clone(),
+                response_types: auth_req.response_types.clone(),
+                scopes: auth_req.scopes.clone(),
+                redirect_uri: auth_req.redirect_uri.clone(),
+                code_challenge: auth_req.code_challenge.clone(),
+                code_challenge_method: auth_req.code_challenge_method.clone(),
+                nonce: auth_req.nonce.clone(),
+                state: auth_req.state.clone(),
+                hmac_key: auth_req.hmac_key.clone(),
+                force_approval_prompt: auth_req.force_approval_prompt,
+                logged_in: auth_req.logged_in,
+                claims_user_id: auth_req.claims_user_id.clone(),
+                claims_user_name: auth_req.claims_user_name.clone(),
+                claims_email: auth_req.claims_email.clone(),
+                claims_email_verified: auth_req.claims_email_verified,
+                claims_groups: auth_req.claims_groups.clone(),
+                claims_preferred_username: auth_req
+                    .claims_preferred_username
+                    .clone(),
+                connector_id: auth_req.connector_id.clone(),
+                connector_data: auth_req.connector_data.clone(),
+                expires_in: auth_req.expires_in,
+            },
+        )
+        .await?;
+
+    match connector_impl {
+        Connector::Password(_) => {
+            Ok(format!("/auth/{}/login?state={}", connector_id, id.id))
+        }
+        Connector::Callback(_cc) => {
+            let scopes = connect::parse_scopes(&auth_req.scopes);
+            tracing::debug!("{:?}", scopes);
+            // match cc.login_url(&scopes, "/callback", &auth_req.id).await {
+            //     Ok(v) => v,
+            //     Err(err) => {
+            //         return pa_html(
+            //             &connector_id,
+            //             &auth_request,
+            //             &connector.name,
+            //             err,
+            //         );
+            //     }
+            // }
+            Ok("".to_string())
+        }
+        Connector::Saml(_) => Ok("".to_string()),
     }
 }
 
@@ -187,7 +252,6 @@ pub async fn parse_auth_request<C: client::ClientStore>(
         .collect::<String>();
 
     Ok(authrequest::AuthRequest {
-        id: uuid::Uuid::new_v4().to_string(),
         client_id: req.client_id.clone(),
         response_types,
         scopes,

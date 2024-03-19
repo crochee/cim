@@ -26,6 +26,9 @@ pub struct AppConfig {
     #[clap(long, env)]
     #[arg(default_value_t = String::from("127.0.0.1"))]
     pub endpoint: String,
+    #[clap(long, env)]
+    #[arg(default_value_t = 3600)]
+    pub expiration: i64,
 }
 
 const PORT_RANGE: RangeInclusive<usize> = 1..=65535;

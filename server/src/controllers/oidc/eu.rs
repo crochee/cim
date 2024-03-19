@@ -5,19 +5,14 @@ use axum::{
     routing::get,
     Form, Router,
 };
-use chrono::Utc;
 use http::{header, HeaderMap, StatusCode, Uri};
 use slo::{errors, HtmlTemplate, Result};
 
 use crate::{
-    services::{
-        authentication::connect,
-        oidc::{
-            self,
-            auth::{AuthRequest, ReqHmac},
-            get_connector, open_connector, parse_auth_request,
-            password::{password_login, LoginData},
-        },
+    services::oidc::{
+        auth, get_connector, parse_auth_request,
+        password::{password_login, LoginData},
+        run_connector,
     },
     valid::Valid,
     AppState,
@@ -31,12 +26,10 @@ pub fn new_router(state: AppState) -> Router {
         .with_state(state)
 }
 
-const EXPIRATION: i64 = 3600;
-
 async fn auth_html(
     app: AppState,
     Path(connector_id): Path<String>,
-    Valid(auth_request): Valid<AuthRequest>,
+    Valid(auth_request): Valid<auth::AuthRequest>,
 ) -> Response {
     let mut auth_req =
         match parse_auth_request(&app.store.client, &auth_request).await {
@@ -45,56 +38,33 @@ async fn auth_html(
                 return redirect(&auth_request, err);
             }
         };
-    tracing::debug!("{:?}", auth_req);
     let connector =
         match get_connector(&app.store.connector, &connector_id).await {
             Ok(v) => v,
             Err(err) => return redirect(&auth_request, err),
         };
-    let connnector_impl = match open_connector(&connector) {
-        Ok(c) => c,
+
+    match run_connector(
+        &app.store.auth_request,
+        &connector,
+        &connector_id,
+        &mut auth_req,
+        app.config.expiration,
+    )
+    .await
+    {
+        Ok(redirect_uri) => {
+            let mut headers = HeaderMap::new();
+            headers.insert(header::LOCATION, redirect_uri.parse().unwrap());
+            (StatusCode::FOUND, headers).into_response()
+        }
         Err(err) => {
-            return HtmlTemplate(Password {
-                post_url: format!(
-                    "/login/{}?{}",
-                    connector_id,
-                    serde_urlencoded::to_string(auth_request)
-                        .map_err(errors::any)
-                        .unwrap()
-                ),
-                username: "".to_string(),
-                username_prompt: format!("Enter your {}", connector.name),
-                invalid: err.to_string(),
-            })
-            .into_response();
+            reauth_html(&connector_id, &auth_request, &connector.name, err)
         }
-    };
-    auth_req.connector_id = connector_id.clone();
-    auth_req.expires_in = Utc::now().timestamp() + EXPIRATION;
-
-    let scopes = connect::parse_scopes(&auth_req.scopes);
-    let redirect_uri = match connnector_impl {
-        oidc::Connector::Password(_) => {
-            format!(
-                "/auth/{}/login?state={}&back={}",
-                connector_id,
-                auth_req.id,
-                auth_request.back.unwrap()
-            )
-        }
-        oidc::Connector::Callback(cc) => cc
-            .login_url(&scopes, "/callback", &auth_req.id)
-            .await
-            .unwrap(),
-        oidc::Connector::Saml(_) => "".to_string(),
-    };
-
-    let mut headers = HeaderMap::new();
-    headers.insert(header::LOCATION, redirect_uri.parse().unwrap());
-    (StatusCode::FOUND, headers).into_response()
+    }
 }
 
-fn redirect<E: ToString>(auth_request: &AuthRequest, err: E) -> Response {
+fn redirect<E: ToString>(auth_request: &auth::AuthRequest, err: E) -> Response {
     let mut redirect_uri = auth_request.redirect_uri.clone();
     if auth_request
         .redirect_uri
@@ -115,6 +85,27 @@ fn redirect<E: ToString>(auth_request: &AuthRequest, err: E) -> Response {
     (StatusCode::SEE_OTHER, headers).into_response()
 }
 
+fn reauth_html<E: ToString>(
+    connector_id: &str,
+    auth_request: &auth::AuthRequest,
+    name: &str,
+    err: E,
+) -> Response {
+    HtmlTemplate(Password {
+        post_url: format!(
+            "/login/{}?{}",
+            connector_id,
+            serde_urlencoded::to_string(auth_request)
+                .map_err(errors::any)
+                .unwrap()
+        ),
+        username: "".to_string(),
+        username_prompt: format!("Enter your {}", name),
+        invalid: err.to_string(),
+    })
+    .into_response()
+}
+
 #[derive(Template)]
 #[template(path = "password.html")]
 pub struct Password {
@@ -127,7 +118,7 @@ pub struct Password {
 async fn login_html(
     app: AppState,
     Path(connector_id): Path<String>,
-    Valid(auth_request): Valid<AuthRequest>,
+    Valid(auth_request): Valid<auth::AuthRequest>,
 ) -> Result<HtmlTemplate<Password>> {
     let connector = get_connector(&app.store.connector, &connector_id).await?;
     Ok(HtmlTemplate(Password {
@@ -145,7 +136,7 @@ async fn login_html(
 async fn login(
     app: AppState,
     Path(connector_id): Path<String>,
-    Valid(mut auth_request): Valid<AuthRequest>,
+    Valid(mut auth_request): Valid<auth::AuthRequest>,
     Valid(Form(login_data)): Valid<Form<LoginData>>,
 ) -> Response {
     let auth_req =
@@ -209,7 +200,7 @@ pub struct Approval {
 
 async fn approval_html(
     _app: AppState,
-    Valid(req_hmac): Valid<ReqHmac>,
+    Valid(req_hmac): Valid<auth::ReqHmac>,
 ) -> Result<HtmlTemplate<Approval>> {
     Ok(HtmlTemplate(Approval {
         issuer: "Cim".to_string(),
@@ -227,7 +218,7 @@ async fn approval_html(
 
 async fn post_approval(
     _app: AppState,
-    Valid(Form(req_hmac)): Valid<Form<ReqHmac>>,
+    Valid(Form(req_hmac)): Valid<Form<auth::ReqHmac>>,
 ) -> Response {
     tracing::debug!("{:?}", req_hmac);
     if let Some(approval) = &req_hmac.approval {

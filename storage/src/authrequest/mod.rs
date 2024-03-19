@@ -49,8 +49,8 @@ pub struct Content {
     pub code_challenge: String,
     pub code_challenge_method: String,
     pub nonce: String,
-    pub state: Option<String>,
-    pub hmac_key: Option<String>,
+    pub state: String,
+    pub hmac_key: String,
     pub force_approval_prompt: bool,
     pub logged_in: bool,
 
