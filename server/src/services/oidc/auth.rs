@@ -26,9 +26,6 @@ pub struct AuthRequest {
     #[validate(length(min = 1))]
     pub connector_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[validate(length(min = 1))]
-    pub back: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub skip_approval: Option<bool>,
 }
 
@@ -46,7 +43,6 @@ pub async fn auth<S: connector::ConnectorStore>(
         None => connector.push('1'),
     }
     connector.push('&');
-    req.back = Some("/auth".to_string());
     req.connector_id = None;
     connector.push_str(&serde_urlencoded::to_string(req).map_err(errors::any)?);
     Ok(connector)

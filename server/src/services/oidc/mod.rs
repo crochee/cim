@@ -1,6 +1,8 @@
 pub mod auth;
+pub mod connect;
 pub mod key;
 pub mod password;
+pub mod token;
 
 use chrono::Utc;
 use http::Uri;
@@ -9,8 +11,6 @@ use slo::{errors, Result};
 use storage::{authrequest, client, connector};
 
 use auth::AuthRequest;
-
-use super::authentication::connect;
 
 const CODE_CHALLENGE_METHOD_PLAIN: &str = "plain";
 const CODE_CHALLENGE_METHOD_S256: &str = "S256";
@@ -102,21 +102,10 @@ pub async fn run_connector<S: authrequest::AuthRequestStore>(
         Connector::Password(_) => {
             Ok(format!("/auth/{}/login?state={}", connector_id, id.id))
         }
-        Connector::Callback(_cc) => {
+        Connector::Callback(cc) => {
             let scopes = connect::parse_scopes(&auth_req.scopes);
             tracing::debug!("{:?}", scopes);
-            // match cc.login_url(&scopes, "/callback", &auth_req.id).await {
-            //     Ok(v) => v,
-            //     Err(err) => {
-            //         return pa_html(
-            //             &connector_id,
-            //             &auth_request,
-            //             &connector.name,
-            //             err,
-            //         );
-            //     }
-            // }
-            Ok("".to_string())
+            cc.login_url(&scopes, "/callback", &auth_req.id).await
         }
         Connector::Saml(_) => Ok("".to_string()),
     }
@@ -315,7 +304,6 @@ mod tests {
             scope: "openid".to_owned(),
             nonce: Some("nonce".to_owned()),
             state: "state".to_owned(),
-            back: None,
             code_challenge: "R".to_owned(),
             code_challenge_method: None,
             skip_approval: None,

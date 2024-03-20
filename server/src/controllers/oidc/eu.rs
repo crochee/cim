@@ -10,8 +10,8 @@ use slo::{errors, HtmlTemplate, Result};
 
 use crate::{
     services::oidc::{
-        auth, get_connector, parse_auth_request,
-        password::{password_login, LoginData},
+        self, auth, connect, get_connector, open_connector, parse_auth_request,
+        password::{self, get_auth_request, LoginData},
         run_connector,
     },
     valid::Valid,
@@ -21,7 +21,10 @@ use crate::{
 pub fn new_router(state: AppState) -> Router {
     Router::new()
         .route("/auth/:connector_id", get(auth_html))
-        .route("/auth/:connector_id/login", get(login_html).post(login))
+        .route(
+            "/auth/:connector_id/login",
+            get(password_login_html).post(password_login_handle),
+        )
         .route("/approval", get(approval_html).post(post_approval))
         .with_state(state)
 }
@@ -58,9 +61,7 @@ async fn auth_html(
             headers.insert(header::LOCATION, redirect_uri.parse().unwrap());
             (StatusCode::FOUND, headers).into_response()
         }
-        Err(err) => {
-            reauth_html(&connector_id, &auth_request, &connector.name, err)
-        }
+        Err(err) => errors::bad_request(&err).into_response(),
     }
 }
 
@@ -85,105 +86,153 @@ fn redirect<E: ToString>(auth_request: &auth::AuthRequest, err: E) -> Response {
     (StatusCode::SEE_OTHER, headers).into_response()
 }
 
-fn reauth_html<E: ToString>(
-    connector_id: &str,
-    auth_request: &auth::AuthRequest,
-    name: &str,
-    err: E,
-) -> Response {
-    HtmlTemplate(Password {
-        post_url: format!(
-            "/login/{}?{}",
-            connector_id,
-            serde_urlencoded::to_string(auth_request)
-                .map_err(errors::any)
-                .unwrap()
-        ),
-        username: "".to_string(),
-        username_prompt: format!("Enter your {}", name),
-        invalid: err.to_string(),
-    })
-    .into_response()
-}
-
-#[derive(Template)]
+#[derive(Template, Default)]
 #[template(path = "password.html")]
 pub struct Password {
     pub post_url: String,
     pub username: String,
     pub username_prompt: String,
     pub invalid: String,
+    pub back_link: String,
 }
 
-async fn login_html(
+async fn password_login_html(
     app: AppState,
     Path(connector_id): Path<String>,
-    Valid(auth_request): Valid<auth::AuthRequest>,
+    Valid(mut auth_req_id): Valid<password::AuthReqID>,
 ) -> Result<HtmlTemplate<Password>> {
+    let auth_request =
+        get_auth_request(&app.store.auth_request, &auth_req_id).await?;
+    if !auth_request.connector_id.eq(&connector_id) {
+        return Err(errors::bad_request("Requested resource does not exist."));
+    }
     let connector = get_connector(&app.store.connector, &connector_id).await?;
-    Ok(HtmlTemplate(Password {
-        post_url: format!(
-            "/login/{}?{}",
-            connector_id,
-            serde_urlencoded::to_string(auth_request).map_err(errors::any)?
-        ),
-        username: "".to_string(),
-        username_prompt: format!("Enter your {}", connector.name),
-        invalid: "".to_string(),
-    }))
+    match open_connector(&connector)? {
+        oidc::Connector::Password(conn) => {
+            auth_req_id.prompt = Some(conn.prompt().to_owned());
+            Ok(HtmlTemplate(Password {
+                post_url: format!(
+                    "/auth/{}/login?{}",
+                    connector_id,
+                    serde_urlencoded::to_string(auth_req_id)
+                        .map_err(errors::any)?
+                ),
+                username_prompt: format!("Enter your {}", conn.prompt()),
+                ..Default::default()
+            }))
+        }
+        _ => Err(errors::bad_request("unsupported connector type")),
+    }
 }
 
-async fn login(
+fn relogin_html<E: ToString>(
+    connector_id: &str,
+    auth_req_id: &password::AuthReqID,
+    name: &str,
+    err: E,
+) -> Response {
+    HtmlTemplate(Password {
+        post_url: format!(
+            "/auth/{}/login?{}",
+            connector_id,
+            serde_urlencoded::to_string(auth_req_id)
+                .map_err(errors::any)
+                .unwrap()
+        ),
+        username: name.to_string(),
+        username_prompt: format!(
+            "Enter your {}",
+            auth_req_id.prompt.as_deref().unwrap_or("Username")
+        ),
+        invalid: err.to_string(),
+        ..Default::default()
+    })
+    .into_response()
+}
+
+async fn password_login_handle(
     app: AppState,
     Path(connector_id): Path<String>,
-    Valid(mut auth_request): Valid<auth::AuthRequest>,
+    Valid(auth_req_code): Valid<password::AuthReqID>,
     Valid(Form(login_data)): Valid<Form<LoginData>>,
 ) -> Response {
-    let auth_req =
-        match parse_auth_request(&app.store.client, &auth_request).await {
+    let auth_request =
+        match get_auth_request(&app.store.auth_request, &auth_req_code).await {
             Ok(v) => v,
             Err(err) => {
-                return redirect(&auth_request, err);
+                return relogin_html(
+                    &connector_id,
+                    &auth_req_code,
+                    &login_data.login,
+                    err,
+                )
             }
         };
-    tracing::debug!("{:?}", auth_req);
-
-    // 登录成功则跳转，否则返回登录页面
-    match password_login(&app.store.client, &mut auth_request, &login_data)
-        .await
-    {
-        Ok(v) => {
-            let mut headers = HeaderMap::new();
-            let redirect_uri = match v.parse().map_err(errors::any) {
-                Ok(value) => value,
+    if !auth_request.connector_id.eq(&connector_id) {
+        return relogin_html(
+            &connector_id,
+            &auth_req_code,
+            &login_data.login,
+            "Requested resource does not exist.",
+        );
+    };
+    let connector =
+        match get_connector(&app.store.connector, &connector_id).await {
+            Ok(v) => v,
+            Err(err) => {
+                return relogin_html(
+                    &connector_id,
+                    &auth_req_code,
+                    &login_data.login,
+                    err,
+                )
+            }
+        };
+    let conn_impl = match open_connector(&connector) {
+        Ok(v) => v,
+        Err(err) => {
+            return relogin_html(
+                &connector_id,
+                &auth_req_code,
+                &login_data.login,
+                err,
+            )
+        }
+    };
+    match conn_impl {
+        oidc::Connector::Password(conn) => {
+            let scopes = connect::parse_scopes(&auth_request.scopes);
+            let (identity, ok) = match conn
+                .login(
+                    &scopes,
+                    &connect::Info {
+                        subject: login_data.login.clone(),
+                        password: login_data.password,
+                    },
+                )
+                .await
+            {
+                Ok(v) => v,
                 Err(err) => {
-                    return HtmlTemplate(Password {
-                        post_url: format!(
-                            "/login/{}?{}",
-                            connector_id,
-                            serde_urlencoded::to_string(auth_request).unwrap()
-                        ),
-                        username: login_data.login.clone(),
-                        username_prompt: "Enter your username".to_string(),
-                        invalid: err.to_string(),
-                    })
-                    .into_response()
+                    return relogin_html(
+                        &connector_id,
+                        &auth_req_code,
+                        &login_data.login,
+                        err,
+                    )
                 }
             };
-            headers.insert(header::LOCATION, redirect_uri);
-            (StatusCode::SEE_OTHER, headers).into_response()
+            if ok {
+                return relogin_html(
+                    &connector_id,
+                    &auth_req_code,
+                    &login_data.login,
+                    "invalid password",
+                );
+            }
+            "".to_string().into_response()
         }
-        Err(err) => HtmlTemplate(Password {
-            post_url: format!(
-                "/login/{}?{}",
-                connector_id,
-                serde_urlencoded::to_string(auth_request).unwrap()
-            ),
-            username: login_data.login.clone(),
-            username_prompt: "Enter your username".to_string(),
-            invalid: err.to_string(),
-        })
-        .into_response(),
+        _ => errors::bad_request("unsupported connector type").into_response(),
     }
 }
 

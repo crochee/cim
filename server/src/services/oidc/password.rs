@@ -1,6 +1,6 @@
 use http::Uri;
 use serde::{Deserialize, Serialize};
-use storage::client;
+use storage::{authrequest, client};
 use utoipa::ToSchema;
 use validator::Validate;
 
@@ -13,10 +13,26 @@ pub struct LoginData {
     pub password: String,
 }
 
-#[derive(Debug, Deserialize, Serialize, ToSchema)]
-pub struct AuthCode {
-    pub code: String,
+#[derive(Debug, Deserialize, Serialize, Validate, ToSchema)]
+pub struct AuthReqID {
+    #[validate(length(min = 1))]
     pub state: String,
+    #[validate(length(min = 1))]
+    pub prompt: Option<String>,
+}
+
+pub async fn get_auth_request<S: authrequest::AuthRequestStore>(
+    auth_request_store: &S,
+    req: &AuthReqID,
+) -> Result<authrequest::AuthRequest> {
+    auth_request_store.get_auth_request(&req.state).await
+}
+
+pub async fn run_password_connector<S: authrequest::AuthRequestStore>(
+    auth_request_store: &S,
+    req: &AuthReqID,
+) -> Result<String> {
+    Ok("".to_string())
 }
 
 pub async fn password_login<C: client::ClientStore>(
@@ -46,9 +62,9 @@ pub async fn password_login<C: client::ClientStore>(
         redirect_uri.push('&');
     }
     redirect_uri.push_str(
-        &serde_urlencoded::to_string(AuthCode {
-            code: "xxxcode".to_string(),
+        &serde_urlencoded::to_string(AuthReqID {
             state: req.state.clone(),
+            prompt: None,
         })
         .map_err(errors::any)?,
     );

@@ -7,14 +7,9 @@ use jsonwebtoken::{
 use sha2::{Digest, Sha256};
 use tracing::error;
 
-use crate::{
-    models::{claim::Claims, key::KeyValue},
-    services::authentication::key::KeysStore,
-};
+use super::{Claims, Token, TokenClaims, TokenOpts};
 
-use super::{Token, TokenClaims, TokenOpts};
-
-use crate::{errors, Result};
+use slo::{errors, Result};
 
 pub struct AccessToken<T> {
     key_store: T,
