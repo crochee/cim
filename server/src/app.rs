@@ -12,7 +12,10 @@ use sqlx::MySqlPool;
 use tracing::info;
 
 use crate::{
-    services::oidc::key::{KeyRotator, RotationStrategy},
+    services::oidc::{
+        key::{KeyRotator, RotationStrategy},
+        token::AccessToken,
+    },
     AppConfig,
 };
 
@@ -21,6 +24,7 @@ pub struct App {
     pub matcher: Pim<Regexp>,
     pub store: Store,
     pub key_rotator: KeyRotator<storage::keys::mariadb::KeyImpl>,
+    pub access_token: AccessToken<storage::keys::mariadb::KeyImpl>,
 }
 
 impl App {
@@ -32,19 +36,24 @@ impl App {
         let store = Store::new(pool.clone());
 
         let key_rotator = KeyRotator::new(
-            storage::keys::mariadb::KeyImpl::new(pool),
+            storage::keys::mariadb::KeyImpl::new(pool.clone()),
             RotationStrategy {
                 rotation_frequency: 6 * 60 * 60,
                 keep: 24 * 60 * 60,
             },
         );
 
+        let access_token = AccessToken::new(
+            storage::keys::mariadb::KeyImpl::new(pool),
+            config.expiration,
+        );
         info!("feature services successfully initialized!");
         Ok(Self {
             config,
             store,
             matcher,
             key_rotator,
+            access_token,
         })
     }
 }

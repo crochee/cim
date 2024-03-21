@@ -7,6 +7,8 @@ use utoipa::ToSchema;
 
 use storage::keys::*;
 
+use super::jwk_to_public;
+
 #[derive(Debug, Serialize, ToSchema)]
 pub struct JsonWebKeySet {
     pub keys: Vec<jwk::JsonWebKey>,
@@ -52,28 +54,18 @@ where
                 if !err.eq(&errors::not_found("")) {
                     return Err(err);
                 }
+                let (signing_key, signing_key_pub) = self.create_key()?;
 
-                let mut signing_key_pub = jwk::JsonWebKey::new(jwk::Key::RSA {
-                    public: jwk::RsaPublic {
-                        e: jwk::PublicExponent,
-                        n: Self::key_generator(342).into(),
-                    },
-                    private: None,
-                });
-                signing_key_pub
-                    .set_algorithm(jwk::Algorithm::RS256)
-                    .map_err(errors::any)?;
-                signing_key_pub.key_use = Some(jwk::KeyUse::Signing);
-                signing_key_pub.key_id = Some(Self::key_generator(40));
-                let mut first_key = Keys {
-                    signing_key: signing_key_pub.clone(),
-                    signing_key_pub,
-                    verification_keys: vec![],
-                    next_rotation: 0,
-                };
-
-                self.update_key(&mut first_key)?;
-                return self.store.create_key(&first_key).await;
+                return self
+                    .store
+                    .create_key(&Keys {
+                        signing_key,
+                        signing_key_pub,
+                        verification_keys: vec![],
+                        next_rotation: Self::time_now()
+                            + self.strategy.rotation_frequency,
+                    })
+                    .await;
             }
         };
         if keys.next_rotation > Self::time_now() {
@@ -95,6 +87,37 @@ where
             .collect::<String>()
     }
 
+    fn create_key(&self) -> Result<(jwk::JsonWebKey, jwk::JsonWebKey)> {
+        let key = jwk::Key::RSA {
+            public: jwk::RsaPublic {
+                e: jwk::PublicExponent,
+                n: Self::key_generator(342).into(),
+            },
+            private: Some(jwk::RsaPrivate {
+                d: Self::key_generator(40).into(),
+                p: Some(Self::key_generator(20).into()),
+                q: Some(Self::key_generator(20).into()),
+                dp: Some(Self::key_generator(20).into()),
+                dq: Some(Self::key_generator(20).into()),
+                qi: Some(Self::key_generator(20).into()),
+            }),
+        };
+        let pub_key = key.clone();
+
+        let mut signing_key = jwk::JsonWebKey::new(key);
+        signing_key
+            .set_algorithm(jwk::Algorithm::RS256)
+            .map_err(errors::any)?;
+        signing_key.key_use = Some(jwk::KeyUse::Signing);
+        signing_key.key_id = Some(Self::key_generator(40));
+
+        let mut signing_key_pub = signing_key.clone();
+
+        signing_key_pub.key =
+            jwk_to_public(Box::new(pub_key)).map_err(errors::any)?;
+        Ok((signing_key, signing_key_pub))
+    }
+
     fn update_key(&self, nk: &mut Keys) -> Result<()> {
         let now_time = Self::time_now();
         if nk.next_rotation > now_time {
@@ -102,39 +125,10 @@ where
                 "keys already rotated by another server instance"
             )));
         }
-        let mut signing_key = jwk::JsonWebKey::new(jwk::Key::RSA {
-            public: jwk::RsaPublic {
-                e: jwk::PublicExponent,
-                n: Self::key_generator(342).into(),
-            },
-            private: None,
-        });
-        signing_key
-            .set_algorithm(jwk::Algorithm::RS256)
-            .map_err(errors::any)?;
-        signing_key.key_use = Some(jwk::KeyUse::Signing);
-        signing_key.key_id = Some(Self::key_generator(40));
-
-        let mut signing_key_pub = jwk::JsonWebKey::new(jwk::Key::RSA {
-            public: jwk::RsaPublic {
-                e: jwk::PublicExponent,
-                n: Self::key_generator(342).into(),
-            },
-            private: None,
-        });
-        signing_key_pub
-            .set_algorithm(jwk::Algorithm::RS256)
-            .map_err(errors::any)?;
-        signing_key_pub.key_use = Some(jwk::KeyUse::Signing);
-        signing_key_pub.key_id = Some(Self::key_generator(40));
+        let (signing_key, signing_key_pub) = self.create_key()?;
 
         // 删除过期的key
-        nk.verification_keys = nk
-            .verification_keys
-            .iter()
-            .filter(|vk| vk.expiry > now_time)
-            .cloned()
-            .collect();
+        nk.verification_keys.retain(|vk| vk.expiry > now_time);
 
         nk.verification_keys.push(VerificationKey {
             expiry: now_time + self.strategy.keep,

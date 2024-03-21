@@ -202,7 +202,7 @@ async fn password_login_handle(
     match conn_impl {
         oidc::Connector::Password(conn) => {
             let scopes = connect::parse_scopes(&auth_request.scopes);
-            let (identity, ok) = match conn
+            let (_identity, ok) = match conn
                 .login(
                     &scopes,
                     &connect::Info {

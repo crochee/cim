@@ -6,6 +6,7 @@ pub mod token;
 
 use chrono::Utc;
 use http::Uri;
+use jsonwebkey as jwk;
 use rand::Rng;
 use slo::{errors, Result};
 use storage::{authrequest, client, connector};
@@ -280,6 +281,30 @@ fn validate_redirect_uri(
     false
 }
 
+pub fn jwk_to_public(key: Box<jwk::Key>) -> Result<Box<jwk::Key>> {
+    if !key.is_private() {
+        return Ok(key);
+    }
+    Ok(Box::new(match *key {
+        jwk::Key::Symmetric { .. } => {
+            return Err(errors::bad_request("not supported symmetric key"))
+        }
+        jwk::Key::EC {
+            curve: jwk::Curve::P256 { x, y, .. },
+        } => jwk::Key::EC {
+            curve: jwk::Curve::P256 {
+                x: x.clone(),
+                y: y.clone(),
+                d: None,
+            },
+        },
+        jwk::Key::RSA { public, .. } => jwk::Key::RSA {
+            public: public.clone(),
+            private: None,
+        },
+    }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -297,7 +322,7 @@ mod tests {
             })
         });
 
-        let mut req = AuthRequest {
+        let req = AuthRequest {
             client_id: "client_id".to_owned(),
             redirect_uri: "http://localhost:3000/callback".to_owned(),
             response_type: "code id_token token".to_owned(),

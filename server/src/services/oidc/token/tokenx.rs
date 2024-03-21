@@ -83,10 +83,12 @@ where
 
     async fn verify(&self, token: &str) -> Result<Claims> {
         let header = jwt::decode_header(token).map_err(errors::any)?;
-        let keys = self.key_store.get_key().await?;
+        let mut keys = self.key_store.get_key().await?;
 
         let mut jwks = Vec::with_capacity(keys.verification_keys.len() + 1);
         jwks.push(keys.signing_key_pub.clone());
+
+        keys.verification_keys.reverse();
         keys.verification_keys.iter().for_each(|vk| {
             jwks.push(vk.public_key.clone());
         });
@@ -146,11 +148,12 @@ impl JwkKey<jwk::Key> {
             jwk::Key::EC { .. } => jwt::EncodingKey::from_ec_pem(
                 self.0.try_to_pem().map_err(errors::any)?.as_bytes(),
             )
-            .unwrap(),
-            jwk::Key::RSA { .. } => jwt::EncodingKey::from_rsa_pem(
-                self.0.try_to_pem().map_err(errors::any)?.as_bytes(),
-            )
-            .unwrap(),
+            .map_err(errors::any)?,
+            jwk::Key::RSA { .. } => {
+                let pem = self.0.try_to_pem().map_err(errors::any)?;
+                jwt::EncodingKey::from_rsa_pem(pem.as_bytes())
+                    .map_err(errors::any)?
+            }
         })
     }
 
@@ -159,8 +162,8 @@ impl JwkKey<jwk::Key> {
         self.try_to_encoding_key().unwrap()
     }
 
-    pub fn to_decoding_key(&self) -> jwt::DecodingKey {
-        match &self.0 {
+    pub fn try_to_decoding_key(&self) -> Result<jwt::DecodingKey> {
+        Ok(match &self.0 {
             jwk::Key::Symmetric { key } => {
                 jwt::DecodingKey::from_secret(key.to_vec().as_slice())
             }
@@ -171,13 +174,18 @@ impl JwkKey<jwk::Key> {
                 jwt::DecodingKey::from_ec_pem(
                     self.0.to_public().unwrap().to_pem().as_bytes(),
                 )
-                .unwrap()
+                .map_err(errors::any)?
             }
             jwk::Key::RSA { .. } => {
-                jwt::DecodingKey::from_rsa_pem(self.0.to_pem().as_bytes())
-                    .unwrap()
+                let pem = self.0.try_to_pem().map_err(errors::any)?;
+                jwt::DecodingKey::from_rsa_pem(pem.as_bytes())
+                    .map_err(errors::any)?
             }
-        }
+        })
+    }
+
+    pub fn to_decoding_key(&self) -> jwt::DecodingKey {
+        self.try_to_decoding_key().unwrap()
     }
 }
 
@@ -187,37 +195,89 @@ mod tests {
 
     use super::*;
 
+    use crate::services::oidc::jwk_to_public;
     use storage::keys::{Keys, MockKeyStore};
 
     #[tokio::test]
     async fn token_test() {
         let mut key_store = MockKeyStore::new();
-        let n = rand::thread_rng()
-            .sample_iter(&rand::distributions::Alphanumeric)
-            .take(342)
-            .map(char::from)
-            .collect::<String>();
         let key_id = rand::thread_rng()
             .sample_iter(&rand::distributions::Alphanumeric)
             .take(40)
             .map(char::from)
             .collect::<String>();
+        let key = jwk::Key::RSA {
+            public: jwk::RsaPublic {
+                e: jwk::PublicExponent,
+                n: rand::thread_rng()
+                    .sample_iter(&rand::distributions::Alphanumeric)
+                    .take(342)
+                    .map(char::from)
+                    .collect::<String>()
+                    .into(),
+            },
+            private: Some(jwk::RsaPrivate {
+                d: rand::thread_rng()
+                    .sample_iter(&rand::distributions::Alphanumeric)
+                    .take(40)
+                    .map(char::from)
+                    .collect::<String>()
+                    .into(),
+                p: Some(
+                    rand::thread_rng()
+                        .sample_iter(&rand::distributions::Alphanumeric)
+                        .take(20)
+                        .map(char::from)
+                        .collect::<String>()
+                        .into(),
+                ),
+                q: Some(
+                    rand::thread_rng()
+                        .sample_iter(&rand::distributions::Alphanumeric)
+                        .take(20)
+                        .map(char::from)
+                        .collect::<String>()
+                        .into(),
+                ),
+                dp: Some(
+                    rand::thread_rng()
+                        .sample_iter(&rand::distributions::Alphanumeric)
+                        .take(20)
+                        .map(char::from)
+                        .collect::<String>()
+                        .into(),
+                ),
+                dq: Some(
+                    rand::thread_rng()
+                        .sample_iter(&rand::distributions::Alphanumeric)
+                        .take(20)
+                        .map(char::from)
+                        .collect::<String>()
+                        .into(),
+                ),
+                qi: Some(
+                    rand::thread_rng()
+                        .sample_iter(&rand::distributions::Alphanumeric)
+                        .take(20)
+                        .map(char::from)
+                        .collect::<String>()
+                        .into(),
+                ),
+            }),
+        };
         key_store.expect_get_key().returning(move || {
-            let mut signing_key_pub = jwk::JsonWebKey::new(jwk::Key::RSA {
-                public: jwk::RsaPublic {
-                    e: jwk::PublicExponent,
-                    n: n.clone().into(),
-                },
-                private: None,
-            });
-            signing_key_pub
-                .set_algorithm(jwk::Algorithm::RS256)
-                .map_err(errors::any)
-                .unwrap();
-            signing_key_pub.key_use = Some(jwk::KeyUse::Signing);
-            signing_key_pub.key_id = Some(key_id.clone());
+            let pub_key = key.clone();
+            let mut signing_key = jwk::JsonWebKey::new(key.clone());
+            signing_key.set_algorithm(jwk::Algorithm::RS256).unwrap();
+            signing_key.key_use = Some(jwk::KeyUse::Signing);
+            signing_key.key_id = Some(key_id.clone());
+
+            let mut signing_key_pub = signing_key.clone();
+
+            signing_key_pub.key = jwk_to_public(Box::new(pub_key)).unwrap();
+
             Ok(Keys {
-                signing_key: signing_key_pub.clone(),
+                signing_key,
                 signing_key_pub,
                 verification_keys: vec![],
                 next_rotation: 0,

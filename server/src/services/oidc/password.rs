@@ -29,8 +29,8 @@ pub async fn get_auth_request<S: authrequest::AuthRequestStore>(
 }
 
 pub async fn run_password_connector<S: authrequest::AuthRequestStore>(
-    auth_request_store: &S,
-    req: &AuthReqID,
+    _auth_request_store: &S,
+    _req: &AuthReqID,
 ) -> Result<String> {
     Ok("".to_string())
 }
