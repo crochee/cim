@@ -15,15 +15,8 @@ use slo::{regexp::check_password, Result};
 #[async_trait]
 pub trait PasswordConnector {
     fn prompt(&self) -> &'static str;
-    async fn login(&self, s: &Scopes, info: &Info) -> Result<(Identity, bool)>;
-}
-
-#[automock]
-#[async_trait]
-pub trait RefreshConnector {
-    /// refresh is called when a client attempts to claim a refresh token. The
-    /// connector should attempt to update the identity object to reflect any
-    /// changes since the token was last refreshed.
+    fn refresh_enabled(&self) -> bool;
+    async fn login(&self, s: &Scopes, info: &Info) -> Result<Identity>;
     async fn refresh(
         &self,
         s: &Scopes,

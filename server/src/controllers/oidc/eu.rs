@@ -11,7 +11,9 @@ use slo::{errors, HtmlTemplate, Result};
 use crate::{
     services::oidc::{
         self, auth, connect, get_connector, open_connector, parse_auth_request,
-        password::{self, get_auth_request, LoginData},
+        password::{
+            self, finalize_login, get_auth_request, send_code, LoginData,
+        },
         run_connector,
     },
     valid::Valid,
@@ -130,7 +132,7 @@ fn relogin_html<E: ToString>(
     auth_req_id: &password::AuthReqID,
     name: &str,
     err: E,
-) -> Response {
+) -> HtmlTemplate<Password> {
     HtmlTemplate(Password {
         post_url: format!(
             "/auth/{}/login?{}",
@@ -147,7 +149,6 @@ fn relogin_html<E: ToString>(
         invalid: err.to_string(),
         ..Default::default()
     })
-    .into_response()
 }
 
 async fn password_login_handle(
@@ -155,54 +156,38 @@ async fn password_login_handle(
     Path(connector_id): Path<String>,
     Valid(auth_req_code): Valid<password::AuthReqID>,
     Valid(Form(login_data)): Valid<Form<LoginData>>,
-) -> Response {
-    let auth_request =
-        match get_auth_request(&app.store.auth_request, &auth_req_code).await {
-            Ok(v) => v,
-            Err(err) => {
-                return relogin_html(
+) -> core::result::Result<Response, HtmlTemplate<Password>> {
+    let mut auth_request =
+        get_auth_request(&app.store.auth_request, &auth_req_code)
+            .await
+            .map_err(|err| {
+                relogin_html(
                     &connector_id,
                     &auth_req_code,
                     &login_data.login,
                     err,
                 )
-            }
-        };
+            })?;
     if !auth_request.connector_id.eq(&connector_id) {
-        return relogin_html(
+        return Err(relogin_html(
             &connector_id,
             &auth_req_code,
             &login_data.login,
             "Requested resource does not exist.",
-        );
+        ));
     };
-    let connector =
-        match get_connector(&app.store.connector, &connector_id).await {
-            Ok(v) => v,
-            Err(err) => {
-                return relogin_html(
-                    &connector_id,
-                    &auth_req_code,
-                    &login_data.login,
-                    err,
-                )
-            }
-        };
-    let conn_impl = match open_connector(&connector) {
-        Ok(v) => v,
-        Err(err) => {
-            return relogin_html(
-                &connector_id,
-                &auth_req_code,
-                &login_data.login,
-                err,
-            )
-        }
-    };
+    let connector = get_connector(&app.store.connector, &connector_id)
+        .await
+        .map_err(|err| {
+            relogin_html(&connector_id, &auth_req_code, &login_data.login, err)
+        })?;
+    let conn_impl = open_connector(&connector).map_err(|err| {
+        relogin_html(&connector_id, &auth_req_code, &login_data.login, err)
+    })?;
     match conn_impl {
         oidc::Connector::Password(conn) => {
             let scopes = connect::parse_scopes(&auth_request.scopes);
-            let (_identity, ok) = match conn
+            let identity = conn
                 .login(
                     &scopes,
                     &connect::Info {
@@ -211,28 +196,66 @@ async fn password_login_handle(
                     },
                 )
                 .await
-            {
-                Ok(v) => v,
-                Err(err) => {
-                    return relogin_html(
+                .map_err(|err| {
+                    relogin_html(
                         &connector_id,
                         &auth_req_code,
                         &login_data.login,
                         err,
                     )
-                }
-            };
-            if ok {
-                return relogin_html(
+                })?;
+
+            let (mut redirect_uri, can_skip_approval) = finalize_login(
+                &app.store.auth_request,
+                &auth_request,
+                &identity,
+                conn.refresh_enabled(),
+            )
+            .await
+            .map_err(|err| {
+                relogin_html(
                     &connector_id,
                     &auth_req_code,
                     &login_data.login,
-                    "invalid password",
-                );
+                    err,
+                )
+            })?;
+
+            if can_skip_approval {
+                auth_request =
+                    get_auth_request(&app.store.auth_request, &auth_req_code)
+                        .await
+                        .map_err(|err| {
+                            relogin_html(
+                                &connector_id,
+                                &auth_req_code,
+                                &login_data.login,
+                                err,
+                            )
+                        })?;
+
+                redirect_uri =
+                    send_code(&app.store.auth_request, &auth_request)
+                        .await
+                        .map_err(|err| {
+                            relogin_html(
+                                &connector_id,
+                                &auth_req_code,
+                                &login_data.login,
+                                err,
+                            )
+                        })?;
             }
-            "".to_string().into_response()
+            let mut headers = HeaderMap::new();
+            headers.insert(header::LOCATION, redirect_uri.parse().unwrap());
+            Ok((StatusCode::SEE_OTHER, headers).into_response())
         }
-        _ => errors::bad_request("unsupported connector type").into_response(),
+        _ => Err(relogin_html(
+            &connector_id,
+            &auth_req_code,
+            &login_data.login,
+            "unsupported connector type",
+        )),
     }
 }
 

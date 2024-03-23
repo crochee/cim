@@ -65,7 +65,6 @@ async fn discovery_handler(app: AppState) -> Json<OpenIDConfiguration> {
             "code".to_string(),
             "token".to_string(),
             "id_token".to_string(),
-            "none".to_string(),
         ],
         scopes_supported: vec![
             "openid".to_string(),
