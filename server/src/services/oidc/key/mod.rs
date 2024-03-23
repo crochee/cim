@@ -1,6 +1,7 @@
 use chrono::Utc;
 use jsonwebkey as jwk;
 use rand::Rng;
+use rsa::traits::{PrivateKeyParts, PublicKeyParts};
 use serde::Serialize;
 use slo::{errors, Result};
 use utoipa::ToSchema;
@@ -55,14 +56,17 @@ where
                     return Err(err);
                 }
                 let (signing_key, signing_key_pub) = self.create_key()?;
-
+                let now_time = Self::time_now();
                 return self
                     .store
                     .create_key(&Keys {
                         signing_key,
-                        signing_key_pub,
-                        verification_keys: vec![],
-                        next_rotation: Self::time_now()
+                        signing_key_pub: signing_key_pub.clone(),
+                        verification_keys: vec![VerificationKey {
+                            expiry: now_time + self.strategy.keep,
+                            public_key: signing_key_pub,
+                        }],
+                        next_rotation: now_time
                             + self.strategy.rotation_frequency,
                     })
                     .await;
@@ -88,21 +92,37 @@ where
     }
 
     fn create_key(&self) -> Result<(jwk::JsonWebKey, jwk::JsonWebKey)> {
+        let mut rng = rand::thread_rng();
+        let private_key =
+            rsa::RsaPrivateKey::new(&mut rng, 2048).map_err(errors::any)?;
+
+        let mut p = None;
+        let mut q = None;
+        let primes = private_key.primes();
+        match primes.len() {
+            1 => {
+                p = Some(primes[0].to_bytes_be().into());
+            }
+            2 => {
+                p = Some(primes[0].to_bytes_be().into());
+                q = Some(primes[1].to_bytes_be().into());
+            }
+            _ => {}
+        }
         let key = jwk::Key::RSA {
             public: jwk::RsaPublic {
                 e: jwk::PublicExponent,
-                n: Self::key_generator(342).into(),
+                n: private_key.n().to_bytes_be().into(),
             },
             private: Some(jwk::RsaPrivate {
-                d: Self::key_generator(40).into(),
-                p: Some(Self::key_generator(20).into()),
-                q: Some(Self::key_generator(20).into()),
-                dp: Some(Self::key_generator(20).into()),
-                dq: Some(Self::key_generator(20).into()),
-                qi: Some(Self::key_generator(20).into()),
+                d: private_key.d().to_bytes_be().into(),
+                p,
+                q,
+                dp: private_key.dp().map(|v| v.to_bytes_be().into()),
+                dq: private_key.dq().map(|v| v.to_bytes_be().into()),
+                qi: private_key.qinv().map(|v| v.to_signed_bytes_be().into()),
             }),
         };
-        let pub_key = key.clone();
 
         let mut signing_key = jwk::JsonWebKey::new(key);
         signing_key
@@ -114,7 +134,7 @@ where
         let mut signing_key_pub = signing_key.clone();
 
         signing_key_pub.key =
-            jwk_to_public(Box::new(pub_key)).map_err(errors::any)?;
+            jwk_to_public(signing_key.key.clone()).map_err(errors::any)?;
         Ok((signing_key, signing_key_pub))
     }
 
@@ -132,7 +152,7 @@ where
 
         nk.verification_keys.push(VerificationKey {
             expiry: now_time + self.strategy.keep,
-            public_key: nk.signing_key_pub.clone(),
+            public_key: signing_key_pub.clone(),
         });
         nk.signing_key = signing_key;
         nk.signing_key_pub = signing_key_pub;

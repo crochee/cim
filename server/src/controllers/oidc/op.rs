@@ -103,10 +103,11 @@ async fn jwk_handler(
     let mut jwks = key::JsonWebKeySet {
         keys: Vec::with_capacity(keys.verification_keys.len() + 1),
     };
-    jwks.keys.push(keys.signing_key_pub.clone());
     keys.verification_keys.iter().for_each(|vk| {
         jwks.keys.push(vk.public_key.clone());
     });
+    jwks.keys.reverse();
+
     let mut headers = HeaderMap::new();
     let mut max_age = keys.next_rotation - Utc::now().timestamp();
     if max_age < 120 {

@@ -43,7 +43,7 @@ pub struct TokenOpts {
     pub nonce: String,
     pub access_token: Option<String>,
     pub code: Option<String>,
-    pub conn_id: String,
+    pub aud: String,
     pub issuer_url: String,
 }
 

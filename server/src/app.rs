@@ -1,5 +1,4 @@
-use std::ops::Deref;
-use std::sync::Arc;
+use std::{collections::HashSet, ops::Deref, sync::Arc};
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -46,6 +45,7 @@ impl App {
         let access_token = AccessToken::new(
             storage::keys::mariadb::KeyImpl::new(pool),
             config.expiration,
+            HashSet::new(),
         );
         info!("feature services successfully initialized!");
         Ok(Self {
