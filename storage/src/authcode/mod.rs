@@ -9,20 +9,15 @@ use slo::Result;
 
 use crate::ID;
 
-#[derive(Debug, Deserialize, Default, Serialize, Validate, ToSchema)]
-pub struct AuthRequest {
+#[derive(Debug, Clone, Deserialize, Default, Serialize, Validate, ToSchema)]
+pub struct AuthCode {
     pub id: String,
     pub client_id: String,
-    pub response_types: Vec<String>,
     pub scopes: Vec<String>,
+    pub nonce: String,
     pub redirect_uri: String,
     pub code_challenge: String,
     pub code_challenge_method: String,
-    pub nonce: String,
-    pub state: String,
-    pub hmac_key: String,
-    pub force_approval_prompt: bool,
-    pub logged_in: bool,
 
     pub claims_user_id: String,
     pub claims_user_name: String,
@@ -42,8 +37,8 @@ pub struct AuthRequest {
 
 #[automock]
 #[async_trait]
-pub trait AuthRequestStore {
-    async fn put_auth_request(&self, content: &AuthRequest) -> Result<ID>;
-    async fn get_auth_request(&self, id: &str) -> Result<AuthRequest>;
-    async fn delete_auth_request(&self, id: &str) -> Result<()>;
+pub trait AuthCodeStore {
+    async fn put_auth_code(&self, content: &AuthCode) -> Result<ID>;
+    async fn get_auth_code(&self, id: &str) -> Result<AuthCode>;
+    async fn delete_auth_code(&self, id: &str) -> Result<()>;
 }

@@ -152,7 +152,7 @@ CREATE TABLE `auth_request` (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = 'auth_request info';
 
 CREATE TABLE `auth_code` (
-    `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'auth_code ID',
+    `id` CHAR(36) NOT NULL COMMENT 'auth_code ID',
     `client_id` BIGINT(20) UNSIGNED NOT NULL COMMENT 'client id',
 	`scopes` TEXT NOT NULL, -- JSON array of strings
 	`nonce` TEXT NOT NULL,

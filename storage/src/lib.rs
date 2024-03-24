@@ -1,3 +1,4 @@
+pub mod authcode;
 pub mod authrequest;
 pub mod client;
 pub mod connector;

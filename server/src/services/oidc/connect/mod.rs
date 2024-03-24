@@ -117,6 +117,7 @@ pub struct Identity {
     pub email: Option<String>,
     pub email_verified: bool,
     pub mobile: Option<String>,
+    pub groups: String,
 
     /// ConnectorData holds data used by the connector for subsequent requests after initial
     /// authentication, such as access tokens for upstream provides.

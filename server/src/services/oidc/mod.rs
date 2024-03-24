@@ -67,37 +67,11 @@ pub async fn run_connector<S: authrequest::AuthRequestStore>(
     expires_in: i64,
 ) -> Result<String> {
     let connector_impl = open_connector(conn)?;
+
+    auth_req.id = uuid::Uuid::new_v4().to_string();
     auth_req.connector_id = connector_id.to_string();
-    auth_req.expires_in = Utc::now().timestamp() + expires_in;
-    let id = auth_request_store
-        .put_auth_request(
-            Some(uuid::Uuid::new_v4().to_string()),
-            &authrequest::Content {
-                client_id: auth_req.client_id.clone(),
-                response_types: auth_req.response_types.clone(),
-                scopes: auth_req.scopes.clone(),
-                redirect_uri: auth_req.redirect_uri.clone(),
-                code_challenge: auth_req.code_challenge.clone(),
-                code_challenge_method: auth_req.code_challenge_method.clone(),
-                nonce: auth_req.nonce.clone(),
-                state: auth_req.state.clone(),
-                hmac_key: auth_req.hmac_key.clone(),
-                force_approval_prompt: auth_req.force_approval_prompt,
-                logged_in: auth_req.logged_in,
-                claims_user_id: auth_req.claims_user_id.clone(),
-                claims_user_name: auth_req.claims_user_name.clone(),
-                claims_email: auth_req.claims_email.clone(),
-                claims_email_verified: auth_req.claims_email_verified,
-                claims_groups: auth_req.claims_groups.clone(),
-                claims_preferred_username: auth_req
-                    .claims_preferred_username
-                    .clone(),
-                connector_id: auth_req.connector_id.clone(),
-                connector_data: auth_req.connector_data.clone(),
-                expires_in: auth_req.expires_in,
-            },
-        )
-        .await?;
+    auth_req.expiry = Utc::now().timestamp() + expires_in;
+    let id = auth_request_store.put_auth_request(auth_req).await?;
 
     match connector_impl {
         Connector::Password(_) => {

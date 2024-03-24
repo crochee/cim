@@ -207,7 +207,7 @@ async fn password_login_handle(
 
             let (mut redirect_uri, can_skip_approval) = finalize_login(
                 &app.store.auth_request,
-                &auth_request,
+                &mut auth_request,
                 &identity,
                 conn.refresh_enabled(),
             )
@@ -234,17 +234,21 @@ async fn password_login_handle(
                             )
                         })?;
 
-                redirect_uri =
-                    send_code(&app.store.auth_request, &auth_request)
-                        .await
-                        .map_err(|err| {
-                            relogin_html(
-                                &connector_id,
-                                &auth_req_code,
-                                &login_data.login,
-                                err,
-                            )
-                        })?;
+                redirect_uri = send_code(
+                    &app.store.auth_request,
+                    &app.access_token,
+                    &app.store.auth_code,
+                    &auth_request,
+                )
+                .await
+                .map_err(|err| {
+                    relogin_html(
+                        &connector_id,
+                        &auth_req_code,
+                        &login_data.login,
+                        err,
+                    )
+                })?;
             }
             let mut headers = HeaderMap::new();
             headers.insert(header::LOCATION, redirect_uri.parse().unwrap());
