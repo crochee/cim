@@ -86,17 +86,15 @@ pub async fn run_connector<S: authrequest::AuthRequestStore>(
     }
 }
 
-pub async fn parse_auth_request<C: client::ClientStore>(
+pub async fn valid_scope<C: client::ClientStore>(
     client_store: &C,
-    req: &AuthRequest,
-) -> Result<authrequest::AuthRequest> {
-    let scopes: Vec<String> =
-        req.scope.split_whitespace().map(|x| x.to_owned()).collect();
-
+    client_id: &str,
+    scopes: &Vec<String>,
+) -> Result<()> {
     let mut has_open_id_scope = false;
     let mut unrecognized = Vec::new();
     let mut invalid_scopes = Vec::new();
-    for scope in &scopes {
+    for scope in scopes {
         match scope.as_str() {
             SCOPE_OPENID => has_open_id_scope = true,
             SCOPE_OFFLINE_ACCESS
@@ -112,7 +110,7 @@ pub async fn parse_auth_request<C: client::ClientStore>(
                 }
                 let peer_id =
                     scope.trim_start_matches(SCOPE_CROSS_CLIENT_PREFIX);
-                if !req.client_id.eq(peer_id) {
+                if !client_id.eq(peer_id) {
                     invalid_scopes.push(scope.clone());
                     continue;
                 }
@@ -120,7 +118,7 @@ pub async fn parse_auth_request<C: client::ClientStore>(
                     Ok(client_value) => {
                         let mut trusted_peers = false;
                         for id in client_value.trusted_peers {
-                            if id.eq(&req.client_id) {
+                            if id.eq(&client_id) {
                                 trusted_peers = true;
                                 break;
                             }
@@ -156,6 +154,18 @@ pub async fn parse_auth_request<C: client::ClientStore>(
             invalid_scopes
         )));
     }
+
+    Ok(())
+}
+
+pub async fn parse_auth_request<C: client::ClientStore>(
+    client_store: &C,
+    req: &AuthRequest,
+) -> Result<authrequest::AuthRequest> {
+    let scopes: Vec<String> =
+        req.scope.split_whitespace().map(|x| x.to_owned()).collect();
+    valid_scope(client_store, &req.client_id, &scopes).await?;
+
     let response_types: Vec<String> = req
         .response_type
         .split_whitespace()

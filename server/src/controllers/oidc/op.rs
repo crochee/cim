@@ -1,4 +1,5 @@
 use axum::{
+    extract::RawForm,
     routing::{get, post},
     Json, Router,
 };
@@ -8,7 +9,7 @@ use axum_extra::{
 };
 use chrono::Utc;
 use http::{header, HeaderMap, StatusCode};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use slo::{errors, Result};
 use utoipa::ToSchema;
 
@@ -17,12 +18,9 @@ use storage::keys::*;
 use crate::{
     services::oidc::{
         auth::{auth, AuthRequest},
-        token,
+        key, token,
     },
     valid::Valid,
-};
-use crate::{
-    services::oidc::{key, token::TokenResponse},
     AppState,
 };
 
@@ -143,23 +141,51 @@ async fn auth_handler(
     Ok((StatusCode::FOUND, headers))
 }
 
+#[derive(Deserialize)]
+struct GrantOpts {
+    grant_type: String,
+}
+
 async fn token_handler(
     app: AppState,
     TypedHeader(info): TypedHeader<Authorization<Basic>>,
-    Valid(grant_opts): Valid<token::handle::GrantOpts>,
-) -> Result<(HeaderMap, Json<TokenResponse>)> {
-    tracing::debug!("{:?},token request: {:?}", info, grant_opts);
-    let ap = token::handle::handle_token(
-        &app.store.client,
-        info.username(),
-        info.password(),
-        &grant_opts,
-    )
-    .await?;
+    RawForm(bytes): RawForm,
+) -> Result<(HeaderMap, Json<token::TokenResponse>)> {
+    let grant_opts: GrantOpts =
+        serde_urlencoded::from_bytes(&bytes).map_err(errors::any)?;
+    let res = match grant_opts.grant_type.as_str() {
+        token::GRANT_TYPE_AUTHORIZATION_CODE => Default::default(),
+        token::GRANT_TYPE_REFRESH_TOKEN => Default::default(),
+        token::GRANT_TYPE_IMPLICIT => Default::default(),
+        token::GRANT_TYPE_PASSWORD => {
+            let client_info = token::password::get_client_and_valid(
+                &app.store.client,
+                info.username(),
+                info.password(),
+            )
+            .await?;
+            let opts: token::password::PasswordGrantOpts =
+                serde_urlencoded::from_bytes(&bytes).map_err(errors::any)?;
+            token::password::password_grant(
+                &app.store.client,
+                &app.store.connector,
+                &app.access_token,
+                &client_info,
+                &opts,
+            )
+            .await?
+        }
+        _ => {
+            return Err(errors::bad_request(
+                format!("unknown grant type: {}", grant_opts.grant_type)
+                    .as_str(),
+            ))
+        }
+    };
     let mut headers = HeaderMap::new();
     headers.insert(header::CACHE_CONTROL, "no-store".parse().unwrap());
     headers.insert(header::PRAGMA, "no-cache".parse().unwrap());
-    Ok((headers, Json(ap)))
+    Ok((headers, Json(res)))
 }
 
 async fn userinfo(

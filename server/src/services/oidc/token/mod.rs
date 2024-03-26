@@ -1,4 +1,4 @@
-pub mod handle;
+pub mod password;
 mod tokenx;
 
 use async_trait::async_trait;
@@ -68,3 +68,8 @@ pub struct Claims {
     pub mobile: Option<String>,
     pub exp: Option<i64>,
 }
+
+pub const GRANT_TYPE_AUTHORIZATION_CODE: &str = "authorization_code";
+pub const GRANT_TYPE_REFRESH_TOKEN: &str = "refresh_token";
+pub const GRANT_TYPE_IMPLICIT: &str = "implicit";
+pub const GRANT_TYPE_PASSWORD: &str = "password";
