@@ -67,6 +67,8 @@ utoipa = { version = "4.2", features = ["axum_extras", "chrono"] }
 utoipa-swagger-ui = { version = "6.0", features = ["axum"] }
 openidconnect = "3.5"
 rsa = { version = "0.9" }
+constant_time_eq = { version = "0.3.0" }
+
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 jemallocator = { version = "0.5", package = "tikv-jemallocator" }

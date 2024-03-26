@@ -15,17 +15,6 @@ pub struct JsonWebKeySet {
     pub keys: Vec<jwk::JsonWebKey>,
 }
 
-impl JsonWebKeySet {
-    #[allow(dead_code)]
-    pub fn keys(&self, kid: &str) -> Vec<jwk::JsonWebKey> {
-        self.keys
-            .iter()
-            .filter(|k| k.key_id == Some(kid.to_string()))
-            .cloned()
-            .collect()
-    }
-}
-
 #[derive(Clone)]
 pub struct KeyRotator<S> {
     store: S,
@@ -150,10 +139,13 @@ where
         // 删除过期的key
         nk.verification_keys.retain(|vk| vk.expiry > now_time);
 
-        nk.verification_keys.push(VerificationKey {
+        let mut new_keys = vec![VerificationKey {
             expiry: now_time + self.strategy.keep,
             public_key: signing_key_pub.clone(),
-        });
+        }];
+        new_keys.append(&mut nk.verification_keys);
+        nk.verification_keys = new_keys;
+
         nk.signing_key = signing_key;
         nk.signing_key_pub = signing_key_pub;
         nk.next_rotation = now_time + self.strategy.rotation_frequency;

@@ -1,6 +1,10 @@
 use axum::{
-    routing::get,
-    {Json, Router},
+    routing::{get, post},
+    Json, Router,
+};
+use axum_extra::{
+    headers::{authorization::Basic, Authorization},
+    TypedHeader,
 };
 use chrono::Utc;
 use http::{header, HeaderMap, StatusCode};
@@ -11,10 +15,16 @@ use utoipa::ToSchema;
 use storage::keys::*;
 
 use crate::{
-    services::oidc::auth::{auth, AuthRequest},
+    services::oidc::{
+        auth::{auth, AuthRequest},
+        token,
+    },
     valid::Valid,
 };
-use crate::{services::oidc::key, AppState};
+use crate::{
+    services::oidc::{key, token::TokenResponse},
+    AppState,
+};
 
 pub fn new_router(state: AppState) -> Router {
     Router::new()
@@ -23,6 +33,8 @@ pub fn new_router(state: AppState) -> Router {
         .route("/jwks", get(jwk_handler))
         // auth api
         .route("/auth", get(auth_handler))
+        .route("/token", post(token_handler))
+        .route("/userinfo", get(userinfo))
         .with_state(state)
 }
 
@@ -105,7 +117,6 @@ async fn jwk_handler(
     keys.verification_keys.iter().for_each(|vk| {
         jwks.keys.push(vk.public_key.clone());
     });
-    jwks.keys.reverse();
 
     let mut headers = HeaderMap::new();
     let mut max_age = keys.next_rotation - Utc::now().timestamp();
@@ -122,6 +133,36 @@ async fn jwk_handler(
 }
 
 async fn auth_handler(
+    app: AppState,
+    Valid(mut auth_request): Valid<AuthRequest>,
+) -> Result<(StatusCode, HeaderMap)> {
+    let login_uri = auth(&app.store.connector, &mut auth_request).await?;
+    // redirect to EU login uri
+    let mut headers = HeaderMap::new();
+    headers.insert(header::LOCATION, login_uri.parse().map_err(errors::any)?);
+    Ok((StatusCode::FOUND, headers))
+}
+
+async fn token_handler(
+    app: AppState,
+    TypedHeader(info): TypedHeader<Authorization<Basic>>,
+    Valid(grant_opts): Valid<token::handle::GrantOpts>,
+) -> Result<(HeaderMap, Json<TokenResponse>)> {
+    tracing::debug!("{:?},token request: {:?}", info, grant_opts);
+    let ap = token::handle::handle_token(
+        &app.store.client,
+        info.username(),
+        info.password(),
+        &grant_opts,
+    )
+    .await?;
+    let mut headers = HeaderMap::new();
+    headers.insert(header::CACHE_CONTROL, "no-store".parse().unwrap());
+    headers.insert(header::PRAGMA, "no-cache".parse().unwrap());
+    Ok((headers, Json(ap)))
+}
+
+async fn userinfo(
     app: AppState,
     Valid(mut auth_request): Valid<AuthRequest>,
 ) -> Result<(StatusCode, HeaderMap)> {

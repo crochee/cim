@@ -88,8 +88,7 @@ where
 
     async fn verify(&self, token: &str) -> Result<Claims> {
         let header = jwt::decode_header(token).map_err(errors::any)?;
-        let mut keys = self.key_store.get_key().await?;
-        keys.verification_keys.reverse();
+        let keys = self.key_store.get_key().await?;
 
         for vk in keys.verification_keys.iter() {
             if header.kid.is_some() && !vk.public_key.key_id.eq(&header.kid) {

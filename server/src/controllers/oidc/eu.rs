@@ -1,7 +1,7 @@
 use askama::Template;
 use axum::{
     extract::Path,
-    response::{IntoResponse, Response},
+    response::{IntoResponse, Redirect, Response},
     routing::get,
     Form, Router,
 };
@@ -35,21 +35,15 @@ async fn auth_html(
     app: AppState,
     Path(connector_id): Path<String>,
     Valid(auth_request): Valid<auth::AuthRequest>,
-) -> Response {
-    let mut auth_req =
-        match parse_auth_request(&app.store.client, &auth_request).await {
-            Ok(v) => v,
-            Err(err) => {
-                return redirect(&auth_request, err);
-            }
-        };
-    let connector =
-        match get_connector(&app.store.connector, &connector_id).await {
-            Ok(v) => v,
-            Err(err) => return redirect(&auth_request, err),
-        };
+) -> core::result::Result<Redirect, Redirect> {
+    let mut auth_req = parse_auth_request(&app.store.client, &auth_request)
+        .await
+        .map_err(|err| redirect(&auth_request, err))?;
+    let connector = get_connector(&app.store.connector, &connector_id)
+        .await
+        .map_err(|err| redirect(&auth_request, err))?;
 
-    match run_connector(
+    let redirect_uri = run_connector(
         &app.store.auth_request,
         &connector,
         &connector_id,
@@ -57,17 +51,11 @@ async fn auth_html(
         app.config.expiration,
     )
     .await
-    {
-        Ok(redirect_uri) => {
-            let mut headers = HeaderMap::new();
-            headers.insert(header::LOCATION, redirect_uri.parse().unwrap());
-            (StatusCode::FOUND, headers).into_response()
-        }
-        Err(err) => errors::bad_request(&err).into_response(),
-    }
+    .map_err(|err| redirect(&auth_request, err))?;
+    Ok(Redirect::to(&redirect_uri))
 }
 
-fn redirect<E: ToString>(auth_request: &auth::AuthRequest, err: E) -> Response {
+fn redirect<E: ToString>(auth_request: &auth::AuthRequest, err: E) -> Redirect {
     let mut redirect_uri = auth_request.redirect_uri.clone();
     if auth_request
         .redirect_uri
@@ -82,10 +70,7 @@ fn redirect<E: ToString>(auth_request: &auth::AuthRequest, err: E) -> Response {
         redirect_uri.push_str("&err=");
         redirect_uri.push_str(&err.to_string());
     };
-
-    let mut headers = HeaderMap::new();
-    headers.insert(header::LOCATION, redirect_uri.parse().unwrap());
-    (StatusCode::SEE_OTHER, headers).into_response()
+    Redirect::to(&redirect_uri)
 }
 
 #[derive(Template, Default)]
