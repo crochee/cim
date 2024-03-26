@@ -154,11 +154,42 @@ async fn token_handler(
     let grant_opts: GrantOpts =
         serde_urlencoded::from_bytes(&bytes).map_err(errors::any)?;
     let res = match grant_opts.grant_type.as_str() {
-        token::GRANT_TYPE_AUTHORIZATION_CODE => Default::default(),
-        token::GRANT_TYPE_REFRESH_TOKEN => Default::default(),
-        token::GRANT_TYPE_IMPLICIT => Default::default(),
+        token::GRANT_TYPE_AUTHORIZATION_CODE => {
+            token::get_client_and_valid(
+                &app.store.client,
+                info.username(),
+                info.password(),
+            )
+            .await?;
+            let opts: token::code::CodeGrantOpts =
+                serde_urlencoded::from_bytes(&bytes).map_err(errors::any)?;
+            token::code::code_grant(
+                &app.store.auth_code,
+                &app.store.connector,
+                &app.access_token,
+                &opts,
+            )
+            .await?
+        }
+        token::GRANT_TYPE_REFRESH_TOKEN => {
+            token::get_client_and_valid(
+                &app.store.client,
+                info.username(),
+                info.password(),
+            )
+            .await?;
+            let opts: token::refresh::RefreshGrantOpts =
+                serde_urlencoded::from_bytes(&bytes).map_err(errors::any)?;
+            token::refresh::refresh_grant(
+                &app.store.refresh,
+                &app.store.connector,
+                &app.access_token,
+                &opts,
+            )
+            .await?
+        }
         token::GRANT_TYPE_PASSWORD => {
-            let client_info = token::password::get_client_and_valid(
+            let client_info = token::get_client_and_valid(
                 &app.store.client,
                 info.username(),
                 info.password(),

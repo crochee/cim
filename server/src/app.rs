@@ -68,6 +68,7 @@ pub struct Store {
     pub auth_code: storage::authcode::MockAuthCodeStore,
     pub connector: storage::connector::MockConnectorStore,
     pub client: storage::client::MockClientStore,
+    pub refresh: storage::refresh::MockRefreshTokenStore,
 }
 
 impl Store {
@@ -81,7 +82,7 @@ impl Store {
         let auth_code = storage::authcode::MockAuthCodeStore::new();
         let connector = storage::connector::MockConnectorStore::new();
         let client = storage::client::MockClientStore::new();
-
+        let refresh = storage::refresh::MockRefreshTokenStore::new();
         Self {
             user,
             role,
@@ -92,6 +93,7 @@ impl Store {
             auth_code,
             connector,
             client,
+            refresh,
         }
     }
 }

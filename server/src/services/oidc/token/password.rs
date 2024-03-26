@@ -1,29 +1,15 @@
-use constant_time_eq::constant_time_eq;
 use serde::Deserialize;
 use slo::{errors, Result};
 use storage::{
     client::{Client, ClientStore},
     connector::ConnectorStore,
 };
-use validator::Validate;
 
 use crate::services::oidc::{
     connect, get_connector, open_connector, token, valid_scope, Connector,
 };
 
-pub async fn get_client_and_valid<C: ClientStore>(
-    client_store: &C,
-    client_id: &str,
-    client_secret: &str,
-) -> Result<Client> {
-    let client = client_store.get_client(client_id, None).await?;
-    if !constant_time_eq(client.secret.as_bytes(), client_secret.as_bytes()) {
-        return Err(errors::unauthorized());
-    }
-    Ok(client)
-}
-
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize)]
 pub struct PasswordGrantOpts {
     pub scope: String,
     pub nonce: String,

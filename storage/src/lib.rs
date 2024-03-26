@@ -8,6 +8,7 @@ pub mod keys;
 mod model;
 pub mod policies;
 mod pool;
+pub mod refresh;
 pub mod roles;
 pub mod users;
 

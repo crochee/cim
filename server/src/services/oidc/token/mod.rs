@@ -1,12 +1,16 @@
+pub mod code;
 pub mod password;
+pub mod refresh;
 mod tokenx;
 
 use async_trait::async_trait;
+use constant_time_eq::constant_time_eq;
 use mockall::automock;
 use serde::{Deserialize, Serialize};
 
-use slo::Result;
+use slo::{errors, Result};
 
+use storage::client::{Client, ClientStore};
 pub use tokenx::AccessToken;
 
 #[automock]
@@ -73,3 +77,15 @@ pub const GRANT_TYPE_AUTHORIZATION_CODE: &str = "authorization_code";
 pub const GRANT_TYPE_REFRESH_TOKEN: &str = "refresh_token";
 pub const GRANT_TYPE_IMPLICIT: &str = "implicit";
 pub const GRANT_TYPE_PASSWORD: &str = "password";
+
+pub async fn get_client_and_valid<C: ClientStore>(
+    client_store: &C,
+    client_id: &str,
+    client_secret: &str,
+) -> Result<Client> {
+    let client = client_store.get_client(client_id, None).await?;
+    if !constant_time_eq(client.secret.as_bytes(), client_secret.as_bytes()) {
+        return Err(errors::unauthorized());
+    }
+    Ok(client)
+}
