@@ -1,31 +1,42 @@
 use std::collections::HashSet;
 
 use async_trait::async_trait;
+use base64::engine::{general_purpose, Engine};
 use chrono::Utc;
 use jsonwebkey as jwk;
 use jsonwebtoken as jwt;
-
 use sha2::{Digest, Sha256};
 use tracing::error;
 
 use slo::{errors, Result};
 use storage::keys::KeyStore;
 
-use super::{Claims, Token, TokenClaims, TokenOpts};
+use super::{Claims, Token};
 
 pub struct AccessToken<T> {
     key_store: T,
     expire_sec: i64,
     aud: HashSet<String>,
+    issuer_url: String,
 }
 
 impl<T> AccessToken<T> {
-    pub fn new(key_store: T, expire_sec: i64, aud: HashSet<String>) -> Self {
+    pub fn new(
+        key_store: T,
+        expire_sec: i64,
+        aud: HashSet<String>,
+        issuer_url: String,
+    ) -> Self {
         Self {
             key_store,
             expire_sec,
             aud,
+            issuer_url,
         }
+    }
+
+    fn now(&self) -> i64 {
+        Utc::now().timestamp()
     }
 }
 
@@ -34,38 +45,20 @@ impl<T> Token for AccessToken<T>
 where
     T: KeyStore + Send + Sync,
 {
-    async fn token(
-        &self,
-        claims: &Claims,
-        opts: &TokenOpts,
-    ) -> Result<(String, i64)> {
+    async fn token(&self, claims: &Claims) -> Result<(String, i64)> {
         let keys = self.key_store.get_key().await?;
-        let issued_at = Utc::now().timestamp();
-        let exp = issued_at + self.expire_sec;
+        let now = self.now();
 
-        let mut token_claims = TokenClaims {
-            aud: opts.aud.clone(),
-            exp,
-            iat: issued_at,
-            iss: opts.issuer_url.clone(),
-            sub: claims.user_id.clone(),
-            nonce: opts.nonce.clone(),
-            email: claims.email.clone(),
-            email_verified: claims.email_verified,
-            name: claims.username.clone(),
-            preferred_username: claims.preferred_username.clone(),
-            ..Default::default()
-        };
+        let mut token_claims = claims.clone();
+        token_claims.exp = now + self.expire_sec;
+        token_claims.nbf = now;
+        token_claims.iss = self.issuer_url.clone();
 
-        if let Some(access_token) = &opts.access_token {
-            token_claims.access_token_hash = format!(
-                "{:?}",
-                Sha256::new().chain_update(access_token).finalize()
+        if let Some(access_token) = &claims.access_token {
+            token_claims.access_token = Some(
+                general_purpose::STANDARD
+                    .encode(Sha256::new_with_prefix(access_token).finalize()),
             );
-        };
-        if let Some(code) = &opts.code {
-            token_claims.code_hash =
-                format!("{:?}", Sha256::new().chain_update(code).finalize());
         };
         let mut header = match keys.signing_key.algorithm {
             Some(v) => jwt::Header::new(match v {
@@ -83,7 +76,7 @@ where
             &JwkKey(*keys.signing_key.key).to_encoding_key(),
         )
         .map_err(errors::any)?;
-        Ok((token, exp))
+        Ok((token, token_claims.exp))
     }
 
     async fn verify(&self, token: &str) -> Result<Claims> {
@@ -103,27 +96,18 @@ where
                 None => jwt::Algorithm::HS256,
             };
             let mut validation = jwt::Validation::new(alg);
+            validation.validate_nbf = true;
             if self.aud.is_empty() {
                 validation.validate_aud = false;
             } else {
                 validation.aud = Some(self.aud.clone());
             }
-            match jwt::decode::<TokenClaims>(
+            match jwt::decode::<Claims>(
                 token,
                 &JwkKey(*vk.public_key.key.clone()).to_decoding_key(),
                 &validation,
             ) {
-                Ok(v) => {
-                    return Ok(Claims {
-                        user_id: v.claims.sub,
-                        username: v.claims.name,
-                        preferred_username: v.claims.preferred_username,
-                        email: v.claims.email,
-                        email_verified: v.claims.email_verified,
-                        mobile: v.claims.mobile,
-                        exp: Some(v.claims.exp),
-                    })
-                }
+                Ok(v) => return Ok(v.claims),
                 Err(err_value) => {
                     println!("{:?}", err_value);
                     error!("{}", err_value);
@@ -205,7 +189,10 @@ mod tests {
     use super::*;
 
     use crate::services::oidc::jwk_to_public;
-    use storage::keys::{Keys, MockKeyStore, VerificationKey};
+    use storage::{
+        keys::{Keys, MockKeyStore, VerificationKey},
+        Claim,
+    };
 
     #[tokio::test]
     async fn token_encode_decode() {
@@ -264,37 +251,32 @@ mod tests {
                 next_rotation: 0,
             })
         });
-        let t =
-            AccessToken::new(key_store, 30, HashSet::from(["IO".to_owned()]));
+        let t = AccessToken::new(
+            key_store,
+            30,
+            HashSet::from(["IO".to_owned()]),
+            "http://127.0.0.1:80".to_owned(),
+        );
         let access_token = rand::thread_rng()
             .sample_iter(&rand::distributions::Alphanumeric)
             .take(255)
             .map(char::from)
             .collect::<String>();
         let (token_str, exp) = t
-            .token(
-                &Claims {
-                    user_id: "1".to_owned(),
-                    username: "lee".to_owned(),
-                    preferred_username: "crochee".to_owned(),
+            .token(&Claims {
+                claim: Claim {
+                    sub: "1".to_owned(),
+                    name: Some("lee".to_owned()),
+                    preferred_username: Some("crochee".to_owned()),
                     email: None,
-                    email_verified: false,
-                    mobile: None,
-                    exp: None,
+                    email_verified: None,
+                    ..Default::default()
                 },
-                &TokenOpts {
-                    scopes: vec![
-                        "email".to_owned(),
-                        "openid".to_owned(),
-                        "profile".to_owned(),
-                    ],
-                    nonce: "hsjdkjfka".to_owned(),
-                    access_token: Some(access_token),
-                    code: Some("sjhdkf".to_owned()),
-                    aud: "IO".to_owned(),
-                    issuer_url: "http://127.0.0.1:80".to_owned(),
-                },
-            )
+                access_token: Some(access_token),
+                nonce: "hsjdkjfka".to_owned(),
+                aud: "IO".to_owned(),
+                ..Default::default()
+            })
             .await
             .unwrap();
         println!("{} {}", exp, token_str);

@@ -8,6 +8,7 @@ use serde_json::value::RawValue;
 use validator::Validate;
 
 use slo::{regexp::check_password, Result};
+use storage::Claim;
 
 // pub use useid_password::UserIDPassword;
 
@@ -112,13 +113,8 @@ pub struct Info {
 #[derive(Debug, Default)]
 pub struct Identity {
     pub user_id: String,
-    pub username: String,
-    pub preferred_username: String,
-    pub email: Option<String>,
-    pub email_verified: bool,
-    pub mobile: Option<String>,
-    pub groups: String,
 
+    pub claim: Claim,
     /// ConnectorData holds data used by the connector for subsequent requests after initial
     /// authentication, such as access tokens for upstream provides.
     ///

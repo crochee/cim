@@ -232,3 +232,24 @@ impl Pagination {
         }
     }
 }
+
+#[derive(
+    Debug, Clone, Validate, serde::Deserialize, Default, Serialize, ToSchema,
+)]
+pub struct Claim {
+    pub sub: String,
+    pub groups: Option<Vec<String>>,
+    pub email: Option<String>,
+    pub email_verified: Option<bool>,
+    pub name: Option<String>,
+    pub preferred_username: Option<String>,
+    pub profile: Option<String>,
+    pub picture: Option<String>,
+    pub website: Option<String>,
+    pub gender: Option<String>,
+    pub birthdate: Option<String>,
+    pub locale: Option<String>,
+    pub phone_number: Option<String>,
+    pub phone_number_verified: Option<bool>,
+    pub address: Option<String>,
+}

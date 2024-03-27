@@ -37,12 +37,7 @@ pub async fn finalize_login<S: authrequest::AuthRequestStore>(
     is_refresh: bool,
 ) -> Result<(String, bool)> {
     auth_req.logged_in = true;
-    auth_req.claims_user_id = identity.user_id.clone();
-    auth_req.claims_user_name = identity.username.clone();
-    auth_req.claims_email = identity.email.clone().unwrap_or_default();
-    auth_req.claims_email_verified = identity.email_verified;
-    auth_req.claims_groups = identity.groups.clone();
-    auth_req.claims_preferred_username = identity.preferred_username.clone();
+    auth_req.claim = identity.claim.clone();
     auth_req.connector_data = Some(identity.connector_data.to_string());
 
     auth_request_store.put_auth_request(auth_req).await?;
@@ -98,34 +93,18 @@ pub async fn send_code<
             super::RESPONSE_TYPE_IDTOKEN => {
                 implicit_or_hybrid = true;
                 // TODO:claims and token opts fill
-                let claims = token::Claims {
-                    user_id: "1".to_owned(),
-                    username: "lee".to_owned(),
-                    preferred_username: "crochee".to_owned(),
-                    email: None,
-                    email_verified: false,
-                    mobile: None,
-                    exp: None,
+                let mut claims = token::Claims {
+                    claim: auth_request.claim.clone(),
+                    ..Default::default()
                 };
-                let mut token_opts = token::TokenOpts {
-                    scopes: vec![
-                        "email".to_owned(),
-                        "openid".to_owned(),
-                        "profile".to_owned(),
-                    ],
-                    nonce: "hsjdkjfka".to_owned(),
-                    access_token: None,
-                    code: Some("sjhdkf".to_owned()),
-                    aud: "IO".to_owned(),
-                    issuer_url: "http://127.0.0.1:80".to_owned(),
-                };
+
                 let (access_token_val, _) =
-                    token_creater.token(&claims, &token_opts).await?;
-                token_opts.access_token = Some(access_token_val.clone());
+                    token_creater.token(&claims).await?;
+                claims.access_token = Some(access_token_val.clone());
                 access_token = access_token_val;
 
                 let (id_token_val, id_token_expiry_val) =
-                    token_creater.token(&claims, &token_opts).await?;
+                    token_creater.token(&claims).await?;
                 id_token = id_token_val;
                 id_token_expiry = id_token_expiry_val;
             }

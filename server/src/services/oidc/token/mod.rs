@@ -10,46 +10,31 @@ use serde::{Deserialize, Serialize};
 
 use slo::{errors, Result};
 
-use storage::client::{Client, ClientStore};
+use storage::{
+    client::{Client, ClientStore},
+    Claim,
+};
 pub use tokenx::AccessToken;
 
 #[automock]
 #[async_trait]
 pub trait Token {
-    async fn token(
-        &self,
-        claims: &Claims,
-        opts: &TokenOpts,
-    ) -> Result<(String, i64)>;
+    async fn token(&self, claims: &Claims) -> Result<(String, i64)>;
     async fn verify(&self, token: &str) -> Result<Claims>;
 }
 
-#[derive(Debug, Serialize, Deserialize, Default)]
-pub struct TokenClaims {
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct Claims {
     pub aud: String, // Optional. Audience
     pub exp: i64, // Required (validate_exp defaults to true in validation). Expiration time (as UTC timestamp)
-    pub iat: i64, // Optional. Issued at (as UTC timestamp)
+    pub nbf: i64, // Optional. Not Before (as UTC timestamp)
     pub iss: String, // Optional. Issuer
-    pub sub: String, // Optional. Subject (whom token refers to)
 
-    pub nonce: String,
-    pub access_token_hash: String,
-    pub code_hash: String,
-    pub email: Option<String>,
-    pub email_verified: bool,
-    pub mobile: Option<String>,
-    pub name: String,
-    pub preferred_username: String,
-}
-
-#[derive(Debug)]
-pub struct TokenOpts {
-    pub scopes: Vec<String>,
     pub nonce: String,
     pub access_token: Option<String>,
-    pub code: Option<String>,
-    pub aud: String,
-    pub issuer_url: String,
+
+    #[serde(flatten)]
+    pub claim: Claim,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -62,20 +47,8 @@ pub struct TokenResponse {
     pub scopes: Option<Vec<String>>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct Claims {
-    pub user_id: String,
-    pub username: String,
-    pub preferred_username: String,
-    pub email: Option<String>,
-    pub email_verified: bool,
-    pub mobile: Option<String>,
-    pub exp: Option<i64>,
-}
-
 pub const GRANT_TYPE_AUTHORIZATION_CODE: &str = "authorization_code";
 pub const GRANT_TYPE_REFRESH_TOKEN: &str = "refresh_token";
-pub const GRANT_TYPE_IMPLICIT: &str = "implicit";
 pub const GRANT_TYPE_PASSWORD: &str = "password";
 
 pub async fn get_client_and_valid<C: ClientStore>(

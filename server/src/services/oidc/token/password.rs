@@ -47,30 +47,14 @@ pub async fn password_grant<
                     },
                 )
                 .await?;
-            let claims = token::Claims {
-                user_id: identity.user_id,
-                username: identity.username,
-                preferred_username: identity.preferred_username,
-                email: identity.email,
-                email_verified: identity.email_verified,
-                mobile: identity.mobile,
-                exp: None,
-            };
-            // TODO: add fill token
-            let mut token_opts = token::TokenOpts {
-                scopes: scopes.clone(),
-                nonce: opts.nonce.clone(),
-                access_token: None,
-                code: Some("sjhdkf".to_owned()),
-                aud: "IO".to_owned(),
-                issuer_url: "http://127.0.0.1:80".to_owned(),
-            };
-            let (access_token, _) =
-                token_creator.token(&claims, &token_opts).await?;
-            token_opts.access_token = Some(access_token.clone());
 
-            let (id_token, expires_in) =
-                token_creator.token(&claims, &token_opts).await?;
+            let mut claims = token::Claims {
+                claim: identity.claim,
+                ..Default::default()
+            };
+            let (access_token, _) = token_creator.token(&claims).await?;
+            claims.access_token = Some(access_token.clone());
+            let (id_token, expires_in) = token_creator.token(&claims).await?;
             //TODO: add refresh token
             Ok(token::TokenResponse {
                 access_token,

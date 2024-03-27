@@ -7,7 +7,7 @@ use validator::Validate;
 
 use slo::Result;
 
-use crate::ID;
+use crate::{Claim, ID};
 
 #[derive(Debug, Deserialize, Default, Serialize, Validate, ToSchema)]
 pub struct AuthRequest {
@@ -24,12 +24,8 @@ pub struct AuthRequest {
     pub force_approval_prompt: bool,
     pub logged_in: bool,
 
-    pub claims_user_id: String,
-    pub claims_user_name: String,
-    pub claims_email: String,
-    pub claims_email_verified: bool,
-    pub claims_groups: String,
-    pub claims_preferred_username: String,
+    #[serde(flatten)]
+    pub claim: Claim,
 
     pub connector_id: String,
     pub connector_data: Option<String>,

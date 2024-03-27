@@ -155,7 +155,7 @@ async fn token_handler(
         serde_urlencoded::from_bytes(&bytes).map_err(errors::any)?;
     let res = match grant_opts.grant_type.as_str() {
         token::GRANT_TYPE_AUTHORIZATION_CODE => {
-            token::get_client_and_valid(
+            let client_info = token::get_client_and_valid(
                 &app.store.client,
                 info.username(),
                 info.password(),
@@ -167,6 +167,7 @@ async fn token_handler(
                 &app.store.auth_code,
                 &app.store.connector,
                 &app.access_token,
+                &client_info,
                 &opts,
             )
             .await?

@@ -1,5 +1,5 @@
 use serde::Deserialize;
-use slo::{errors, Result};
+use slo::{Result};
 use storage::{connector::ConnectorStore, refresh::RefreshTokenStore};
 
 use crate::services::oidc::token;
@@ -15,10 +15,10 @@ pub async fn refresh_grant<
     CN: ConnectorStore,
     T: token::Token,
 >(
-    refresh_store: &C,
-    connector_store: &CN,
-    token_creator: &T,
-    opts: &RefreshGrantOpts,
+    _refresh_store: &C,
+    _connector_store: &CN,
+    _token_creator: &T,
+    _opts: &RefreshGrantOpts,
 ) -> Result<token::TokenResponse> {
     Ok(Default::default())
 }
