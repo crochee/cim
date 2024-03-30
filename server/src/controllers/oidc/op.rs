@@ -7,7 +7,7 @@ use axum_extra::{
     headers::{authorization::Basic, Authorization},
     TypedHeader,
 };
-use chrono::Utc;
+use chrono::{Duration, Utc};
 use http::{header, HeaderMap, StatusCode};
 use serde::{Deserialize, Serialize};
 use slo::{errors, Result};
@@ -163,17 +163,17 @@ async fn token_handler(
             .await?;
             let opts: token::code::CodeGrantOpts =
                 serde_urlencoded::from_bytes(&bytes).map_err(errors::any)?;
-            token::code::code_grant(
-                &app.store.auth_code,
-                &app.store.connector,
-                &app.access_token,
-                &client_info,
-                &opts,
-            )
-            .await?
+            let cg = token::code::CodeGrant {
+                auth_store: &app.store.auth_code,
+                connector_store: &app.store.connector,
+                token_creator: &app.access_token,
+                refresh_token_store: &app.store.refresh,
+                offline_session_store: &app.store.offline_session,
+            };
+            cg.grant(&client_info, &opts).await?
         }
         token::GRANT_TYPE_REFRESH_TOKEN => {
-            token::get_client_and_valid(
+            let client_info = token::get_client_and_valid(
                 &app.store.client,
                 info.username(),
                 info.password(),
@@ -181,13 +181,21 @@ async fn token_handler(
             .await?;
             let opts: token::refresh::RefreshGrantOpts =
                 serde_urlencoded::from_bytes(&bytes).map_err(errors::any)?;
-            token::refresh::refresh_grant(
-                &app.store.refresh,
-                &app.store.connector,
-                &app.access_token,
-                &opts,
-            )
-            .await?
+            let rg = token::refresh::RefreshGrant {
+                refresh_store: &app.store.refresh,
+                connector_store: &app.store.connector,
+                token_creator: &app.access_token,
+                offline_session_store: &app.store.offline_session,
+                absolute_lifetime: Duration::seconds(
+                    app.config.absolute_lifetime,
+                ),
+                valid_if_not_used_for: Duration::seconds(
+                    app.config.valid_if_not_used_for,
+                ),
+                reuse_interval: Duration::seconds(app.config.reuse_interval),
+                rotate_refresh_tokens: app.config.rotate_refresh_tokens,
+            };
+            rg.grant(&client_info, &opts).await?
         }
         token::GRANT_TYPE_PASSWORD => {
             let client_info = token::get_client_and_valid(
@@ -198,14 +206,15 @@ async fn token_handler(
             .await?;
             let opts: token::password::PasswordGrantOpts =
                 serde_urlencoded::from_bytes(&bytes).map_err(errors::any)?;
-            token::password::password_grant(
-                &app.store.client,
-                &app.store.connector,
-                &app.access_token,
-                &client_info,
-                &opts,
-            )
-            .await?
+            let pg = token::password::PasswordGrant {
+                client_store: &app.store.client,
+                connector_store: &app.store.connector,
+                token_creator: &app.access_token,
+                refresh_token_store: &app.store.refresh,
+                offline_session_store: &app.store.offline_session,
+            };
+            pg.grant(&client_info, &opts, &app.config.password_connector)
+                .await?
         }
         _ => {
             return Err(errors::bad_request(

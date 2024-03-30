@@ -70,6 +70,7 @@ pub struct Store {
     pub connector: storage::connector::MockConnectorStore,
     pub client: storage::client::MockClientStore,
     pub refresh: storage::refresh::MockRefreshTokenStore,
+    pub offline_session: storage::offlinesession::MockOfflineSessionStore,
 }
 
 impl Store {
@@ -84,6 +85,8 @@ impl Store {
         let connector = storage::connector::MockConnectorStore::new();
         let client = storage::client::MockClientStore::new();
         let refresh = storage::refresh::MockRefreshTokenStore::new();
+        let offline_session =
+            storage::offlinesession::MockOfflineSessionStore::new();
         Self {
             user,
             role,
@@ -95,6 +98,7 @@ impl Store {
             connector,
             client,
             refresh,
+            offline_session,
         }
     }
 }

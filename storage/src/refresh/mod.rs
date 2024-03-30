@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use chrono::NaiveDateTime;
 use mockall::automock;
 use serde::{Deserialize, Serialize};
+use serde_json::value::RawValue;
 use utoipa::ToSchema;
 use validator::Validate;
 
@@ -16,15 +17,17 @@ pub struct RefreshToken {
     pub scopes: Vec<String>,
     pub nonce: String,
     pub token: String,
+    pub obsolete_token: String,
 
     #[serde(flatten)]
     pub claim: Claim,
 
     pub connector_id: String,
-    pub connector_data: Option<String>,
+    pub connector_data: Option<Box<RawValue>>,
 
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
+    pub last_used_at: NaiveDateTime,
 }
 
 #[automock]

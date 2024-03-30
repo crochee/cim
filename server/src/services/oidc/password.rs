@@ -38,7 +38,7 @@ pub async fn finalize_login<S: authrequest::AuthRequestStore>(
 ) -> Result<(String, bool)> {
     auth_req.logged_in = true;
     auth_req.claim = identity.claim.clone();
-    auth_req.connector_data = Some(identity.connector_data.to_string());
+    auth_req.connector_data = identity.connector_data.clone();
 
     auth_request_store.put_auth_request(auth_req).await?;
     if !auth_req.force_approval_prompt {

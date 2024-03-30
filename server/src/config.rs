@@ -29,6 +29,21 @@ pub struct AppConfig {
     #[clap(long, env)]
     #[arg(default_value_t = 3600)]
     pub expiration: i64,
+    #[clap(long, env)]
+    #[arg(default_value_t = String::from("1"))]
+    pub password_connector: String,
+    #[clap(long, env)]
+    #[arg(default_value_t = 10)]
+    pub absolute_lifetime: i64,
+    #[clap(long, env)]
+    #[arg(default_value_t = 10)]
+    pub valid_if_not_used_for: i64,
+    #[clap(long, env)]
+    #[arg(default_value_t = 10)]
+    pub reuse_interval: i64,
+    #[clap(long, env)]
+    #[arg(default_value_t = true)]
+    pub rotate_refresh_tokens: bool,
 }
 
 const PORT_RANGE: RangeInclusive<usize> = 1..=65535;

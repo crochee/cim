@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use chrono::NaiveDateTime;
 use mockall::automock;
 use serde::{Deserialize, Serialize};
+use serde_json::value::RawValue;
 use utoipa::ToSchema;
 use validator::Validate;
 
@@ -23,7 +24,7 @@ pub struct AuthCode {
     pub claim: Claim,
 
     pub connector_id: String,
-    pub connector_data: Option<String>,
+    pub connector_data: Option<Box<RawValue>>,
 
     pub expiry: i64,
 

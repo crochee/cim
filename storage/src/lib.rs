@@ -6,6 +6,7 @@ pub mod convert;
 pub mod groups;
 pub mod keys;
 mod model;
+pub mod offlinesession;
 pub mod policies;
 mod pool;
 pub mod refresh;
