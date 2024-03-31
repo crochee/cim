@@ -1,9 +1,11 @@
+use std::collections::HashMap;
+
 use base64::engine::{general_purpose, Engine};
 use chrono::Utc;
 use http::Uri;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use storage::{authcode, authrequest};
+use storage::{authcode, authrequest, offlinesession};
 use utoipa::ToSchema;
 use validator::Validate;
 
@@ -30,8 +32,12 @@ pub async fn get_auth_request<S: authrequest::AuthRequestStore>(
 ) -> Result<authrequest::AuthRequest> {
     auth_request_store.get_auth_request(&req.state).await
 }
-pub async fn finalize_login<S: authrequest::AuthRequestStore>(
+pub async fn finalize_login<
+    S: authrequest::AuthRequestStore,
+    O: offlinesession::OfflineSessionStore,
+>(
     auth_request_store: &S,
+    offline_session_store: &O,
     auth_req: &mut authrequest::AuthRequest,
     identity: &Identity,
     is_refresh: bool,
@@ -53,9 +59,37 @@ pub async fn finalize_login<S: authrequest::AuthRequestStore>(
     return_url.push_str("&hmac=");
     let hmac_str = general_purpose::URL_SAFE_NO_PAD.encode(hmac);
     return_url.push_str(&hmac_str);
-    if is_refresh {
-        // TODO: Add support for refresh tokens
+    if !is_refresh {
+        return Ok((return_url, false));
     }
+    if auth_req.scopes.contains(&String::from("offline_access")) {
+        return Ok((return_url, false));
+    }
+    match offline_session_store
+        .get_offline_session(&auth_req.claim.sub, &auth_req.connector_id)
+        .await
+    {
+        Ok(mut session) => {
+            if let Some(connector_data) = &auth_req.connector_data {
+                session.connector_data = Some(connector_data.clone());
+                offline_session_store.put_offline_session(&session).await?;
+            }
+        }
+        Err(err) => {
+            if !errors::not_found("").eq(&err) {
+                return Err(err);
+            }
+            offline_session_store
+                .put_offline_session(&offlinesession::OfflineSession {
+                    user_id: auth_req.claim.sub.clone(),
+                    conn_id: auth_req.connector_id.clone(),
+                    refresh: HashMap::new(),
+                    connector_data: auth_req.connector_data.clone(),
+                    ..Default::default()
+                })
+                .await?;
+        }
+    };
     Ok((return_url, false))
 }
 

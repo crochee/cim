@@ -96,7 +96,7 @@ where
                 };
                 refresh_token_value = rt
                     .handle(
-                        &auth_code.scopes,
+                        auth_code.scopes.clone(),
                         &client_value.id,
                         &auth_code.nonce,
                         &auth_code.claim,

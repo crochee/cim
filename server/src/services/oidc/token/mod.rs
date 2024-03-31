@@ -87,7 +87,7 @@ where
 {
     pub async fn handle(
         &self,
-        scopes: &Vec<String>,
+        scopes: Vec<String>,
         client_id: &str,
         nonce: &str,
         claim: &Claim,
@@ -95,14 +95,7 @@ where
         connector_data: Option<Box<RawValue>>,
     ) -> Result<Option<String>> {
         let mut refresh_token_value = None;
-        let mut offline = false;
-        for scope in scopes {
-            if scope == "offline_access" {
-                offline = true;
-                break;
-            }
-        }
-        if offline {
+        if scopes.contains(&String::from("offline_access")) {
             let refresh_token = RefreshToken {
                 id: next_id().map_err(errors::any)?.to_string(),
                 client_id: client_id.to_string(),
@@ -146,6 +139,7 @@ where
                 _ => {}
             }
         }
+
         Ok(refresh_token_value)
     }
     async fn handle_offline(

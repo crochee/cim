@@ -79,7 +79,7 @@ where
             };
             refresh_token_value = rt
                 .handle(
-                    &scopes,
+                    scopes.clone(),
                     &client_value.id,
                     &opts.nonce,
                     &identity.claim,

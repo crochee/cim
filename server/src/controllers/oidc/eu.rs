@@ -192,6 +192,7 @@ async fn password_login_handle(
 
             let (mut redirect_uri, can_skip_approval) = finalize_login(
                 &app.store.auth_request,
+                &app.store.offline_session,
                 &mut auth_request,
                 &identity,
                 conn.refresh_enabled(),
