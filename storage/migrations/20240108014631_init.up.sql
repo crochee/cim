@@ -129,14 +129,9 @@ CREATE TABLE `auth_request` (
 	`state` VARCHAR(4096),
     `hmac_key` TEXT,
 	`force_approval_prompt` BOOLEAN NOT NULL,
-    `claims_preferred_username` TEXT NOT NULL DEFAULT '',
 	`logged_in` BOOLEAN NOT NULL,
 
-	`claims_user_id` TEXT NOT NULL,
-	`claims_username` TEXT NOT NULL,
-	`claims_email` TEXT NOT NULL,
-	`claims_email_verified` BOOLEAN NOT NULL,
-	`claims_groups` TEXT NOT NULL, -- JSON array of strings
+	`claim` TEXT NOT NULL,
 
 	`connector_id` TEXT NOT NULL,
 	`connector_data` TEXT,
@@ -157,14 +152,10 @@ CREATE TABLE `auth_code` (
 	`scopes` TEXT NOT NULL, -- JSON array of strings
 	`nonce` TEXT NOT NULL,
 	`redirect_uri` TEXT NOT NULL,
-    `claims_preferred_username` TEXT NOT NULL DEFAULT '',
     `code_challenge` TEXT NOT NULL DEFAULT '',
     `code_challenge_method` TEXT NOT NULL DEFAULT '',
-	`claims_user_id` TEXT NOT NULL,
-	`claims_username` TEXT NOT NULL,
-	`claims_email` TEXT NOT NULL,
-	`claims_email_verified` BOOLEAN NOT NULL,
-	`claims_groups` TEXT NOT NULL, -- JSON array of strings
+
+	`claim` TEXT NOT NULL,
 
 	`connector_id` TEXT NOT NULL,
 	`connector_data` TEXT,
@@ -185,12 +176,8 @@ CREATE TABLE `refresh_token` (
 	`scopes` TEXT NOT NULL, -- JSON array of strings
 	`nonce` TEXT NOT NULL,
 	`token` TEXT NOT NULL DEFAULT '',
-    `claims_preferred_username` TEXT NOT NULL DEFAULT '',
-	`claims_user_id` TEXT NOT NULL,
-	`claims_username` TEXT NOT NULL,
-	`claims_email` TEXT NOT NULL,
-	`claims_email_verified` BOOLEAN NOT NULL,
-	`claims_groups` TEXT NOT NULL, -- JSON array of strings
+
+    `claims` TEXT NOT NULL,
 
 	`connector_id` TEXT NOT NULL,
 	`connector_data` TEXT,
