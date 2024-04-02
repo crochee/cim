@@ -177,7 +177,7 @@ CREATE TABLE `refresh_token` (
 	`nonce` TEXT NOT NULL,
 	`token` TEXT NOT NULL DEFAULT '',
 
-    `claims` TEXT NOT NULL,
+    `claim` TEXT NOT NULL,
 
 	`connector_id` TEXT NOT NULL,
 	`connector_data` TEXT,

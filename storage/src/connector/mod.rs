@@ -1,3 +1,5 @@
+mod mariadb;
+
 use async_trait::async_trait;
 use mockall::automock;
 use serde::{Deserialize, Serialize};
@@ -8,6 +10,8 @@ use validator::Validate;
 use slo::Result;
 
 use crate::ID;
+
+pub use mariadb::ConnectorImpl;
 
 #[derive(Debug, Deserialize, Serialize, Validate, ToSchema)]
 pub struct Connector {
