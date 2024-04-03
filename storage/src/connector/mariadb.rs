@@ -21,17 +21,16 @@ impl ConnectorImpl {
 #[async_trait]
 impl ConnectorStore for ConnectorImpl {
     async fn put_connector(&self, content: &Connector) -> Result<ID> {
-        let mut id = 0;
-        if content.id.is_empty() {
-            id = next_id().map_err(errors::any)?;
+        let id = if content.id.is_empty() {
+            next_id().map_err(errors::any)?
         } else {
-            id = content
+            content
                 .id
-                .parse()
-                .map_err(|err| errors::bad_request(&err))?;
-        }
+                .parse::<u64>()
+                .map_err(|err| errors::bad_request(&err))?
+        };
         sqlx::query(
-            r#"INSERT INTO `connector`
+            r#"REPLACE INTO `connector`
             (`id`,`type`,`name`,`resource_version`,`config`,`connector_data`)
             VALUES(?,?,?,?,?,?);"#,
         )

@@ -249,7 +249,9 @@ fn validate_redirect_uri(
             return true;
         }
     }
-    if !client_value.public || !client_value.redirect_uris.is_empty() {
+    if !client_value.account_id.is_empty()
+        || !client_value.redirect_uris.is_empty()
+    {
         return false;
     }
     let u = match redirect_uri.parse::<Uri>() {
@@ -301,7 +303,6 @@ mod tests {
         client_store.expect_get_client().returning(|_, _| {
             Ok(Client {
                 id: "client_id".to_owned(),
-                public: true,
                 ..Default::default()
             })
         });
