@@ -65,7 +65,7 @@ pub struct Store {
     pub group: storage::groups::mariadb::GroupImpl,
     pub policy: storage::policies::mariadb::PolicyImpl,
     pub key: storage::keys::mariadb::KeyImpl,
-    pub auth_request: storage::authrequest::MockAuthRequestStore,
+    pub auth_request: storage::authrequest::AuthRequestImpl,
     pub auth_code: storage::authcode::MockAuthCodeStore,
     pub connector: storage::connector::ConnectorImpl,
     pub client: storage::client::ClientImpl,
@@ -80,7 +80,8 @@ impl Store {
         let group = storage::groups::mariadb::GroupImpl::new(pool.clone());
         let policy = storage::policies::mariadb::PolicyImpl::new(pool.clone());
         let key = storage::keys::mariadb::KeyImpl::new(pool.clone());
-        let auth_request = storage::authrequest::MockAuthRequestStore::new();
+        let auth_request =
+            storage::authrequest::AuthRequestImpl::new(pool.clone());
         let auth_code = storage::authcode::MockAuthCodeStore::new();
         let connector = storage::connector::ConnectorImpl::new(pool.clone());
         let client = storage::client::ClientImpl::new(pool.clone());

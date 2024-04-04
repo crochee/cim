@@ -78,7 +78,6 @@ impl ClientStore for ClientImpl {
             r#"SELECT `id`,`secret`,`redirect_uris`,`trusted_peers`,`name`,`logo_url`,`account_id`,`created_at`,`updated_at`
             FROM `client`
             WHERE {wheres} AND deleted = 0;"#).as_str())
-        .bind(id)
         .fetch_optional(&self.pool)
         .await
         {
@@ -142,7 +141,6 @@ impl ClientStore for ClientImpl {
             )
             .as_str(),
         )
-        .bind(id)
         .execute(&self.pool)
         .await
         .map_err(errors::any)?;
