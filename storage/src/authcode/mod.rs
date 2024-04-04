@@ -1,3 +1,5 @@
+mod mariadb;
+
 use async_trait::async_trait;
 use chrono::NaiveDateTime;
 use mockall::automock;
@@ -9,6 +11,8 @@ use validator::Validate;
 use slo::Result;
 
 use crate::{Claim, ID};
+
+pub use mariadb::AuthCodeImpl;
 
 #[derive(Debug, Clone, Deserialize, Default, Serialize, Validate, ToSchema)]
 pub struct AuthCode {
