@@ -69,8 +69,8 @@ pub struct Store {
     pub auth_code: storage::authcode::AuthCodeImpl,
     pub connector: storage::connector::ConnectorImpl,
     pub client: storage::client::ClientImpl,
-    pub refresh: storage::refresh::MockRefreshTokenStore,
-    pub offline_session: storage::offlinesession::MockOfflineSessionStore,
+    pub refresh: storage::refresh::RefreshTokenImpl,
+    pub offline_session: storage::offlinesession::OfflineSessionImpl,
 }
 
 impl Store {
@@ -85,9 +85,9 @@ impl Store {
         let auth_code = storage::authcode::AuthCodeImpl::new(pool.clone());
         let connector = storage::connector::ConnectorImpl::new(pool.clone());
         let client = storage::client::ClientImpl::new(pool.clone());
-        let refresh = storage::refresh::MockRefreshTokenStore::new();
+        let refresh = storage::refresh::RefreshTokenImpl::new(pool.clone());
         let offline_session =
-            storage::offlinesession::MockOfflineSessionStore::new();
+            storage::offlinesession::OfflineSessionImpl::new(pool);
         Self {
             user,
             role,

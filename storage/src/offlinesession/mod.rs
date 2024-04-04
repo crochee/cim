@@ -1,3 +1,5 @@
+mod mariadb;
+
 use std::collections::HashMap;
 
 use async_trait::async_trait;
@@ -10,7 +12,7 @@ use validator::Validate;
 
 use slo::Result;
 
-use crate::ID;
+pub use mariadb::OfflineSessionImpl;
 
 #[derive(Debug, Clone, Deserialize, Default, Serialize, Validate, ToSchema)]
 pub struct OfflineSession {
@@ -19,9 +21,6 @@ pub struct OfflineSession {
     pub refresh: HashMap<String, RefreshTokenRef>,
 
     pub connector_data: Option<Box<RawValue>>,
-
-    pub created_at: NaiveDateTime,
-    pub updated_at: NaiveDateTime,
 }
 
 #[derive(Debug, Clone, Deserialize, Default, Serialize, Validate, ToSchema)]
@@ -35,7 +34,7 @@ pub struct RefreshTokenRef {
 #[async_trait]
 pub trait OfflineSessionStore {
     async fn put_offline_session(&self, content: &OfflineSession)
-        -> Result<ID>;
+        -> Result<()>;
     async fn get_offline_session(
         &self,
         user_id: &str,

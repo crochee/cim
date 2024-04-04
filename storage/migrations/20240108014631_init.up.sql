@@ -176,11 +176,14 @@ CREATE TABLE `refresh_token` (
 	`scopes` TEXT NOT NULL, -- JSON array of strings
 	`nonce` TEXT NOT NULL,
 	`token` TEXT NOT NULL DEFAULT '',
+	`obsolete_token` TEXT NOT NULL DEFAULT '',
 
     `claim` TEXT NOT NULL,
 
 	`connector_id` TEXT NOT NULL,
 	`connector_data` TEXT,
+
+    `last_used_at` DATETIME(3) NOT NULL COMMENT 'last used time',
 
     `deleted` BIGINT(20) UNSIGNED NOT NULL DEFAULT '0' COMMENT 'soft delete flag',
     `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT 'create time',
