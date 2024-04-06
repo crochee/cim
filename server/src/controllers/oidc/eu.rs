@@ -46,6 +46,7 @@ async fn auth_html(
     let redirect_uri = run_connector(
         &app.store.auth_request,
         &connector,
+        &app.store.user,
         &connector_id,
         &mut auth_req,
         app.config.expiration,
@@ -94,7 +95,7 @@ async fn password_login_html(
         return Err(errors::bad_request("Requested resource does not exist."));
     }
     let connector = get_connector(&app.store.connector, &connector_id).await?;
-    match open_connector(&connector)? {
+    match open_connector(&app.store.user, &connector)? {
         oidc::Connector::Password(conn) => {
             auth_req_id.prompt = Some(conn.prompt().to_owned());
             Ok(HtmlTemplate(Password {
@@ -166,9 +167,10 @@ async fn password_login_handle(
         .map_err(|err| {
             relogin_html(&connector_id, &auth_req_code, &login_data.login, err)
         })?;
-    let conn_impl = open_connector(&connector).map_err(|err| {
-        relogin_html(&connector_id, &auth_req_code, &login_data.login, err)
-    })?;
+    let conn_impl =
+        open_connector(&app.store.user, &connector).map_err(|err| {
+            relogin_html(&connector_id, &auth_req_code, &login_data.login, err)
+        })?;
     match conn_impl {
         oidc::Connector::Password(conn) => {
             let scopes = connect::parse_scopes(&auth_request.scopes);

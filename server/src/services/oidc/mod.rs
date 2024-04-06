@@ -9,7 +9,7 @@ use http::Uri;
 use jsonwebkey as jwk;
 use rand::Rng;
 use slo::{errors, Result};
-use storage::{authrequest, client, connector};
+use storage::{authrequest, client, connector, users};
 
 use auth::AuthRequest;
 
@@ -41,11 +41,18 @@ pub enum Connector {
     Saml(Box<dyn connect::SAMLConnector + Send>),
 }
 
-pub fn open_connector(conn: &connector::Connector) -> Result<Connector> {
+pub fn open_connector<U: users::UserStore + Send + Sync + Clone + 'static>(
+    user_store: &U,
+    conn: &connector::Connector,
+) -> Result<Connector> {
     match conn.connector_type.as_str() {
-        "cim" => Ok(Connector::Password(Box::new(
-            connect::MockPasswordConnector::new(),
-        ))),
+        "cim" => {
+            // let us = user_store.to_owned();
+            Ok(Connector::Password(Box::new(connect::UserPassword::new(
+                // us,
+                user_store.clone(),
+            ))))
+        }
         "mockCallback" => Ok(Connector::Callback(Box::new(
             connect::MockCallbackConnector::new(),
         ))),
@@ -59,14 +66,18 @@ pub fn open_connector(conn: &connector::Connector) -> Result<Connector> {
     }
 }
 
-pub async fn run_connector<S: authrequest::AuthRequestStore>(
+pub async fn run_connector<
+    S: authrequest::AuthRequestStore,
+    U: users::UserStore + Send + Sync + Clone + 'static,
+>(
     auth_request_store: &S,
     conn: &connector::Connector,
+    user_store: &U,
     connector_id: &str,
     auth_req: &mut authrequest::AuthRequest,
     expires_in: i64,
 ) -> Result<String> {
-    let connector_impl = open_connector(conn)?;
+    let connector_impl = open_connector(user_store, conn)?;
 
     auth_req.id = uuid::Uuid::new_v4().to_string();
     auth_req.connector_id = connector_id.to_string();

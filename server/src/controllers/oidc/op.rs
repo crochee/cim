@@ -169,6 +169,7 @@ async fn token_handler(
                 token_creator: &app.access_token,
                 refresh_token_store: &app.store.refresh,
                 offline_session_store: &app.store.offline_session,
+                user_store: &app.store.user,
             };
             cg.grant(&client_info, &opts).await?
         }
@@ -186,6 +187,7 @@ async fn token_handler(
                 connector_store: &app.store.connector,
                 token_creator: &app.access_token,
                 offline_session_store: &app.store.offline_session,
+                user_store: &app.store.user,
                 absolute_lifetime: Duration::seconds(
                     app.config.absolute_lifetime,
                 ),
@@ -212,6 +214,7 @@ async fn token_handler(
                 token_creator: &app.access_token,
                 refresh_token_store: &app.store.refresh,
                 offline_session_store: &app.store.offline_session,
+                user_store: &app.store.user,
             };
             pg.grant(&client_info, &opts, &app.config.password_connector)
                 .await?

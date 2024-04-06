@@ -1,4 +1,4 @@
-// mod useid_password;
+mod userpassword;
 
 use async_trait::async_trait;
 use axum::extract::Request;
@@ -10,11 +10,11 @@ use validator::Validate;
 use slo::{regexp::check_password, Result};
 use storage::Claim;
 
-// pub use useid_password::UserIDPassword;
+pub use userpassword::UserPassword;
 
 #[automock]
 #[async_trait]
-pub trait PasswordConnector {
+pub trait PasswordConnector: Send + Sync {
     fn prompt(&self) -> &'static str;
     fn refresh_enabled(&self) -> bool;
     async fn login(&self, s: &Scopes, info: &Info) -> Result<Identity>;
@@ -29,7 +29,7 @@ pub trait PasswordConnector {
 /// style redirect flow to determine user information.
 #[automock]
 #[async_trait]
-pub trait CallbackConnector {
+pub trait CallbackConnector: Send + Sync {
     /// The initial URL to redirect the user to.
     ///
     /// OAuth2 implementations should request different scopes from the upstream
@@ -66,7 +66,7 @@ pub trait CallbackConnector {
 /// "3.5 HTTP POST Binding"
 #[automock]
 #[async_trait]
-pub trait SAMLConnector {
+pub trait SAMLConnector: Send + Sync {
     /// POSTData returns an encoded SAML request and SSO URL for the server to
     /// render a POST form with.
     ///

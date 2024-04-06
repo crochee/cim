@@ -6,6 +6,7 @@ use storage::{
     connector::{self, ConnectorStore},
     offlinesession::{self, OfflineSessionStore},
     refresh::{self, RefreshTokenStore},
+    users,
 };
 
 use crate::services::oidc::{
@@ -19,23 +20,25 @@ pub struct RefreshGrantOpts {
     pub scope: String,
 }
 
-pub struct RefreshGrant<'a, R, C, T, O> {
+pub struct RefreshGrant<'a, R, C, T, O, U> {
     pub refresh_store: &'a R,
     pub connector_store: &'a C,
     pub token_creator: &'a T,
     pub offline_session_store: &'a O,
+    pub user_store: &'a U,
     pub absolute_lifetime: Duration,
     pub valid_if_not_used_for: Duration,
     pub reuse_interval: Duration,
     pub rotate_refresh_tokens: bool,
 }
 
-impl<'a, R, C, T, O> RefreshGrant<'a, R, C, T, O>
+impl<'a, R, C, T, O, U> RefreshGrant<'a, R, C, T, O, U>
 where
     R: RefreshTokenStore,
     C: ConnectorStore,
     T: token::Token,
     O: OfflineSessionStore,
+    U: users::UserStore + Send + Sync + Clone + 'static,
 {
     pub fn now(&self) -> DateTime<Utc> {
         Utc::now()
@@ -199,7 +202,9 @@ where
         refresh_token.token = claim_refresh_token.token.clone();
         refresh_token.last_used_at = last_used.naive_utc();
         refresh_token.connector_data = None;
-        if let Connector::Password(conn) = open_connector(connector_value)? {
+        if let Connector::Password(conn) =
+            open_connector(self.user_store, connector_value)?
+        {
             if conn.refresh_enabled() {
                 ident = conn.refresh(&parse_scopes(scopes), &ident).await?;
             }

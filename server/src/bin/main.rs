@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use clap::Parser;
-use tokio::{net::TcpListener, runtime::Builder, signal};
+use tokio::{net::TcpListener, signal};
 use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -10,7 +10,8 @@ use storage::connection_manager;
 
 use server::{version, App, AppConfig, AppRouter, AppState};
 
-fn main() -> anyhow::Result<()> {
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
     dotenv::dotenv().ok();
     let config = AppConfig::parse();
 
@@ -20,12 +21,7 @@ fn main() -> anyhow::Result<()> {
         .init();
 
     info!("{}", version());
-    // tokio的运行时配置
-    Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .context("could not initialize multi-thread runtime")?
-        .block_on(async move { async_run_server(config).await })
+    async_run_server(config).await
 }
 
 async fn async_run_server(config: AppConfig) -> anyhow::Result<()> {

@@ -5,6 +5,7 @@ use storage::{
     connector::ConnectorStore,
     offlinesession::OfflineSessionStore,
     refresh::RefreshTokenStore,
+    users,
 };
 
 use crate::services::oidc::{
@@ -19,21 +20,23 @@ pub struct PasswordGrantOpts {
     pub password: String,
 }
 
-pub struct PasswordGrant<'a, C, S, T, R, O> {
+pub struct PasswordGrant<'a, C, S, T, R, O, U> {
     pub client_store: &'a C,
     pub connector_store: &'a S,
     pub token_creator: &'a T,
     pub refresh_token_store: &'a R,
     pub offline_session_store: &'a O,
+    pub user_store: &'a U,
 }
 
-impl<'a, C, S, T, R, O> PasswordGrant<'a, C, S, T, R, O>
+impl<'a, C, S, T, R, O, U> PasswordGrant<'a, C, S, T, R, O, U>
 where
     C: ClientStore,
     S: ConnectorStore,
     T: token::Token,
     R: RefreshTokenStore,
     O: OfflineSessionStore,
+    U: users::UserStore + Send + Sync + Clone + 'static,
 {
     pub async fn grant(
         &self,
@@ -49,7 +52,7 @@ where
         valid_scope(self.client_store, &client_value.id, &scopes).await?;
         let connector =
             get_connector(self.connector_store, password_conn).await?;
-        let conn = match open_connector(&connector)? {
+        let conn = match open_connector(self.user_store, &connector)? {
             Connector::Password(conn) => conn,
             _ => return Err(errors::bad_request("unsupported connector type")),
         };

@@ -5,14 +5,10 @@ use tracing::debug;
 
 use slo::{crypto::password::encrypt, errors, next_id, Result};
 
-use super::{
-    nick_name_generator, Content, ListOpts, UpdateOpts, User, UserStore,
-};
-use crate::{
-    convert::{convert_field, update_set_param},
-    List, ID,
-};
+use super::{Content, ListOpts, UpdateOpts, User, UserStore, UserWithPassword};
+use crate::{convert::update_set_param, ClaimOpts, List, ID};
 
+#[derive(Clone)]
 pub struct UserImpl {
     pool: MySqlPool,
 }
@@ -39,10 +35,12 @@ impl UserStore for UserImpl {
             Some(v) => v.parse().map_err(|err| errors::bad_request(&err))?,
             None => uid,
         };
-        let nick_name = match &content.nick_name {
-            Some(v) => convert_field(v),
-            None => nick_name_generator(&content.name),
-        };
+
+        let mut address = None;
+        if let Some(v) = &content.claim.address {
+            address = Some(serde_json::to_string(&v).map_err(errors::any)?)
+        }
+
         debug!("start create secret");
         let secret = rand::thread_rng()
             .sample_iter(&rand::distributions::Alphanumeric)
@@ -54,19 +52,37 @@ impl UserStore for UserImpl {
         debug!("end encrypt password");
         sqlx::query(
             r#"INSERT INTO `user`
-            (`id`,`account_id`,`name`,`nick_name`,`desc`,`email`,`mobile`,`sex`,`image`,`password`)
-            VALUES(?,?,?,?,?,?,?,?,?,?);"#,
-            )
-           .bind(uid)
-           .bind(account_id)
-           .bind(&content.name)
-           .bind(nick_name)
-           .bind(&content.desc)
-           .bind(&content.email)
-           .bind(&content.mobile)
-           .bind(&content.sex)
-           .bind(&content.image)
-           .bind(password)
+            (`id`,`account_id`,`desc`,`email`,`email_verified`,
+            `name`,`given_name`,`family_name`,`middle_name`,`nickname`,
+            `preferred_username`,`profile`,`picture`,`website`,`gender`,
+            `birthday`,`birthdate`,`zoneinfo`,`locale`,`phone_number`,
+            `phone_number_verified`,`address`,`secret`,`password`)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);"#,
+        )
+        .bind(uid)
+        .bind(account_id)
+        .bind(&content.desc)
+        .bind(&content.claim.email)
+        .bind(content.claim.email_verified)
+        .bind(&content.claim.name)
+        .bind(&content.claim.given_name)
+        .bind(&content.claim.family_name)
+        .bind(&content.claim.middle_name)
+        .bind(&content.claim.nickname)
+        .bind(&content.claim.preferred_username)
+        .bind(&content.claim.profile)
+        .bind(&content.claim.picture)
+        .bind(&content.claim.website)
+        .bind(&content.claim.gender)
+        .bind(&content.claim.birthday)
+        .bind(&content.claim.birthdate)
+        .bind(&content.claim.zoneinfo)
+        .bind(&content.claim.locale)
+        .bind(&content.claim.phone_number)
+        .bind(content.claim.phone_number_verified)
+        .bind(address)
+        .bind(secret)
+        .bind(password)
         .execute(&self.pool)
         .await
         .map_err(errors::any)?;
@@ -85,23 +101,117 @@ impl UserStore for UserImpl {
         // update set 构造
         let mut update_content = String::new();
 
-        update_set_param(&mut update_content, r#"`name` = "#, &opts.name);
+        update_set_param(&mut update_content, r#"`desc` = "#, &opts.desc);
 
         update_set_param(
             &mut update_content,
-            r#"`nick_name` = "#,
-            &opts.nick_name,
+            r#"`email` = "#,
+            &opts.claim.email,
         );
 
-        update_set_param(&mut update_content, r#"`desc` = "#, &opts.desc);
+        if let Some(email_verified) = &opts.claim.email_verified {
+            update_content.push_str(
+                format!(r#"`email_verified` = {} "#, email_verified).as_str(),
+            );
+        };
 
-        update_set_param(&mut update_content, r#"`email` = "#, &opts.email);
+        update_set_param(&mut update_content, r#"`name` = "#, &opts.claim.name);
+        update_set_param(
+            &mut update_content,
+            r#"`given_name` = "#,
+            &opts.claim.given_name,
+        );
 
-        update_set_param(&mut update_content, r#"`mobile` = "#, &opts.mobile);
+        update_set_param(
+            &mut update_content,
+            r#"`family_name` = "#,
+            &opts.claim.family_name,
+        );
 
-        update_set_param(&mut update_content, r#"`sex` = "#, &opts.sex);
+        update_set_param(
+            &mut update_content,
+            r#"`middle_name` = "#,
+            &opts.claim.middle_name,
+        );
 
-        update_set_param(&mut update_content, r#"`image` = "#, &opts.image);
+        update_set_param(
+            &mut update_content,
+            r#"`nickname` = "#,
+            &opts.claim.nickname,
+        );
+
+        update_set_param(
+            &mut update_content,
+            r#"`preferred_username` = "#,
+            &opts.claim.preferred_username,
+        );
+
+        update_set_param(
+            &mut update_content,
+            r#"`profile` = "#,
+            &opts.claim.profile,
+        );
+
+        update_set_param(
+            &mut update_content,
+            r#"`picture` = "#,
+            &opts.claim.picture,
+        );
+        update_set_param(
+            &mut update_content,
+            r#"`website` = "#,
+            &opts.claim.website,
+        );
+        update_set_param(
+            &mut update_content,
+            r#"`gender` = "#,
+            &opts.claim.gender,
+        );
+
+        update_set_param(
+            &mut update_content,
+            r#"`birthday` = "#,
+            &opts.claim.birthday,
+        );
+
+        update_set_param(
+            &mut update_content,
+            r#"`birthdate` = "#,
+            &opts.claim.birthdate,
+        );
+        update_set_param(
+            &mut update_content,
+            r#"`zoneinfo` = "#,
+            &opts.claim.zoneinfo,
+        );
+        update_set_param(
+            &mut update_content,
+            r#"`locale` = "#,
+            &opts.claim.locale,
+        );
+        update_set_param(
+            &mut update_content,
+            r#"`phone_number` = "#,
+            &opts.claim.phone_number,
+        );
+
+        if let Some(phone_number_verified) = &opts.claim.phone_number_verified {
+            update_content.push_str(
+                format!(
+                    r#"`phone_number_verified` = {} "#,
+                    phone_number_verified
+                )
+                .as_str(),
+            );
+        };
+        if let Some(v) = &opts.claim.address {
+            let address = serde_json::to_string(v).map_err(errors::any)?;
+            update_set_param(
+                &mut update_content,
+                r#"`address` = "#,
+                &Some(address),
+            );
+        }
 
         if let Some(password_value) = &opts.password {
             if !update_content.is_empty() {
@@ -114,12 +224,16 @@ impl UserStore for UserImpl {
                 .collect::<String>();
             let password = encrypt(password_value, &secret)?;
 
-            update_content.push_str(
-                format!(
-                    r#"`secret` = '{}' , `password` = '{}'"#,
-                    secret, password
-                )
-                .as_str(),
+            update_set_param(
+                &mut update_content,
+                r#"`secret` = "#,
+                &Some(secret),
+            );
+
+            update_set_param(
+                &mut update_content,
+                r#"`password` = "#,
+                &Some(password),
             );
         };
         if update_content.is_empty() {
@@ -181,11 +295,17 @@ impl UserStore for UserImpl {
         }
 
         let row = match sqlx::query(
-            format!(r#"SELECT `id`,`account_id`,`name`,`nick_name`,`desc`,`email`,`mobile`,`sex`,`image`,`created_at`,`updated_at`
-            FROM `user`
-            WHERE {} AND `deleted` = 0;"#,
-            wheres)
-            .as_str()
+            format!(
+                r#"SELECT `id`,`account_id`,`desc`,`email`,`email_verified`,
+                `name`,`given_name`,`family_name`,`middle_name`,`nickname`,
+                `preferred_username`,`profile`,`picture`,`website`,`gender`,
+                `birthday`,`birthdate`,`zoneinfo`,`locale`,`phone_number`,
+                `phone_number_verified`,`address`,`created_at`,`updated_at`
+                FROM `user`
+                WHERE {} AND `deleted` = 0;"#,
+                wheres
+            )
+            .as_str(),
         )
         .fetch_optional(&self.pool)
         .await
@@ -196,6 +316,14 @@ impl UserStore for UserImpl {
             },
             Err(err) => Err(errors::any(err)),
         }?;
+        let mut address = None;
+        if let Some(v) = row
+            .try_get::<Option<String>, _>("address")
+            .map_err(errors::any)?
+        {
+            address = Some(serde_json::from_str(&v).map_err(errors::any)?);
+        }
+
         Ok(User {
             id: row
                 .try_get::<u64, _>("id")
@@ -205,18 +333,114 @@ impl UserStore for UserImpl {
                 .try_get::<u64, _>("account_id")
                 .map_err(errors::any)?
                 .to_string(),
-            name: row.try_get("name").map_err(errors::any)?,
-            nick_name: row.try_get("nick_name").map_err(errors::any)?,
-            desc: row.try_get("desc").map_err(errors::any)?,
-            email: row.try_get("email").map_err(errors::any)?,
-            mobile: row.try_get("mobile").map_err(errors::any)?,
-            sex: row.try_get("sex").map_err(errors::any)?,
-            image: row.try_get("image").map_err(errors::any)?,
             created_at: row.try_get("created_at").map_err(errors::any)?,
             updated_at: row.try_get("updated_at").map_err(errors::any)?,
+            desc: row.try_get("desc").map_err(errors::any)?,
+            claim: ClaimOpts {
+                email: row.try_get("email").map_err(errors::any)?,
+                email_verified: row
+                    .try_get("email_verified")
+                    .map_err(errors::any)?,
+                name: row.try_get("name").map_err(errors::any)?,
+                given_name: row.try_get("given_name").map_err(errors::any)?,
+                family_name: row.try_get("family_name").map_err(errors::any)?,
+                middle_name: row.try_get("middle_name").map_err(errors::any)?,
+                nickname: row.try_get("nickname").map_err(errors::any)?,
+                preferred_username: row
+                    .try_get("preferred_username")
+                    .map_err(errors::any)?,
+                profile: row.try_get("profile").map_err(errors::any)?,
+                picture: row.try_get("picture").map_err(errors::any)?,
+                website: row.try_get("website").map_err(errors::any)?,
+                gender: row.try_get("gender").map_err(errors::any)?,
+                birthday: row.try_get("birthday").map_err(errors::any)?,
+                birthdate: row.try_get("birthdate").map_err(errors::any)?,
+                zoneinfo: row.try_get("zoneinfo").map_err(errors::any)?,
+                locale: row.try_get("locale").map_err(errors::any)?,
+                phone_number: row
+                    .try_get("phone_number")
+                    .map_err(errors::any)?,
+                phone_number_verified: row
+                    .try_get("phone_number_verified")
+                    .map_err(errors::any)?,
+                address,
+            },
         })
     }
 
+    async fn get_user_password(&self, id: &str) -> Result<UserWithPassword> {
+        let row = match sqlx::query(
+                        r#"SELECT `id`,`account_id`,`desc`,`email`,`email_verified`,
+                        `name`,`given_name`,`family_name`,`middle_name`,`nickname`,
+                        `preferred_username`,`profile`,`picture`,`website`,`gender`,
+                        `birthday`,`birthdate`,`zoneinfo`,`locale`,`phone_number`,
+                        `phone_number_verified`,`address`,`password`,`created_at`,`updated_at`
+                        FROM `user`
+                        WHERE id = ? AND `deleted` = 0;"#,
+                        )
+                        .bind(id)
+                        .fetch_optional(&self.pool).await
+        {
+            Ok(v) => match v {
+                Some(value) => Ok(value),
+                None => Err(errors::not_found("no rows")),
+            },
+            Err(err) => Err(errors::any(err)),
+        }?;
+
+        let mut address = None;
+        if let Some(v) = row
+            .try_get::<Option<String>, _>("address")
+            .map_err(errors::any)?
+        {
+            address = Some(serde_json::from_str(&v).map_err(errors::any)?);
+        }
+
+        Ok(UserWithPassword {
+            id: row
+                .try_get::<u64, _>("id")
+                .map_err(errors::any)?
+                .to_string(),
+            account_id: row
+                .try_get::<u64, _>("account_id")
+                .map_err(errors::any)?
+                .to_string(),
+            created_at: row.try_get("created_at").map_err(errors::any)?,
+            updated_at: row.try_get("updated_at").map_err(errors::any)?,
+            desc: row.try_get("desc").map_err(errors::any)?,
+            claim: ClaimOpts {
+                email: row.try_get("email").map_err(errors::any)?,
+                email_verified: row
+                    .try_get("email_verified")
+                    .map_err(errors::any)?,
+                name: row.try_get("name").map_err(errors::any)?,
+                given_name: row.try_get("given_name").map_err(errors::any)?,
+                family_name: row.try_get("family_name").map_err(errors::any)?,
+                middle_name: row.try_get("middle_name").map_err(errors::any)?,
+                nickname: row.try_get("nickname").map_err(errors::any)?,
+                preferred_username: row
+                    .try_get("preferred_username")
+                    .map_err(errors::any)?,
+                profile: row.try_get("profile").map_err(errors::any)?,
+                picture: row.try_get("picture").map_err(errors::any)?,
+                website: row.try_get("website").map_err(errors::any)?,
+                gender: row.try_get("gender").map_err(errors::any)?,
+                birthday: row.try_get("birthday").map_err(errors::any)?,
+                birthdate: row.try_get("birthdate").map_err(errors::any)?,
+                zoneinfo: row.try_get("zoneinfo").map_err(errors::any)?,
+                locale: row.try_get("locale").map_err(errors::any)?,
+                phone_number: row
+                    .try_get("phone_number")
+                    .map_err(errors::any)?,
+                phone_number_verified: row
+                    .try_get("phone_number_verified")
+                    .map_err(errors::any)?,
+                address,
+            },
+            secret: row.try_get("secret").map_err(errors::any)?,
+            password: row.try_get("password").map_err(errors::any)?,
+        })
+    }
     async fn delete_user(
         &self,
         id: &str,
@@ -277,13 +501,6 @@ impl UserStore for UserImpl {
                 format!(r#"`account_id` = {}"#, account_id_u64).as_str(),
             );
         }
-        if let Some(sex) = &filter.sex {
-            if !wheres.is_empty() {
-                wheres.push_str(" AND ");
-            }
-            wheres.push_str(r#"`sex` = "#);
-            wheres.push_str(sex);
-        };
         if let Some(group_id) = &filter.group_id {
             if !wheres.is_empty() {
                 wheres.push_str(" AND ");
@@ -315,7 +532,11 @@ impl UserStore for UserImpl {
 
         let rows = sqlx::query(
             format!(
-                r#"SELECT `id`,`account_id`,`name`,`nick_name`,`desc`,`email`,`mobile`,`sex`,`image`,`created_at`,`updated_at`
+                r#"SELECT `id`,`account_id`,`desc`,`email`,`email_verified`,
+                `name`,`given_name`,`family_name`,`middle_name`,`nickname`,
+                `preferred_username`,`profile`,`picture`,`website`,`gender`,
+                `birthday`,`birthdate`,`zoneinfo`,`locale`,`phone_number`,
+                `phone_number_verified`,`address`
                 FROM `user`
                 WHERE {};"#,
                 wheres,
@@ -333,6 +554,14 @@ impl UserStore for UserImpl {
             total: policy_result.try_get("count").map_err(errors::any)?,
         };
         for row in rows.iter() {
+            let mut address = None;
+            if let Some(v) = row
+                .try_get::<Option<String>, _>("address")
+                .map_err(errors::any)?
+            {
+                address = Some(serde_json::from_str(&v).map_err(errors::any)?);
+            }
+
             result.data.push(User {
                 id: row
                     .try_get::<u64, _>("id")
@@ -342,13 +571,42 @@ impl UserStore for UserImpl {
                     .try_get::<u64, _>("account_id")
                     .map_err(errors::any)?
                     .to_string(),
-                name: row.try_get("name").map_err(errors::any)?,
-                nick_name: row.try_get("nick_name").map_err(errors::any)?,
                 desc: row.try_get("desc").map_err(errors::any)?,
-                email: row.try_get("email").map_err(errors::any)?,
-                mobile: row.try_get("mobile").map_err(errors::any)?,
-                sex: row.try_get("sex").map_err(errors::any)?,
-                image: row.try_get("image").map_err(errors::any)?,
+                claim: ClaimOpts {
+                    email: row.try_get("email").map_err(errors::any)?,
+                    email_verified: row
+                        .try_get("email_verified")
+                        .map_err(errors::any)?,
+                    name: row.try_get("name").map_err(errors::any)?,
+                    given_name: row
+                        .try_get("given_name")
+                        .map_err(errors::any)?,
+                    family_name: row
+                        .try_get("family_name")
+                        .map_err(errors::any)?,
+                    middle_name: row
+                        .try_get("middle_name")
+                        .map_err(errors::any)?,
+                    nickname: row.try_get("nickname").map_err(errors::any)?,
+                    preferred_username: row
+                        .try_get("preferred_username")
+                        .map_err(errors::any)?,
+                    profile: row.try_get("profile").map_err(errors::any)?,
+                    picture: row.try_get("picture").map_err(errors::any)?,
+                    website: row.try_get("website").map_err(errors::any)?,
+                    gender: row.try_get("gender").map_err(errors::any)?,
+                    birthday: row.try_get("birthday").map_err(errors::any)?,
+                    birthdate: row.try_get("birthdate").map_err(errors::any)?,
+                    zoneinfo: row.try_get("zoneinfo").map_err(errors::any)?,
+                    locale: row.try_get("locale").map_err(errors::any)?,
+                    phone_number: row
+                        .try_get("phone_number")
+                        .map_err(errors::any)?,
+                    phone_number_verified: row
+                        .try_get("phone_number_verified")
+                        .map_err(errors::any)?,
+                    address,
+                },
                 created_at: row.try_get("created_at").map_err(errors::any)?,
                 updated_at: row.try_get("updated_at").map_err(errors::any)?,
             })

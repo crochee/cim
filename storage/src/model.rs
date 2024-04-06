@@ -234,22 +234,122 @@ impl Pagination {
 }
 
 #[derive(
-    Debug, Clone, Validate, serde::Deserialize, Default, Serialize, ToSchema,
+    Debug,
+    Clone,
+    Validate,
+    serde::Deserialize,
+    Default,
+    Serialize,
+    ToSchema,
+    PartialEq,
+    Eq,
 )]
 pub struct Claim {
+    #[validate(length(min = 1, max = 255))]
     pub sub: String,
-    pub groups: Option<Vec<String>>,
+    #[serde(flatten)]
+    pub opts: ClaimOpts,
+}
+
+#[derive(
+    Debug,
+    Clone,
+    Validate,
+    serde::Deserialize,
+    Default,
+    Serialize,
+    ToSchema,
+    PartialEq,
+    Eq,
+)]
+pub struct ClaimOpts {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[validate(email)]
     pub email: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub email_verified: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[validate(length(min = 1, max = 255))]
     pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[validate(length(min = 1, max = 255))]
+    pub given_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[validate(length(min = 1, max = 255))]
+    pub family_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[validate(length(min = 1, max = 255))]
+    pub middle_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[validate(length(min = 1, max = 255))]
+    pub nickname: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[validate(length(min = 1, max = 255))]
     pub preferred_username: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub profile: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[validate(url)]
     pub picture: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[validate(url)]
     pub website: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub gender: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub birthday: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub birthdate: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub zoneinfo: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub locale: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub phone_number: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub phone_number_verified: Option<bool>,
-    pub address: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub address: Option<AddressClaim>,
+}
+
+/// Address claims.
+#[derive(
+    Clone,
+    Debug,
+    Default,
+    Validate,
+    serde::Deserialize,
+    Serialize,
+    PartialEq,
+    Eq,
+    ToSchema,
+)]
+pub struct AddressClaim {
+    /// Full mailing address, formatted for display or use on a mailing label.
+    ///
+    /// This field MAY contain multiple lines, separated by newlines. Newlines can be represented
+    /// either as a carriage return/line feed pair (`\r\n`) or as a single line feed character
+    /// (`\n`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub formatted: Option<String>,
+    /// Full street address component, which MAY include house number, street name, Post Office Box,
+    /// and multi-line extended street address information.
+    ///
+    /// This field MAY contain multiple lines, separated by newlines. Newlines can be represented
+    /// either as a carriage return/line feed pair (`\r\n`) or as a single line feed character
+    /// (`\n`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub street_address: Option<String>,
+    /// City or locality component.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub locality: Option<String>,
+    /// State, province, prefecture, or region component.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub region: Option<String>,
+    /// Zip code or postal code component.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub postal_code: Option<String>,
+    /// Country name component.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub country: Option<String>,
 }

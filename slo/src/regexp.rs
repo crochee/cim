@@ -25,10 +25,3 @@ pub fn check_order_by(sort: &str) -> Result<(), ValidationError> {
     }
     Err(ValidationError::new("invalid order by"))
 }
-
-pub fn check_sex(sex: &str) -> Result<(), ValidationError> {
-    if sex == "male" || sex == "female" {
-        return Ok(());
-    }
-    Err(ValidationError::new("invalid sex"))
-}

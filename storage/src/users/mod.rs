@@ -7,24 +7,30 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use validator::Validate;
 
-use slo::{
-    regexp::{check_password, check_sex},
-    Result,
-};
+use slo::{regexp::check_password, Result};
 
-use crate::{List, Pagination, ID};
+use crate::{ClaimOpts, List, Pagination, ID};
 
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
 pub struct User {
     pub id: String,
     pub account_id: String,
-    pub name: String,
-    pub nick_name: String,
     pub desc: String,
-    pub email: Option<String>,
-    pub mobile: Option<String>,
-    pub sex: Option<String>,
-    pub image: Option<String>,
+    #[serde(flatten)]
+    pub claim: ClaimOpts,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
+}
+
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
+pub struct UserWithPassword {
+    pub id: String,
+    pub account_id: String,
+    pub desc: String,
+    #[serde(flatten)]
+    pub claim: ClaimOpts,
+    pub secret: String,
+    pub password: String,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
 }
@@ -33,40 +39,18 @@ pub struct User {
 pub struct Content {
     #[validate(length(min = 1))]
     pub account_id: Option<String>,
-    #[validate(length(min = 1, max = 255))]
-    pub name: String,
-    #[validate(length(min = 1, max = 255))]
-    pub nick_name: Option<String>,
-    #[validate(length(min = 1, max = 255))]
     pub desc: String,
-    #[validate(email)]
-    pub email: Option<String>,
-    #[validate(length(equal = 11))]
-    pub mobile: Option<String>,
-    #[validate(custom = "check_sex")]
-    pub sex: Option<String>,
-    #[validate(url)]
-    pub image: Option<String>,
+    #[serde(flatten)]
+    pub claim: ClaimOpts,
     #[validate(custom = "check_password")]
     pub password: String,
 }
 
 #[derive(Debug, Deserialize, Validate, ToSchema)]
 pub struct UpdateOpts {
-    #[validate(length(min = 1, max = 255))]
-    pub name: Option<String>,
-    #[validate(length(min = 1, max = 255))]
-    pub nick_name: Option<String>,
-    #[validate(length(min = 1, max = 255))]
     pub desc: Option<String>,
-    #[validate(email)]
-    pub email: Option<String>,
-    #[validate(length(equal = 11))]
-    pub mobile: Option<String>,
-    #[validate(custom = "check_sex")]
-    pub sex: Option<String>,
-    #[validate(url)]
-    pub image: Option<String>,
+    #[serde(flatten)]
+    pub claim: ClaimOpts,
     #[validate(custom = "check_password")]
     pub password: Option<String>,
     #[serde(skip)]
@@ -79,8 +63,6 @@ pub struct ListOpts {
     pub account_id: Option<String>,
     #[validate(length(min = 1))]
     pub group_id: Option<String>,
-    #[validate(custom = "check_sex")]
-    pub sex: Option<String>,
     #[serde(flatten)]
     #[validate]
     pub pagination: Pagination,
@@ -106,6 +88,7 @@ pub trait UserStore {
         id: &str,
         account_id: Option<String>,
     ) -> Result<User>;
+    async fn get_user_password(&self, id: &str) -> Result<UserWithPassword>;
     async fn delete_user(
         &self,
         id: &str,

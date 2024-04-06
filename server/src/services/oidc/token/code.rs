@@ -5,7 +5,7 @@ use sha2::{Digest, Sha256};
 use slo::{errors, Result};
 use storage::{
     authcode::AuthCodeStore, client::Client, connector::ConnectorStore,
-    offlinesession::OfflineSessionStore, refresh::RefreshTokenStore,
+    offlinesession::OfflineSessionStore, refresh::RefreshTokenStore, users,
 };
 
 use crate::services::oidc::{self, get_connector, open_connector, token};
@@ -17,21 +17,23 @@ pub struct CodeGrantOpts {
     pub code_verifier: Option<String>,
 }
 
-pub struct CodeGrant<'a, A, S, T, R, O> {
+pub struct CodeGrant<'a, A, S, T, R, O, U> {
     pub auth_store: &'a A,
     pub connector_store: &'a S,
     pub token_creator: &'a T,
     pub refresh_token_store: &'a R,
     pub offline_session_store: &'a O,
+    pub user_store: &'a U,
 }
 
-impl<'a, A, S, T, R, O> CodeGrant<'a, A, S, T, R, O>
+impl<'a, A, S, T, R, O, U> CodeGrant<'a, A, S, T, R, O, U>
 where
     A: AuthCodeStore,
     S: ConnectorStore,
     T: token::Token,
     R: RefreshTokenStore,
     O: OfflineSessionStore,
+    U: users::UserStore + Send + Sync + Clone + 'static,
 {
     pub async fn grant(
         &self,
@@ -88,7 +90,9 @@ where
                 .await?;
 
         let mut refresh_token_value = None;
-        if let oidc::Connector::Password(conn) = open_connector(&connector)? {
+        if let oidc::Connector::Password(conn) =
+            open_connector(self.user_store, &connector)?
+        {
             if conn.refresh_enabled() {
                 let rt = token::RefreshTokenHandler {
                     refresh_token_store: self.refresh_token_store,

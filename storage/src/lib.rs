@@ -13,5 +13,5 @@ pub mod refresh;
 pub mod roles;
 pub mod users;
 
-pub use model::{Claim, List, Pagination, ID};
+pub use model::{Claim, ClaimOpts, List, Pagination, ID};
 pub use pool::connection_manager;

@@ -266,10 +266,6 @@ mod tests {
             .token(&Claims {
                 claim: Claim {
                     sub: "1".to_owned(),
-                    name: Some("lee".to_owned()),
-                    preferred_username: Some("crochee".to_owned()),
-                    email: None,
-                    email_verified: None,
                     ..Default::default()
                 },
                 access_token: Some(access_token),
