@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::Context;
+use anyhow::{Context, Result};
 use clap::Parser;
 use tokio::{net::TcpListener, signal};
 use tracing::{error, info};
@@ -11,7 +11,7 @@ use storage::connection_manager;
 use server::{version, App, AppConfig, AppRouter, AppState};
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> Result<()> {
     dotenv::dotenv().ok();
     let config = AppConfig::parse();
 
@@ -24,7 +24,7 @@ async fn main() -> anyhow::Result<()> {
     async_run_server(config).await
 }
 
-async fn async_run_server(config: AppConfig) -> anyhow::Result<()> {
+async fn async_run_server(config: AppConfig) -> Result<()> {
     info!("environment loaded and configuration parsed, initializing Mariadb connection and running migrations...");
     let store = connection_manager(
         &config.database_url,

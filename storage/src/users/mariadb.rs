@@ -5,7 +5,7 @@ use tracing::debug;
 
 use slo::{crypto::password::encrypt, errors, next_id, Result};
 
-use super::{Content, ListOpts, UpdateOpts, User, UserStore, UserWithPassword};
+use super::{Content, ListOpts, UpdateOpts, User, UserStore};
 use crate::{convert::update_set_param, ClaimOpts, List, ID};
 
 #[derive(Clone)]
@@ -365,10 +365,12 @@ impl UserStore for UserImpl {
                     .map_err(errors::any)?,
                 address,
             },
+            secret: None,
+            password: None,
         })
     }
 
-    async fn get_user_password(&self, id: &str) -> Result<UserWithPassword> {
+    async fn get_user_password(&self, id: &str) -> Result<User> {
         let row = match sqlx::query(
                         r#"SELECT `id`,`account_id`,`desc`,`email`,`email_verified`,
                         `name`,`given_name`,`family_name`,`middle_name`,`nickname`,
@@ -396,7 +398,7 @@ impl UserStore for UserImpl {
             address = Some(serde_json::from_str(&v).map_err(errors::any)?);
         }
 
-        Ok(UserWithPassword {
+        Ok(User {
             id: row
                 .try_get::<u64, _>("id")
                 .map_err(errors::any)?
@@ -607,6 +609,8 @@ impl UserStore for UserImpl {
                         .map_err(errors::any)?,
                     address,
                 },
+                secret: None,
+                password: None,
                 created_at: row.try_get("created_at").map_err(errors::any)?,
                 updated_at: row.try_get("updated_at").map_err(errors::any)?,
             })

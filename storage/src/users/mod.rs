@@ -1,4 +1,5 @@
-pub mod mariadb;
+mod mariadb;
+mod sql;
 
 use async_trait::async_trait;
 use chrono::NaiveDateTime;
@@ -7,9 +8,11 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use validator::Validate;
 
+pub use mariadb::UserImpl;
+
 use slo::{regexp::check_password, Result};
 
-use crate::{ClaimOpts, List, Pagination, ID};
+use crate::{ClaimOpts, Interface, List, Pagination, ID};
 
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
 pub struct User {
@@ -18,19 +21,10 @@ pub struct User {
     pub desc: String,
     #[serde(flatten)]
     pub claim: ClaimOpts,
-    pub created_at: NaiveDateTime,
-    pub updated_at: NaiveDateTime,
-}
-
-#[derive(Debug, Deserialize, Serialize, ToSchema)]
-pub struct UserWithPassword {
-    pub id: String,
-    pub account_id: String,
-    pub desc: String,
-    #[serde(flatten)]
-    pub claim: ClaimOpts,
-    pub secret: String,
-    pub password: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub secret: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub password: Option<String>,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
 }
@@ -68,6 +62,19 @@ pub struct ListOpts {
     pub pagination: Pagination,
 }
 
+#[derive(Debug, Deserialize, Validate, ToSchema)]
+pub struct ListParams {
+    #[validate(length(min = 1))]
+    pub account_id: Option<String>,
+    #[validate(length(min = 1))]
+    pub group_id: Option<String>,
+}
+
+pub struct CountOpts {
+    pub id: Option<String>,
+    pub account_id: Option<String>,
+}
+
 #[automock]
 #[async_trait]
 pub trait UserStore {
@@ -88,7 +95,7 @@ pub trait UserStore {
         id: &str,
         account_id: Option<String>,
     ) -> Result<User>;
-    async fn get_user_password(&self, id: &str) -> Result<UserWithPassword>;
+    async fn get_user_password(&self, id: &str) -> Result<User>;
     async fn delete_user(
         &self,
         id: &str,
@@ -106,3 +113,6 @@ pub trait UserStore {
 pub fn nick_name_generator(name: &str) -> String {
     format!("用户_{}", name)
 }
+
+#[async_trait]
+pub trait UserInterface: Interface {}

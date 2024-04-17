@@ -1,9 +1,11 @@
-pub mod mariadb;
+mod mariadb;
 
 use async_trait::async_trait;
 use jsonwebkey as jwk;
 use mockall::automock;
 use serde::{Deserialize, Serialize};
+
+pub use mariadb::KeyImpl;
 
 use slo::Result;
 

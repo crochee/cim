@@ -1,4 +1,4 @@
-pub mod mariadb;
+mod mariadb;
 
 use async_trait::async_trait;
 use chrono::NaiveDateTime;
@@ -7,6 +7,8 @@ use pim::{Request, Statement};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use validator::Validate;
+
+pub use mariadb::PolicyImpl;
 
 use slo::Result;
 

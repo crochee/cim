@@ -28,7 +28,11 @@ where
     }
     async fn login(&self, _s: &Scopes, info: &Info) -> Result<Identity> {
         let user = self.store.get_user_password(&info.subject).await?;
-        if !verify(&user.password, &info.password, &user.secret)? {
+        if !verify(
+            &user.password.unwrap_or_default(),
+            &info.password,
+            &user.secret.unwrap_or_default(),
+        )? {
             return Err(errors::not_found("user"));
         };
         Ok(Identity {

@@ -1,4 +1,4 @@
-pub mod mariadb;
+mod mariadb;
 
 use async_trait::async_trait;
 use chrono::NaiveDateTime;
@@ -6,6 +6,8 @@ use mockall::automock;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use validator::Validate;
+
+pub use mariadb::GroupImpl;
 
 use slo::Result;
 
