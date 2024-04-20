@@ -1,5 +1,6 @@
 pub mod authcode;
 pub mod authrequest;
+mod cache;
 pub mod client;
 pub mod connector;
 pub mod convert;
@@ -21,8 +22,8 @@ use serde::{de::DeserializeOwned, Serialize};
 use slo::Result;
 
 #[async_trait]
-pub trait Interface {
-    type T: DeserializeOwned + Serialize + Sync;
+pub trait Interface: Sync {
+    type T: DeserializeOwned + Serialize + Send + Sync;
     type D: Sync;
     type G: Sync;
     type L: Sync;
@@ -42,4 +43,20 @@ pub trait Interface {
         output: &mut List<Self::T>,
     ) -> Result<()>;
     async fn count(&self, opts: &Self::C, unscoped: bool) -> Result<i64>;
+}
+
+#[macro_export]
+macro_rules! type_name {
+    ($t:ty) => {
+        concat!(stringify!($t))
+    };
+}
+
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    fn test_type_name() {
+        assert_eq!(type_name!(i32), "i32");
+    }
 }

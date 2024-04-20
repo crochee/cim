@@ -31,3 +31,4 @@ regex = "1.10"
 mockall = "0.12"
 async-trait = "0.1"
 axum = { version = "0.7.4", features = ["tracing"] }
+futures = "0.3 "

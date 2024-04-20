@@ -11,6 +11,7 @@ axum-resp = ["axum", "tracing", "serde_json", "askama"]
 
 [dependencies]
 serde_json = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
 chrono = { workspace = true }
 anyhow = { workspace = true }
 validator = { workspace = true }
@@ -18,6 +19,7 @@ regex = { workspace = true }
 tracing = { workspace = true, optional = true }
 axum = { workspace = true, optional = true }
 askama = { workspace = true, optional = true }
+futures = { workspace = true }
 
 lazy_static = "1.4"
 backtrace = "0.3"
