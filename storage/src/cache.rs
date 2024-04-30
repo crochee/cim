@@ -4,7 +4,7 @@ use async_trait::async_trait;
 
 use slo::{errors, Result};
 
-use crate::{Interface, List, Pagination};
+use crate::{Interface, List, Pagination, Watcher};
 
 pub struct Cacher<I> {
     storage: I,
@@ -27,49 +27,59 @@ impl<I> Cacher<I> {
 #[async_trait]
 impl<I: Interface> Interface for Cacher<I> {
     type T = I::T;
-    type D = I::D;
-    type G = I::G;
     type L = I::L;
-    type C = I::C;
-    async fn put(&self, input: &mut Self::T, ttl: u64) -> Result<()> {
-        self.storage.put(input, ttl).await?;
-        // self.cache.remove(&input.id);
+    async fn put(
+        &self,
+        key: &str,
+        input: &mut Self::T,
+        ttl: u64,
+    ) -> Result<()> {
+        self.storage.put(key, input, ttl).await?;
+        let mut cache = self.cache.write().map_err(errors::any)?;
+        cache.remove(key);
         Ok(())
     }
 
-    async fn delete(&self, id: &str, opts: &Self::D) -> Result<()> {
-        self.storage.delete(id, opts).await?;
+    async fn delete(&self, key: &str) -> Result<()> {
+        self.storage.delete(key).await?;
         let mut cache = self.cache.write().map_err(errors::any)?;
-        cache.remove(id);
+        cache.remove(key);
         Ok(())
     }
-    async fn get(
-        &self,
-        id: &str,
-        opts: &Self::G,
-        output: &mut Self::T,
-    ) -> Result<()> {
-        // if let Some(v) = self.cache.get(id) {
-        //     *output =
-        //         serde_json::from_str::<Self::T>(v).map_err(errors::any)?;
-        //     return Ok(());
-        // };
-        self.storage.get(id, opts, output).await?;
-        // let value = serde_json::to_string(output).map_err(errors::any)?;
-        // self.cache.insert(id.to_string(), value);
+    async fn get(&self, key: &str, output: &mut Self::T) -> Result<()> {
+        {
+            let mut cache = self.cache.read().map_err(errors::any)?;
+            if let Some(v) = cache.get(key) {
+                *output =
+                    serde_json::from_str::<Self::T>(v).map_err(errors::any)?;
+                return Ok(());
+            }
+        }
+
+        let mut cache = self.cache.write().map_err(errors::any)?;
+        self.storage.get(key, output).await?;
+        let value = serde_json::to_string(output).map_err(errors::any)?;
+        cache.insert(key.to_string(), value);
         Ok(())
     }
     async fn list(
         &self,
+        key: &str,
         pagination: &Pagination,
         opts: &Self::L,
         output: &mut List<Self::T>,
     ) -> Result<()> {
-        self.storage.list(pagination, opts, output).await?;
+        self.storage.list(key, pagination, opts, output).await?;
         // TODO: cache all
         Ok(())
     }
-    async fn count(&self, opts: &Self::C, unscoped: bool) -> Result<i64> {
+    async fn watch<W>(&self, key: &str, opts: &Self::L) -> Result<W>
+    where
+        W: Watcher<T = Self::T>,
+    {
+        self.storage.watch(key, opts).await
+    }
+    async fn count(&self, opts: &Self::L, unscoped: bool) -> Result<i64> {
         self.storage.count(opts, unscoped).await
     }
 }

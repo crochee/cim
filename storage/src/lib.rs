@@ -17,6 +17,8 @@ pub mod users;
 pub use model::{Claim, ClaimOpts, List, Pagination, ID};
 pub use pool::connection_manager;
 
+use std::sync::mpsc::Receiver;
+
 use async_trait::async_trait;
 use serde::{de::DeserializeOwned, Serialize};
 use slo::Result;
@@ -24,25 +26,28 @@ use slo::Result;
 #[async_trait]
 pub trait Interface: Sync {
     type T: DeserializeOwned + Serialize + Send + Sync;
-    type D: Sync;
-    type G: Sync;
     type L: Sync;
-    type C: Sync;
-    async fn put(&self, input: &mut Self::T, ttl: u64) -> Result<()>;
-    async fn delete(&self, id: &str, opts: &Self::D) -> Result<()>;
-    async fn get(
-        &self,
-        id: &str,
-        opts: &Self::G,
-        output: &mut Self::T,
-    ) -> Result<()>;
+    async fn put(&self, key: &str, input: &mut Self::T, ttl: u64)
+        -> Result<()>;
+    async fn delete(&self, key: &str) -> Result<()>;
+    async fn get(&self, key: &str, output: &mut Self::T) -> Result<()>;
     async fn list(
         &self,
+        key: &str,
         pagination: &Pagination,
         opts: &Self::L,
         output: &mut List<Self::T>,
     ) -> Result<()>;
-    async fn count(&self, opts: &Self::C, unscoped: bool) -> Result<i64>;
+    async fn watch<W>(&self, key: &str, opts: &Self::L) -> Result<W>
+    where
+        W: Watcher<T = Self::T>;
+    async fn count(&self, opts: &Self::L, unscoped: bool) -> Result<i64>;
+}
+
+pub trait Watcher {
+    type T;
+    fn stop(&self);
+    fn result(&self) -> Receiver<Self::T>;
 }
 
 #[macro_export]
