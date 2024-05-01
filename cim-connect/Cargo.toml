@@ -1,11 +1,14 @@
 [package]
-name = "pim_demo"
+name = "cim-connect"
 version.workspace = true
 edition.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-cim-pim = { path = "../../cim-pim" }
-serde_json = { workspace = true }
+serde = { workspace = true }
 anyhow = { workspace = true }
+mockall = { workspace = true }
+async-trait = { workspace = true }
+serde_json = { workspace = true }
+http = "1.0"

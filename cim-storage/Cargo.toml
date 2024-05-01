@@ -1,0 +1,29 @@
+[package]
+name = "cim-storage"
+version.workspace = true
+edition.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+cim-slo = { path = "../cim-slo" }
+cim-pim = { path = "../cim-pim" }
+
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+chrono = { workspace = true }
+mockall = { workspace = true }
+serde = { workspace = true }
+validator = { workspace = true }
+serde_json = { version = "1.0", features = ["raw_value"] }
+tracing = { workspace = true }
+jsonwebkey = { workspace = true }
+
+sqlx = { version = "0.7", features = [
+    "mysql",
+    "runtime-tokio",
+    "tls-rustls",
+    "chrono",
+] }
+utoipa = { version = "4.2", features = ["axum_extras", "chrono"] }
+rand = "0.8"

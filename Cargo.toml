@@ -1,15 +1,16 @@
 [workspace]
 resolver = "2"
 members = [
-    "server",
-    "client",
-    "pim",
-    "examples/pim_demo",
-    "connect",
-    "storage",
-    "slo",
+    "cim-server",
+    "cim-client",
+    "cim-pim",
+    "examples/*",
+    "cim-connect",
+    "cim-storage",
+    "cim-slo",
+    "cim",
 ]
-default-members = ["server"]
+default-members = ["cim-server"]
 
 [workspace.package]
 version = "0.1.0"
