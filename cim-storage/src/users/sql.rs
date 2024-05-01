@@ -22,12 +22,7 @@ impl UserImpl {
 impl Interface for UserImpl {
     type T = User;
     type L = ListParams;
-    async fn put(
-        &self,
-        _prefix_key: &str,
-        input: &mut Self::T,
-        _ttl: u64,
-    ) -> Result<()> {
+    async fn put(&self, input: &mut Self::T, _ttl: u64) -> Result<String> {
         if input.id.is_empty() {
             input.id = next_id().map_err(errors::any)?.to_string();
         }
@@ -85,13 +80,11 @@ impl Interface for UserImpl {
         .execute(&self.pool)
         .await
         .map_err(errors::any)?;
-        Ok(())
+        Ok(input.id.clone())
     }
 
-    async fn delete(&self, key: &str) -> Result<()> {
-        let id = key
-            .parse::<u64>()
-            .map_err(|err| errors::bad_request(&err))?;
+    async fn delete(&self, id: &str) -> Result<()> {
+        let id = id.parse::<u64>().map_err(|err| errors::bad_request(&err))?;
         if sqlx::query(
             r#"SELECT COUNT(*) as count FROM `group_user` WHERE `user_id` = ? AND `deleted` = 0"#,
         )
@@ -120,18 +113,8 @@ impl Interface for UserImpl {
         .map_err(errors::any)?;
         Ok(())
     }
-    async fn get(&self, key: &str, output: &mut Self::T) -> Result<()> {
-        let id = key
-            .parse::<u64>()
-            .map_err(|err| errors::bad_request(&err))?;
-        // if let Some(v) = opts {
-        //     let account_id_u64: u64 =
-        //         v.parse().map_err(|err| errors::bad_request(&err))?;
-        //     wheres.push_str(" AND ");
-        //     wheres.push_str(
-        //         format!(r#"`account_id` = {}"#, account_id_u64).as_str(),
-        //     );
-        // }
+    async fn get(&self, id: &str, output: &mut Self::T) -> Result<()> {
+        let id = id.parse::<u64>().map_err(|err| errors::bad_request(&err))?;
         let row = match sqlx::query(
                 r#"SELECT `id`,`account_id`,`desc`,`email`,`email_verified`,
                 `name`,`given_name`,`family_name`,`middle_name`,`nickname`,
@@ -140,8 +123,9 @@ impl Interface for UserImpl {
                 `phone_number_verified`,`address`,`secret`,`password`,`created_at`,`updated_at`
                 FROM `user`
                 WHERE id = ? AND `deleted` = 0;"#,
-        ).bind(id)
-                        .fetch_optional(&self.pool).await
+        )
+            .bind(id)
+            .fetch_optional(&self.pool).await
         {
             Ok(v) => match v {
                 Some(value) => Ok(value),
@@ -202,7 +186,6 @@ impl Interface for UserImpl {
     }
     async fn list(
         &self,
-        _prefix_key: &str,
         pagination: &Pagination,
         opts: &Self::L,
         output: &mut List<Self::T>,
@@ -342,18 +325,13 @@ impl Interface for UserImpl {
 
         Ok(())
     }
-    async fn watch<W>(&self, _prefix_key: &str, _opts: &Self::L) -> Result<W>
+    async fn watch<W>(&self, _opts: &Self::L) -> Result<W>
     where
         W: Watcher<T = Self::T>,
     {
         todo!();
     }
-    async fn count(
-        &self,
-        _prefix_key: &str,
-        opts: &Self::L,
-        unscoped: bool,
-    ) -> Result<i64> {
+    async fn count(&self, opts: &Self::L, unscoped: bool) -> Result<i64> {
         let mut wheres = String::new();
         if let Some(v) = &opts.id {
             wheres.push_str(

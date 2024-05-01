@@ -30,3 +30,10 @@ mod axum {
         }
     }
 }
+
+#[macro_export]
+macro_rules! type_name {
+    ($ty:ty) => {
+        stringify!($ty)
+    };
+}

@@ -8,6 +8,7 @@ edition.workspace = true
 [dependencies]
 cim-slo = { path = "../cim-slo" }
 cim-pim = { path = "../cim-pim" }
+cim-uid = { path = "../cim-uid" }
 
 anyhow = { workspace = true }
 async-trait = { workspace = true }
