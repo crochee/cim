@@ -35,3 +35,28 @@ mockall = "0.12"
 async-trait = "0.1"
 axum = { version = "0.7.4", features = ["tracing"] }
 futures = "0.3 "
+
+[profile.release]
+codegen-units = 16
+debug = true
+lto = true
+
+[profile.bench]
+debug = true
+
+[workspace.lints.rust]
+rust_2018_idioms = "deny"
+unreachable_pub = "deny"
+missing_debug_implementations = "deny"
+missing_copy_implementations = "deny"
+
+[workspace.lints.clippy]
+dbg_macro = "deny"
+todo = "deny"
+clone_on_ref_ptr = "deny"
+future_not_send = "deny"
+
+
+[workspace.lints.rustdoc]
+broken_intra_doc_links = "deny"
+bare_urls = "deny"
