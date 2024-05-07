@@ -14,7 +14,7 @@ use cim_slo::{regexp::check_password, Result};
 
 use crate::{ClaimOpts, Interface, List, Pagination, ID};
 
-#[derive(Debug, Deserialize, Serialize, ToSchema)]
+#[derive(Debug, Deserialize, Serialize, ToSchema, PartialEq)]
 pub struct User {
     pub id: String,
     pub account_id: String,

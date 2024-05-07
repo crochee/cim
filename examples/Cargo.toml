@@ -1,0 +1,24 @@
+[package]
+name = "cim-examples"
+publish = false
+version.workspace = true
+edition.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[package.metadata.release]
+release = false
+
+[dev-dependencies]
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+cim-pim = { path = "../cim-pim" }
+cim-uid = { path = "../cim-uid", features = ["derive"] }
+
+[[example]]
+name = "pim"
+path = "pim.rs"
+
+[[example]]
+name = "uid"
+path = "uid.rs"

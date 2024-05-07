@@ -26,7 +26,7 @@ use cim_slo::Result;
 
 #[async_trait]
 pub trait Interface: Sync {
-    type T: DeserializeOwned + Serialize + Send + Sync;
+    type T: DeserializeOwned + Serialize + Send + Sync + PartialEq;
     type L: Sync;
     async fn put(&self, input: &mut Self::T, ttl: u64) -> Result<String>;
     async fn delete(&self, id: &str) -> Result<()>;
@@ -46,5 +46,11 @@ pub trait Interface: Sync {
 pub trait Watcher {
     type T;
     fn stop(&self);
-    fn result(&self) -> Receiver<Vec<Self::T>>;
+    fn result(&self) -> Receiver<Vec<Event<Self::T>>>;
+}
+
+pub enum Event<T> {
+    Put(T),
+    /// Resource was deleted
+    Deleted(T),
 }
