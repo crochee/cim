@@ -1,11 +1,10 @@
-use core::str;
 use std::{collections::HashMap, sync::RwLock};
 
 use async_trait::async_trait;
 
 use cim_slo::{errors, type_name, Result};
 
-use crate::{Interface, List, Pagination, Watcher};
+use crate::{Interface, List, Pagination};
 
 pub struct Cacher<I> {
     storage: I,
@@ -85,12 +84,7 @@ where
         // TODO: cache all
         Ok(())
     }
-    async fn watch<W>(&self, opts: &Self::L) -> Result<W>
-    where
-        W: Watcher<T = Self::T>,
-    {
-        self.storage.watch(opts).await
-    }
+
     async fn count(&self, opts: &Self::L, unscoped: bool) -> Result<i64> {
         self.storage.count(opts, unscoped).await
     }

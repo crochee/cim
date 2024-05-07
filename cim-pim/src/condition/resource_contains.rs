@@ -22,8 +22,10 @@ impl Condition for ResourceContains {
                 }
                 None => return false,
             };
-            let delimiter =
-                v.get("delimiter").map_or("".to_owned(), |v| v.to_string());
+            let delimiter = v
+                .get("delimiter")
+                .map(|v| v.to_string())
+                .unwrap_or("".to_string());
             let mut filter_value = String::from("");
             filter_value.push_str(&delimiter);
             filter_value.push_str(&value);

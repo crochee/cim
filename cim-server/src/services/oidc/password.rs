@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use base64::engine::{general_purpose, Engine};
 use chrono::Utc;
 use http::Uri;
@@ -84,7 +82,6 @@ pub async fn finalize_login<
                 .put_offline_session(&offlinesession::OfflineSession {
                     user_id: auth_req.claim.sub.clone(),
                     conn_id: auth_req.connector_id.clone(),
-                    refresh: HashMap::new(),
                     connector_data: auth_req.connector_data.clone(),
                     ..Default::default()
                 })

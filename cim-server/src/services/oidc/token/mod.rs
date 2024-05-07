@@ -3,8 +3,6 @@ pub mod password;
 pub mod refresh;
 mod tokenx;
 
-use std::collections::HashMap;
-
 use async_trait::async_trait;
 use chrono::Utc;
 use constant_time_eq::constant_time_eq;
@@ -182,7 +180,6 @@ where
                 let mut offline_session = OfflineSession {
                     user_id: refresh_token.claim.sub.clone(),
                     conn_id: refresh_token.connector_id.clone(),
-                    refresh: HashMap::new(),
                     connector_data: refresh_token.connector_data.clone(),
                     ..Default::default()
                 };

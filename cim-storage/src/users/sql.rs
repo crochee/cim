@@ -5,7 +5,7 @@ use sqlx::{MySqlPool, Row};
 use cim_slo::{crypto::password::encrypt, errors, next_id, Result};
 
 use super::{ListParams, User};
-use crate::{ClaimOpts, Interface, List, Pagination, Watcher};
+use crate::{ClaimOpts, Interface, List, Pagination};
 
 #[derive(Clone)]
 pub struct UserImpl {
@@ -324,12 +324,6 @@ impl Interface for UserImpl {
         }
 
         Ok(())
-    }
-    async fn watch<W>(&self, _opts: &Self::L) -> Result<W>
-    where
-        W: Watcher<T = Self::T>,
-    {
-        todo!();
     }
     async fn count(&self, opts: &Self::L, unscoped: bool) -> Result<i64> {
         let mut wheres = String::new();

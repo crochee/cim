@@ -17,8 +17,6 @@ pub mod users;
 pub use model::{Claim, ClaimOpts, List, Pagination, ID};
 pub use pool::connection_manager;
 
-use std::sync::mpsc::Receiver;
-
 use async_trait::async_trait;
 use serde::{de::DeserializeOwned, Serialize};
 
@@ -37,16 +35,7 @@ pub trait Interface: Sync {
         opts: &Self::L,
         output: &mut List<Self::T>,
     ) -> Result<()>;
-    async fn watch<W>(&self, opts: &Self::L) -> Result<W>
-    where
-        W: Watcher<T = Self::T>;
     async fn count(&self, opts: &Self::L, unscoped: bool) -> Result<i64>;
-}
-
-pub trait Watcher {
-    type T;
-    fn stop(&self);
-    fn result(&self) -> Receiver<Vec<Event<Self::T>>>;
 }
 
 pub enum Event<T> {
