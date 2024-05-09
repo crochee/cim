@@ -226,19 +226,22 @@ impl Interface for UserImpl {
         }
         wheres.push_str(r#"`deleted` = 0"#);
         // 查询total
-        let policy_result = sqlx::query(
-            format!(
-                r#"SELECT COUNT(*) as count FROM `user`
+        if !pagination.count_disable {
+            let policy_result = sqlx::query(
+                format!(
+                    r#"SELECT COUNT(*) as count FROM `user`
             WHERE {};"#,
-                wheres,
+                    wheres,
+                )
+                .as_str(),
             )
-            .as_str(),
-        )
-        .fetch_one(&self.pool)
-        .await
-        .map_err(errors::any)?;
+            .fetch_one(&self.pool)
+            .await
+            .map_err(errors::any)?;
 
-        output.total = policy_result.try_get("count").map_err(errors::any)?;
+            output.total =
+                policy_result.try_get("count").map_err(errors::any)?;
+        }
 
         // 查询列表
         pagination.convert(&mut wheres);

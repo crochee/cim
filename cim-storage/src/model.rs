@@ -28,6 +28,8 @@ pub struct Pagination {
     pub offset: u64,
     #[validate(custom = "check_order_by")]
     pub order_by: Option<String>,
+    // 内部字段，不参与序列化, 标识不启用计数查询
+    pub count_disable: bool,
 }
 
 impl<'de> Deserialize<'de> for Pagination {
@@ -125,6 +127,7 @@ impl<'de> Deserialize<'de> for Pagination {
                         ))
                     })?,
                     order_by,
+                    count_disable: false,
                 })
             }
 
@@ -203,6 +206,7 @@ impl<'de> Deserialize<'de> for Pagination {
                         ))
                     })?,
                     order_by,
+                    count_disable: false,
                 })
             }
         }
