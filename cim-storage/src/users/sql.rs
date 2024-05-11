@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use rand::Rng;
 use sqlx::{MySqlPool, Row};
 
-use cim_slo::{crypto::password::encrypt, errors, next_id, Result};
+use cim_slo::{crypto::password::encrypt, errors, Result};
 
 use super::{ListParams, User};
 use crate::{ClaimOpts, Interface, List, Pagination};
@@ -22,10 +22,7 @@ impl UserImpl {
 impl Interface for UserImpl {
     type T = User;
     type L = ListParams;
-    async fn put(&self, input: &mut Self::T, _ttl: u64) -> Result<String> {
-        if input.id.is_empty() {
-            input.id = next_id().map_err(errors::any)?.to_string();
-        }
+    async fn put(&self, id: &str, input: &Self::T, _ttl: u64) -> Result<()> {
         let mut address = None;
         if let Some(v) = &input.claim.address {
             address = Some(serde_json::to_string(&v).map_err(errors::any)?)
@@ -42,7 +39,6 @@ impl Interface for UserImpl {
             .ok_or_else(|| errors::bad_request("password is required"))?;
 
         let password = encrypt(temp_password, &secret)?;
-        input.secret = Some(secret.clone());
 
         sqlx::query(
             r#"REPLACE INTO `user`
@@ -53,7 +49,7 @@ impl Interface for UserImpl {
             `phone_number_verified`,`address`,`secret`,`password`)
             VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);"#,
         )
-        .bind(&input.id)
+        .bind(id)
         .bind(&input.account_id)
         .bind(&input.desc)
         .bind(&input.claim.email)
@@ -80,7 +76,7 @@ impl Interface for UserImpl {
         .execute(&self.pool)
         .await
         .map_err(errors::any)?;
-        Ok(input.id.clone())
+        Ok(())
     }
 
     async fn delete(&self, id: &str) -> Result<()> {

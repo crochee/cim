@@ -42,12 +42,15 @@ where
 {
     type T = I::T;
     type L = I::L;
-    async fn put(&self, input: &mut Self::T, ttl: u64) -> Result<String> {
-        let id = self.storage.put(input, ttl).await?;
+    async fn create(&self, input: &Self::T, ttl: u64) -> Result<String> {
+        self.storage.create(input, ttl).await
+    }
+    async fn put(&self, id: &str, input: &Self::T, ttl: u64) -> Result<()> {
+        self.storage.put(id, input, ttl).await?;
         let mut cache = self.cache.write().map_err(errors::any)?;
-        let key = self.key(Some(&id));
+        let key = self.key(Some(id));
         cache.remove(&key);
-        Ok(id)
+        Ok(())
     }
 
     async fn delete(&self, id: &str) -> Result<()> {
