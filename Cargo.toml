@@ -10,7 +10,7 @@ members = [
     "cim-slo",
     "cim",
     "cim-uid",
-    "cim-macros",
+    "cim-macros", "cim-watch",
 ]
 default-members = ["cim-server"]
 

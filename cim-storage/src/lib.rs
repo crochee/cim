@@ -13,7 +13,6 @@ mod pool;
 pub mod refresh;
 pub mod roles;
 pub mod users;
-pub mod watch;
 
 pub use model::{Claim, ClaimOpts, List, Pagination, ID};
 pub use pool::connection_manager;
