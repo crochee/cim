@@ -1,7 +1,6 @@
 #[derive(Debug)]
 struct QueueEvent<T> {
     modify: usize,
-    key: String,
     value: T,
 }
 
@@ -44,18 +43,14 @@ impl<T> QueueHistory<T> {
         }
     }
 
-    pub(crate) fn push(&mut self, key: &str, modify: usize, value: T) {
+    pub(crate) fn push(&mut self, modify: usize, value: T) {
         self.last_modify = modify;
-        self.queue.push(QueueEvent {
-            modify,
-            key: key.to_string(),
-            value,
-        });
+        self.queue.push(QueueEvent { modify, value });
         let front = &self.queue.events[self.queue.front];
         self.start_modify = front.modify;
     }
 
-    pub(crate) fn scan(&self, key: &str, modify: usize) -> Option<&T> {
+    pub(crate) fn scan(&self, modify: usize) -> Option<&T> {
         // 如果 index 小于 start_index 或大于或等于 last_index，则它不在队列的范围内
         if modify < self.start_modify || modify > self.last_modify {
             return None;
@@ -69,7 +64,7 @@ impl<T> QueueHistory<T> {
             // 获取当前索引位置的事件
             let item = &self.queue.events[current_index];
             // 检查 key 是否匹配
-            if item.key == key {
+            if item.modify >= modify {
                 return Some(&item.value);
             }
             // 移动到下一个事件
@@ -91,10 +86,10 @@ mod tests {
     fn queue() {
         let mut q = QueueHistory::new(2);
         for i in 0..3 {
-            q.push("key", i, i);
+            q.push(i, i);
         }
         println!("{:?}", q);
-        assert!(q.scan("key", 1).is_some());
-        assert!(q.scan("key", 3).is_none());
+        assert!(q.scan(1).is_some());
+        assert!(q.scan(3).is_none());
     }
 }

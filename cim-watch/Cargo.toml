@@ -4,7 +4,6 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-cim-slo = { path = "../cim-slo" }
 
 [lints]
 workspace = true

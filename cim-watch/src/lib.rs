@@ -2,7 +2,6 @@ mod queue;
 
 use core::fmt;
 use std::{
-    collections::HashMap,
     fmt::Debug,
     sync::{Arc, RwLock},
 };
@@ -37,7 +36,7 @@ pub struct WatcherHub<T> {
 }
 
 struct WatcherHubInner<T> {
-    watchers: RwLock<HashMap<String, Vec<Arc<WatcherInner<T>>>>>,
+    watchers: RwLock<Vec<Arc<WatcherInner<T>>>>,
     event_history: RwLock<queue::QueueHistory<T>>,
 }
 
@@ -63,7 +62,7 @@ where
     pub fn new(cap: usize) -> Self {
         Self {
             inner: Arc::new(WatcherHubInner {
-                watchers: RwLock::new(HashMap::new()),
+                watchers: RwLock::new(Vec::new()),
                 event_history: RwLock::new(queue::QueueHistory::new(cap)),
             }),
         }
@@ -71,15 +70,13 @@ where
 
     pub fn watch<W: Watcher<T>>(
         &self,
-        key: &str,
         since_modify: usize,
         handler: W,
         remove: impl Fn() + Send + 'static,
     ) -> Box<dyn Fn() + Send> {
-        let key = key.to_string();
         {
             let event_history_ref = self.inner.event_history.read().unwrap();
-            if let Some(event) = event_history_ref.scan(&key, since_modify) {
+            if let Some(event) = event_history_ref.scan(since_modify) {
                 handler.notify(event.to_owned());
                 return Box::new(|| {});
             }
@@ -90,48 +87,37 @@ where
         }) as Arc<WatcherInner<T>>;
         {
             let mut watchers_ref = self.inner.watchers.write().unwrap();
-            watchers_ref
-                .entry(key.to_string())
-                .or_default()
-                .push(Arc::clone(&handler_ref));
+            watchers_ref.push(Arc::clone(&handler_ref));
         }
         let inner = Arc::clone(&self.inner);
         Box::new(move || {
             let mut watchers_ref = inner.watchers.write().unwrap();
-            if let Some(watchers) = watchers_ref.get_mut(&key) {
-                watchers.retain(|h| !Arc::ptr_eq(h, &handler_ref));
-            }
+            watchers_ref.retain(|h| !Arc::ptr_eq(h, &handler_ref));
             remove();
         })
     }
 
-    pub fn add(&self, key: &str, modify: usize, event: T) {
+    pub fn add(&self, modify: usize, event: T) {
         let mut event_history_ref = self.inner.event_history.write().unwrap();
-        event_history_ref.push(key, modify, event);
+        event_history_ref.push(modify, event);
     }
 
-    pub fn notify(&self, key: &str, modify: usize, event: T) {
+    pub fn notify(&self, modify: usize, event: T) {
         {
             let mut event_history_ref =
                 self.inner.event_history.write().unwrap();
-            event_history_ref.push(key, modify, event.clone());
+            event_history_ref.push(modify, event.clone());
         }
-        self.notify_watchers(key, modify, event);
+        self.notify_watchers(modify, event);
     }
 
-    pub fn notify_watchers(&self, key: &str, modify: usize, event: T) {
-        let mut watchers_ref = self.inner.watchers.write().unwrap();
-        if let Some(handlers) = watchers_ref.get_mut(key) {
-            if handlers.is_empty() {
-                watchers_ref.remove(key);
-                return;
+    pub fn notify_watchers(&self, modify: usize, event: T) {
+        let watchers_ref = self.inner.watchers.read().unwrap();
+        for watcher in watchers_ref.iter() {
+            if watcher.since_modify >= modify {
+                continue;
             }
-            for handler in handlers.iter() {
-                if handler.since_modify >= modify {
-                    continue;
-                }
-                handler.notify(event.clone());
-            }
+            watcher.notify(event.clone());
         }
     }
 }
@@ -156,7 +142,6 @@ mod tests {
         let s1 = thread::spawn(move || {
             let (tx, rx) = mpsc::sync_channel::<Event<usize>>(100);
             let remove = evt1.watch(
-                "sample_key",
                 9,
                 move |event| {
                     tx.send(event).unwrap();
@@ -187,7 +172,6 @@ mod tests {
         let s2 = thread::spawn(move || {
             let (tx, rx) = mpsc::sync_channel::<Event<usize>>(100);
             let remove = evt2.watch(
-                "sample_key",
                 9,
                 move |event| {
                     tx.send(event).unwrap();
@@ -218,14 +202,14 @@ mod tests {
         let s3 = thread::spawn(move || {
             for v in 0..10 {
                 match v % 3 {
-                    0 => evt3.notify("sample_key", v, Event::Add(v)),
-                    1 => evt3.notify("sample_key", v, Event::Put(v)),
-                    2 => evt3.notify("sample_key", v, Event::Delete(v)),
+                    0 => evt3.notify(v, Event::Add(v)),
+                    1 => evt3.notify(v, Event::Put(v)),
+                    2 => evt3.notify(v, Event::Delete(v)),
                     _ => {}
                 }
             }
-            evt3.notify("sample_key", 10, Event::Add(10));
-            evt3.notify("sample_key", 11, Event::Add(11));
+            evt3.notify(10, Event::Add(10));
+            evt3.notify(11, Event::Add(11));
         });
         s1.join().unwrap();
         s2.join().unwrap();

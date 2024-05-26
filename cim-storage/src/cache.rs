@@ -3,8 +3,9 @@ use std::{collections::HashMap, sync::RwLock};
 use async_trait::async_trait;
 
 use cim_slo::{errors, type_name, Result};
+use cim_watch::Watcher;
 
-use crate::{Interface, List, Pagination};
+use crate::{Event, Interface, List, Pagination};
 
 pub struct Cacher<I> {
     storage: I,
@@ -42,9 +43,7 @@ where
 {
     type T = I::T;
     type L = I::L;
-    async fn create(&self, input: &Self::T, ttl: u64) -> Result<String> {
-        self.storage.create(input, ttl).await
-    }
+
     async fn put(&self, id: &str, input: &Self::T, ttl: u64) -> Result<()> {
         self.storage.put(id, input, ttl).await?;
         let mut cache = self.cache.write().map_err(errors::any)?;
@@ -87,7 +86,13 @@ where
         // TODO: cache all
         Ok(())
     }
-
+    fn watch<W: Watcher<Event<Self::T>>>(
+        &self,
+        handler: W,
+        remove: impl Fn() + Send + 'static,
+    ) -> Box<dyn Fn() + Send> {
+        self.storage.watch(handler, remove)
+    }
     async fn count(&self, opts: &Self::L, unscoped: bool) -> Result<i64> {
         self.storage.count(opts, unscoped).await
     }

@@ -1,20 +1,26 @@
 use async_trait::async_trait;
+use chrono::Utc;
 use rand::Rng;
 use sqlx::{MySqlPool, Row};
 
 use cim_slo::{crypto::password::encrypt, errors, Result};
+use cim_watch::{Watcher, WatcherHub};
 
 use super::{ListParams, User};
-use crate::{ClaimOpts, Interface, List, Pagination};
+use crate::{ClaimOpts, Event, Interface, List, Pagination};
 
 #[derive(Clone)]
 pub struct UserImpl {
     pool: MySqlPool,
+    watch_hub: WatcherHub<Event<User>>,
 }
 
 impl UserImpl {
     pub fn new(pool: MySqlPool) -> Self {
-        Self { pool }
+        Self {
+            pool,
+            watch_hub: WatcherHub::default(),
+        }
     }
 }
 
@@ -76,6 +82,10 @@ impl Interface for UserImpl {
         .execute(&self.pool)
         .await
         .map_err(errors::any)?;
+        self.watch_hub.notify(
+            Utc::now().timestamp() as usize,
+            Event::Put(input.to_owned()),
+        );
         Ok(())
     }
 
@@ -107,6 +117,13 @@ impl Interface for UserImpl {
         .execute(&self.pool)
         .await
         .map_err(errors::any)?;
+        self.watch_hub.notify(
+            Utc::now().timestamp() as usize,
+            Event::Delete(Self::T {
+                id: id.to_string(),
+                ..Default::default()
+            }),
+        );
         Ok(())
     }
     async fn get(&self, id: &str, output: &mut Self::T) -> Result<()> {
@@ -323,6 +340,14 @@ impl Interface for UserImpl {
         }
 
         Ok(())
+    }
+    fn watch<W: Watcher<Event<Self::T>>>(
+        &self,
+        handler: W,
+        remove: impl Fn() + Send + 'static,
+    ) -> Box<dyn Fn() + Send> {
+        self.watch_hub
+            .watch(Utc::now().timestamp() as usize, handler, remove)
     }
     async fn count(&self, opts: &Self::L, unscoped: bool) -> Result<i64> {
         let mut wheres = String::new();
