@@ -9,7 +9,7 @@ use validator::Validate;
 
 use cim_slo::regexp::check_order_by;
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Serialize, ToSchema, Default)]
 pub struct List<T> {
     pub data: Vec<T>,
     pub limit: u64,

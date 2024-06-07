@@ -7,6 +7,7 @@ use cim_slo::{errors, Result};
 use cim_storage::{
     authcode::AuthCodeStore, client::Client, connector::ConnectorStore,
     offlinesession::OfflineSessionStore, refresh::RefreshTokenStore, users,
+    Interface,
 };
 
 use crate::services::oidc::{self, get_connector, open_connector, token};
@@ -34,7 +35,7 @@ where
     T: token::Token,
     R: RefreshTokenStore,
     O: OfflineSessionStore,
-    U: users::UserStore + Send + Sync + Clone + 'static,
+    U: Interface<T = users::User> + Send + Sync + Clone + 'static,
 {
     pub async fn grant(
         &self,

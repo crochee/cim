@@ -5,9 +5,10 @@ use sqlx::{MySqlPool, Row};
 
 use cim_slo::{crypto::password::encrypt, errors, Result};
 use cim_watch::{Watcher, WatcherHub};
+use tracing::info;
 
 use super::{ListParams, User};
-use crate::{ClaimOpts, Event, Interface, List, Pagination};
+use crate::{ClaimOpts, Event, Interface, List};
 
 #[derive(Clone)]
 pub struct UserImpl {
@@ -28,7 +29,7 @@ impl UserImpl {
 impl Interface for UserImpl {
     type T = User;
     type L = ListParams;
-    async fn put(&self, id: &str, input: &Self::T, _ttl: u64) -> Result<()> {
+    async fn put(&self, input: &Self::T, _ttl: u64) -> Result<()> {
         let mut address = None;
         if let Some(v) = &input.claim.address {
             address = Some(serde_json::to_string(&v).map_err(errors::any)?)
@@ -43,7 +44,7 @@ impl Interface for UserImpl {
             .password
             .as_ref()
             .ok_or_else(|| errors::bad_request("password is required"))?;
-
+        info!("password: {}", temp_password);
         let password = encrypt(temp_password, &secret)?;
 
         sqlx::query(
@@ -53,9 +54,9 @@ impl Interface for UserImpl {
             `preferred_username`,`profile`,`picture`,`website`,`gender`,
             `birthday`,`birthdate`,`zoneinfo`,`locale`,`phone_number`,
             `phone_number_verified`,`address`,`secret`,`password`)
-            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);"#,
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);"#,
         )
-        .bind(id)
+        .bind(&input.id)
         .bind(&input.account_id)
         .bind(&input.desc)
         .bind(&input.claim.email)
@@ -199,7 +200,6 @@ impl Interface for UserImpl {
     }
     async fn list(
         &self,
-        pagination: &Pagination,
         opts: &Self::L,
         output: &mut List<Self::T>,
     ) -> Result<()> {
@@ -239,7 +239,7 @@ impl Interface for UserImpl {
         }
         wheres.push_str(r#"`deleted` = 0"#);
         // 查询total
-        if !pagination.count_disable {
+        if !opts.pagination.count_disable {
             let policy_result = sqlx::query(
                 format!(
                     r#"SELECT COUNT(*) as count FROM `user`
@@ -257,10 +257,10 @@ impl Interface for UserImpl {
         }
 
         // 查询列表
-        pagination.convert(&mut wheres);
+        opts.pagination.convert(&mut wheres);
 
-        output.limit = pagination.limit;
-        output.offset = pagination.offset;
+        output.limit = opts.pagination.limit;
+        output.offset = opts.pagination.offset;
 
         let rows = sqlx::query(
             format!(

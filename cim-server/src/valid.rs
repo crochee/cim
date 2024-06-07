@@ -2,10 +2,10 @@ use std::ops::Deref;
 
 use async_trait::async_trait;
 use axum::{
-    extract::{FromRequest, FromRequestParts, Request},
+    extract::{FromRequest, FromRequestParts, Request, WebSocketUpgrade},
     Form, Json,
 };
-use http::request::Parts;
+use http::{header, request::Parts, HeaderMap, HeaderName};
 use serde::de::DeserializeOwned;
 use validator::Validate;
 
@@ -117,5 +117,65 @@ where
         };
         result.validate().map_err(Code::Validates)?;
         Ok(result)
+    }
+}
+
+pub enum ListWatch<T> {
+    List(T),
+    Ws((WebSocketUpgrade, T)),
+}
+
+#[async_trait]
+impl<S, T> FromRequestParts<S> for ListWatch<T>
+where
+    S: Send + Sync,
+    T: DeserializeOwned + Validate + Send,
+{
+    type Rejection = WithBacktrace;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &S,
+    ) -> Result<Self, Self::Rejection> {
+        let Valid(param) = Valid::<T>::from_request_parts(parts, state).await?;
+        if header_eq(&parts.headers, header::UPGRADE, "websocket")
+            && header_contains(&parts.headers, header::CONNECTION, "upgrade")
+        {
+            let ws = WebSocketUpgrade::from_request_parts(parts, state)
+                .await
+                .map_err(errors::any)?;
+            return Ok(Self::Ws((ws, param)));
+        }
+        Ok(Self::List(param))
+    }
+}
+
+fn header_eq(
+    headers: &HeaderMap,
+    key: HeaderName,
+    value: &'static str,
+) -> bool {
+    if let Some(header) = headers.get(&key) {
+        header.as_bytes().eq_ignore_ascii_case(value.as_bytes())
+    } else {
+        false
+    }
+}
+
+fn header_contains(
+    headers: &HeaderMap,
+    key: HeaderName,
+    value: &'static str,
+) -> bool {
+    let header = if let Some(header) = headers.get(&key) {
+        header
+    } else {
+        return false;
+    };
+
+    if let Ok(header) = std::str::from_utf8(header.as_bytes()) {
+        header.to_ascii_lowercase().contains(value)
+    } else {
+        false
     }
 }

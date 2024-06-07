@@ -1,8 +1,7 @@
 mod queue;
 
-use core::fmt;
 use std::{
-    fmt::Debug,
+    fmt,
     sync::{Arc, RwLock},
 };
 
@@ -40,7 +39,7 @@ struct WatcherHubInner<T> {
     event_history: RwLock<queue::QueueHistory<T>>,
 }
 
-impl<T: Debug> fmt::Debug for WatcherHub<T> {
+impl<T> fmt::Debug for WatcherHub<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("WatcherHub").finish()
     }

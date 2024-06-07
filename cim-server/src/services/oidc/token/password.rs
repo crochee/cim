@@ -6,7 +6,7 @@ use cim_storage::{
     connector::ConnectorStore,
     offlinesession::OfflineSessionStore,
     refresh::RefreshTokenStore,
-    users,
+    users, Interface,
 };
 
 use crate::services::oidc::{
@@ -37,7 +37,7 @@ where
     T: token::Token,
     R: RefreshTokenStore,
     O: OfflineSessionStore,
-    U: users::UserStore + Send + Sync + Clone + 'static,
+    U: Interface<T = users::User> + Send + Sync + Clone + 'static,
 {
     pub async fn grant(
         &self,

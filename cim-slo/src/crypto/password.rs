@@ -11,7 +11,6 @@ pub fn encrypt(password: &str, secret: &str) -> Result<String> {
         .collect::<String>();
     let cfg = Config {
         secret: secret.as_bytes(),
-        time_cost: 30,
         ..Default::default()
     };
     argon2::hash_encoded(password.as_bytes(), password_salt.as_bytes(), &cfg)
@@ -36,7 +35,7 @@ mod tests {
             .map(char::from)
             .collect::<String>();
         let h = encrypt(&password, &secret).unwrap();
-        assert_eq!(h.len(), 416);
+        assert_eq!(h.len(), 415);
         assert!(verify(&h, &password, &secret).unwrap())
     }
 }

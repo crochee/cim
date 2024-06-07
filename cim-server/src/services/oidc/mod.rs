@@ -10,7 +10,7 @@ use jsonwebkey as jwk;
 use rand::Rng;
 
 use cim_slo::{errors, Result};
-use cim_storage::{authrequest, client, connector, users};
+use cim_storage::{authrequest, client, connector, users, Interface};
 
 use auth::AuthRequest;
 
@@ -42,7 +42,9 @@ pub enum Connector {
     Saml(Box<dyn connect::SAMLConnector + Send>),
 }
 
-pub fn open_connector<U: users::UserStore + Send + Sync + Clone + 'static>(
+pub fn open_connector<
+    U: Interface<T = users::User> + Send + Sync + Clone + 'static,
+>(
     user_store: &U,
     conn: &connector::Connector,
 ) -> Result<Connector> {
@@ -69,7 +71,7 @@ pub fn open_connector<U: users::UserStore + Send + Sync + Clone + 'static>(
 
 pub async fn run_connector<
     S: authrequest::AuthRequestStore,
-    U: users::UserStore + Send + Sync + Clone + 'static,
+    U: Interface<T = users::User> + Send + Sync + Clone + 'static,
 >(
     auth_request_store: &S,
     conn: &connector::Connector,

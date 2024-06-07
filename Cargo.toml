@@ -10,7 +10,8 @@ members = [
     "cim-slo",
     "cim",
     "cim-uid",
-    "cim-macros", "cim-watch",
+    "cim-macros",
+    "cim-watch",
 ]
 default-members = ["cim-server"]
 
@@ -33,7 +34,10 @@ validator = { version = "0.16", features = ["derive"] }
 regex = "1.10"
 mockall = "0.12"
 async-trait = "0.1"
-axum = { version = "0.7.4", features = ["tracing"] }
+axum = { version = "0.7", features = ["tracing", "ws"] }
+futures-util = { version = "0.3", default-features = false, features = [
+    "alloc",
+] }
 futures = "0.3 "
 
 [profile.release]

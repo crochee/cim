@@ -1,14 +1,20 @@
-use axum::{extract::Path, routing::get, Json, Router};
+use axum::{
+    extract::{ws::Message, Path},
+    response::{IntoResponse, Response},
+    routing::get,
+    Json, Router,
+};
 
+use futures_util::{SinkExt, StreamExt};
 use http::StatusCode;
 use tracing::info;
 
-use cim_slo::Result;
-use cim_storage::{users::*, List, ID};
+use cim_slo::{errors, next_id, Result};
+use cim_storage::{users::*, Event, EventData, Interface, List, ID};
 
 use crate::{
-    services::users,
-    valid::{Header, Valid},
+    shutdown_signal,
+    valid::{Header, ListWatch, Valid},
     var::SOURCE_SYSTEM,
     AppState,
 };
@@ -28,20 +34,115 @@ async fn create_user(
     Valid(Json(input)): Valid<Json<Content>>,
 ) -> Result<(StatusCode, Json<ID>)> {
     info!("list query {:#?}", input);
-    let id = app.store.user.create_user(None, &input).await?;
-    Ok((StatusCode::CREATED, id.into()))
+    let id = next_id().map_err(errors::any)?;
+    let account_id = match &input.account_id {
+        Some(v) => v.parse().map_err(|err| errors::bad_request(&err))?,
+        None => id,
+    };
+
+    app.store
+        .user
+        .put(
+            &User {
+                id: id.to_string(),
+                account_id: account_id.to_string(),
+                desc: input.desc,
+                claim: input.claim,
+                secret: None,
+                password: Some(input.password),
+                ..Default::default()
+            },
+            0,
+        )
+        .await?;
+    Ok((StatusCode::CREATED, ID { id: id.to_string() }.into()))
 }
 
 async fn list_user(
     header: Header,
     app: AppState,
-    Valid(mut filter): Valid<ListOpts>,
-) -> Result<Json<List<User>>> {
-    if header.source.ne(&Some(SOURCE_SYSTEM.to_owned())) {
-        filter.account_id = Some(header.account_id);
+    list_watch: ListWatch<ListParams>,
+) -> Result<Response> {
+    match list_watch {
+        ListWatch::List(mut filter) => {
+            if header.source.ne(&Some(SOURCE_SYSTEM.to_owned())) {
+                filter.account_id = Some(header.account_id);
+            }
+            let mut list = List::default();
+            app.store.user.list(&filter, &mut list).await?;
+            Ok(Json(list).into_response())
+        }
+        ListWatch::Ws((ws, mut filter)) => {
+            if header.source.ne(&Some(SOURCE_SYSTEM.to_owned())) {
+                filter.account_id = Some(header.account_id.clone());
+            }
+            Ok(ws.on_upgrade(move |socket| async move {
+                if header.source.ne(&Some(SOURCE_SYSTEM.to_owned())) {
+                    filter.account_id = Some(header.account_id);
+                }
+                let (wtx, wrx) = std::sync::mpsc::channel::<Event<User>>();
+                let remove = app.store.user.watch(
+                    move |event| {
+                        wtx.send(event).unwrap();
+                    },
+                    move || {
+                        info!("remove out 2");
+                    },
+                );
+                let (mut sender, mut receiver) = socket.split();
+                let mut send_task = tokio::spawn(async move {
+                    while let Ok(item) = wrx.recv() {
+                        let result: EventData<User> = item.into();
+                        if let Some(ref v) = filter.id {
+                            if result.data.id.ne(v) {
+                                continue;
+                            }
+                        }
+                        if let Some(ref v) = filter.account_id {
+                            if result.data.account_id.ne(v) {
+                                continue;
+                            }
+                        }
+
+                        let data = serde_json::to_vec(&result).unwrap();
+                        if sender.send(Message::Binary(data)).await.is_err() {
+                            break;
+                        }
+                    }
+                });
+                let mut recv_task = tokio::spawn(async move {
+                    loop {
+                        tokio::select! {
+                        msg = receiver.next() => {
+                        if let Some(msg) = msg {
+                            if let Ok(msg) = msg {
+                                if let Message::Close(_) = msg {
+                                    break;
+                                }
+                            } else {
+                                break;
+                            }
+                        }
+                        },
+                        _ = shutdown_signal() => {
+                            break;
+                        }
+                        }
+                    }
+                });
+                tokio::select! {
+                    _ = (&mut send_task) => {
+                        remove();
+                        recv_task.abort();
+                    },
+                    _ = (&mut recv_task) => {
+                        remove();
+                        send_task.abort();
+                    }
+                }
+            }))
+        }
     }
-    let list = app.store.user.list_user(&filter).await?;
-    Ok(list.into())
 }
 
 async fn get_user(
@@ -53,8 +154,14 @@ async fn get_user(
     if header.source.ne(&Some(SOURCE_SYSTEM.to_owned())) {
         account_id = Some(header.account_id);
     }
-    let resp = app.store.user.get_user(&id, account_id).await?;
-    Ok(resp.into())
+    let mut user_result = User::default();
+    app.store.user.get(&id, &mut user_result).await?;
+    if let Some(v) = account_id {
+        if v != user_result.account_id {
+            return Err(errors::unauthorized());
+        }
+    }
+    Ok(user_result.into())
 }
 
 async fn delete_user(
@@ -66,7 +173,15 @@ async fn delete_user(
     if header.source.ne(&Some(SOURCE_SYSTEM.to_owned())) {
         account_id = Some(header.account_id);
     }
-    app.store.user.delete_user(&id, account_id).await?;
+    let mut user_result = User::default();
+    app.store.user.get(&id, &mut user_result).await?;
+    if let Some(v) = account_id {
+        if v != user_result.account_id {
+            return Err(errors::unauthorized());
+        }
+    }
+
+    app.store.user.delete(&id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -74,12 +189,23 @@ async fn put_user(
     header: Header,
     app: AppState,
     Path(id): Path<String>,
-    Valid(Json(mut content)): Valid<Json<Content>>,
+    Valid(Json(content)): Valid<Json<Content>>,
 ) -> Result<StatusCode> {
     info!("list query {:#?} {:#?}", content, header);
+    let mut account_id = None;
     if header.source.ne(&Some(SOURCE_SYSTEM.to_owned())) {
-        content.account_id = Some(header.account_id);
+        account_id = Some(header.account_id);
     }
-    users::put_user(&app.store.user, &id, &content).await?;
+    let mut user_result = User::default();
+    app.store.user.get(&id, &mut user_result).await?;
+    if let Some(v) = account_id {
+        if v != user_result.account_id {
+            return Err(errors::unauthorized());
+        }
+    }
+    user_result.desc = content.desc;
+    user_result.claim = content.claim;
+    user_result.password = Some(content.password);
+    app.store.user.put(&user_result, 0).await?;
     Ok(StatusCode::NO_CONTENT)
 }

@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use cim_slo::{errors, type_name, Result};
 use cim_watch::Watcher;
 
-use crate::{Event, Interface, List, Pagination};
+use crate::{Event, Interface, List};
 
 pub struct Cacher<I> {
     storage: I,
@@ -44,11 +44,8 @@ where
     type T = I::T;
     type L = I::L;
 
-    async fn put(&self, id: &str, input: &Self::T, ttl: u64) -> Result<()> {
-        self.storage.put(id, input, ttl).await?;
-        let mut cache = self.cache.write().map_err(errors::any)?;
-        let key = self.key(Some(id));
-        cache.remove(&key);
+    async fn put(&self, input: &Self::T, ttl: u64) -> Result<()> {
+        self.storage.put(input, ttl).await?;
         Ok(())
     }
 
@@ -78,11 +75,10 @@ where
     }
     async fn list(
         &self,
-        pagination: &Pagination,
         opts: &Self::L,
         output: &mut List<Self::T>,
     ) -> Result<()> {
-        self.storage.list(pagination, opts, output).await?;
+        self.storage.list(opts, output).await?;
         // TODO: cache all
         Ok(())
     }

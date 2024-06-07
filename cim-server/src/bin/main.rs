@@ -2,13 +2,15 @@ use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use clap::Parser;
-use tokio::{net::TcpListener, signal};
+use tokio::net::TcpListener;
 use tracing::{error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use cim_storage::connection_manager;
 
-use cim_server::{version, App, AppConfig, AppRouter, AppState};
+use cim_server::{
+    shutdown_signal, version, App, AppConfig, AppRouter, AppState,
+};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -82,28 +84,4 @@ fn key_rotate(app: Arc<App>) {
             }
         }
     });
-}
-
-async fn shutdown_signal() {
-    let ctrl_c = async {
-        signal::ctrl_c()
-            .await
-            .expect("failed to install Ctrl+C handler");
-    };
-
-    #[cfg(unix)]
-    let terminate = async {
-        signal::unix::signal(signal::unix::SignalKind::terminate())
-            .expect("failed to install signal handler")
-            .recv()
-            .await;
-    };
-
-    #[cfg(not(unix))]
-    let terminate = std::future::pending::<()>();
-
-    tokio::select! {
-        _ = ctrl_c => {},
-        _ = terminate => {},
-    }
 }

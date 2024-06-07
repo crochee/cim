@@ -23,7 +23,7 @@ CREATE TABLE `user` (
     `phone_number_verified` BOOLEAN NULL DEFAULT NULL COMMENT 'phone number verified',
     `address` TEXT NULL DEFAULT NULL COMMENT 'address',
     `secret` CHAR(64) NOT NULL COMMENT 'password secret',
-    `password` TEXT(417) NOT NULL COMMENT 'user password',
+    `password` TEXT NOT NULL COMMENT 'user password',
     `deleted` BIGINT(20) UNSIGNED NOT NULL DEFAULT '0' COMMENT 'soft delete flag',
     `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT 'create time',
     `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT 'update time',

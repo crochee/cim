@@ -7,7 +7,7 @@ use cim_storage::{
     connector::{self, ConnectorStore},
     offlinesession::{self, OfflineSessionStore},
     refresh::{self, RefreshTokenStore},
-    users,
+    users, Interface,
 };
 
 use crate::services::oidc::{
@@ -39,7 +39,7 @@ where
     C: ConnectorStore,
     T: token::Token,
     O: OfflineSessionStore,
-    U: users::UserStore + Send + Sync + Clone + 'static,
+    U: Interface<T = users::User> + Send + Sync + Clone + 'static,
 {
     pub fn now(&self) -> DateTime<Utc> {
         Utc::now()
