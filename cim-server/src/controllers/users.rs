@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use axum::{
     extract::{ws::Message, Path},
     response::{IntoResponse, Response},
@@ -15,7 +17,6 @@ use cim_storage::{users::*, Event, EventData, Interface, List, ID};
 use crate::{
     shutdown_signal,
     valid::{Header, ListWatch, Valid},
-    var::SOURCE_SYSTEM,
     AppState,
 };
 
@@ -30,9 +31,13 @@ pub fn new_router(state: AppState) -> Router {
 }
 
 async fn create_user(
+    header: Header,
     app: AppState,
     Valid(Json(input)): Valid<Json<Content>>,
 ) -> Result<(StatusCode, Json<ID>)> {
+    if !header.is_allow(&app.matcher, "cim:iam:user", HashMap::from([])) {
+        return Err(errors::unauthorized());
+    }
     info!("list query {:#?}", input);
     let id = next_id().map_err(errors::any)?;
     let account_id = match &input.account_id {
@@ -64,22 +69,29 @@ async fn list_user(
     list_watch: ListWatch<ListParams>,
 ) -> Result<Response> {
     match list_watch {
-        ListWatch::List(mut filter) => {
-            if header.source.ne(&Some(SOURCE_SYSTEM.to_owned())) {
-                filter.account_id = Some(header.account_id);
+        ListWatch::List(filter) => {
+            if !header.is_allow(
+                &app.matcher,
+                "cim:iam:user:*",
+                HashMap::from([]),
+            ) {
+                return Err(errors::unauthorized());
             }
+
             let mut list = List::default();
             app.store.user.list(&filter, &mut list).await?;
             Ok(Json(list).into_response())
         }
-        ListWatch::Ws((ws, mut filter)) => {
-            if header.source.ne(&Some(SOURCE_SYSTEM.to_owned())) {
-                filter.account_id = Some(header.account_id.clone());
+        ListWatch::Ws((ws, filter)) => {
+            if !header.is_allow(
+                &app.matcher,
+                "cim:iam:user:*",
+                HashMap::from([]),
+            ) {
+                return Err(errors::unauthorized());
             }
+
             Ok(ws.on_upgrade(move |socket| async move {
-                if header.source.ne(&Some(SOURCE_SYSTEM.to_owned())) {
-                    filter.account_id = Some(header.account_id);
-                }
                 let (wtx, wrx) = std::sync::mpsc::channel::<Event<User>>();
                 let remove = app.store.user.watch(
                     move |event| {
@@ -150,17 +162,20 @@ async fn get_user(
     app: AppState,
     Path(id): Path<String>,
 ) -> Result<Json<User>> {
-    let mut account_id = None;
-    if header.source.ne(&Some(SOURCE_SYSTEM.to_owned())) {
-        account_id = Some(header.account_id);
-    }
     let mut user_result = User::default();
     app.store.user.get(&id, &mut user_result).await?;
-    if let Some(v) = account_id {
-        if v != user_result.account_id {
-            return Err(errors::unauthorized());
-        }
+    if !header.is_allow(
+        &app.matcher,
+        "cim:iam:user:{id}",
+        HashMap::from([(
+            "account_id".to_owned(),
+            user_result.account_id.clone(),
+        )]),
+    ) {
+        return Err(errors::unauthorized());
     }
+    user_result.secret = None;
+    user_result.password = None;
     Ok(user_result.into())
 }
 
@@ -169,16 +184,17 @@ async fn delete_user(
     app: AppState,
     Path(id): Path<String>,
 ) -> Result<StatusCode> {
-    let mut account_id = None;
-    if header.source.ne(&Some(SOURCE_SYSTEM.to_owned())) {
-        account_id = Some(header.account_id);
-    }
     let mut user_result = User::default();
     app.store.user.get(&id, &mut user_result).await?;
-    if let Some(v) = account_id {
-        if v != user_result.account_id {
-            return Err(errors::unauthorized());
-        }
+    if !header.is_allow(
+        &app.matcher,
+        "cim:iam:user:{id}",
+        HashMap::from([(
+            "account_id".to_owned(),
+            user_result.account_id.clone(),
+        )]),
+    ) {
+        return Err(errors::unauthorized());
     }
 
     app.store.user.delete(&id).await?;
@@ -192,17 +208,19 @@ async fn put_user(
     Valid(Json(content)): Valid<Json<Content>>,
 ) -> Result<StatusCode> {
     info!("list query {:#?} {:#?}", content, header);
-    let mut account_id = None;
-    if header.source.ne(&Some(SOURCE_SYSTEM.to_owned())) {
-        account_id = Some(header.account_id);
-    }
     let mut user_result = User::default();
     app.store.user.get(&id, &mut user_result).await?;
-    if let Some(v) = account_id {
-        if v != user_result.account_id {
-            return Err(errors::unauthorized());
-        }
+    if !header.is_allow(
+        &app.matcher,
+        "cim:iam:user:{id}",
+        HashMap::from([(
+            "account_id".to_owned(),
+            user_result.account_id.clone(),
+        )]),
+    ) {
+        return Err(errors::unauthorized());
     }
+
     user_result.desc = content.desc;
     user_result.claim = content.claim;
     user_result.password = Some(content.password);

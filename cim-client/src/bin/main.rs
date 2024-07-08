@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
 
-use cim_ client::version;
+use cim_client::version;
 
 // A fictional versioning CLI
 #[derive(Debug, Parser)]
