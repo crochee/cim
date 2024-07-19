@@ -5,9 +5,7 @@ use sha2::{Digest, Sha256};
 
 use cim_slo::{errors, Result};
 use cim_storage::{
-    authcode::AuthCodeStore, client::Client, connector::ConnectorStore,
-    offlinesession::OfflineSessionStore, refresh::RefreshTokenStore, users,
-    Interface,
+    authcode, client, connector, offlinesession, refresh_token, user, Interface,
 };
 
 use crate::services::oidc::{self, get_connector, open_connector, token};
@@ -30,22 +28,27 @@ pub struct CodeGrant<'a, A, S, T, R, O, U> {
 
 impl<'a, A, S, T, R, O, U> CodeGrant<'a, A, S, T, R, O, U>
 where
-    A: AuthCodeStore,
-    S: ConnectorStore,
+    A: Interface<T = authcode::AuthCode>,
+    S: Interface<T = connector::Connector>,
     T: token::Token,
-    R: RefreshTokenStore,
-    O: OfflineSessionStore,
-    U: Interface<T = users::User> + Send + Sync + Clone + 'static,
+    R: Interface<T = refresh_token::RefreshToken>,
+    O: Interface<
+        T = offlinesession::OfflineSession,
+        L = offlinesession::ListParams,
+    >,
+    U: Interface<T = user::User> + Send + Sync + Clone + 'static,
 {
     pub async fn grant(
         &self,
-        client_value: &Client,
+        client_value: &client::Client,
         opts: &CodeGrantOpts,
     ) -> Result<token::TokenResponse> {
         if opts.code.is_empty() {
             return Err(errors::bad_request("code is empty"));
         }
-        let auth_code = self.auth_store.get_auth_code(&opts.code).await?;
+        let mut auth_code = authcode::AuthCode::default();
+        self.auth_store.get(&opts.code, &mut auth_code).await?;
+
         if Utc::now().timestamp() > auth_code.expiry {
             return Err(errors::bad_request("code is expired"));
         }
@@ -85,7 +88,7 @@ where
         claims.access_token = Some(access_token.clone());
 
         let (id_token, expires_in) = self.token_creator.token(&claims).await?;
-        self.auth_store.delete_auth_code(&opts.code).await?;
+        self.auth_store.delete(&opts.code).await?;
 
         let connector =
             get_connector(self.connector_store, &auth_code.connector_id)

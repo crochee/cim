@@ -105,7 +105,7 @@ pub struct Scopes {
 pub struct Info {
     #[validate(length(min = 1))]
     pub subject: String,
-    #[validate(custom = "check_password")]
+    #[validate(custom(function = "check_password"))]
     pub password: String,
 }
 

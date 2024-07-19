@@ -10,7 +10,7 @@ use jsonwebkey as jwk;
 use rand::Rng;
 
 use cim_slo::{errors, Result};
-use cim_storage::{authrequest, client, connector, users, Interface};
+use cim_storage::{authrequest, client, connector, user, Interface};
 
 use auth::AuthRequest;
 
@@ -29,11 +29,13 @@ const RESPONSE_TYPE_CODE: &str = "code"; // "Regular" flow
 const RESPONSE_TYPE_TOKEN: &str = "token"; // Implicit flow for frontend apps.
 const RESPONSE_TYPE_IDTOKEN: &str = "id_token"; // ID Token in url fragment
 
-pub async fn get_connector<C: connector::ConnectorStore>(
+pub async fn get_connector<C: Interface<T = connector::Connector>>(
     connector_store: &C,
     id: &str,
 ) -> Result<connector::Connector> {
-    connector_store.get_connector(id).await
+    let mut connector = connector::Connector::default();
+    connector_store.get(id, &mut connector).await?;
+    Ok(connector)
 }
 
 pub enum Connector {
@@ -43,7 +45,7 @@ pub enum Connector {
 }
 
 pub fn open_connector<
-    U: Interface<T = users::User> + Send + Sync + Clone + 'static,
+    U: Interface<T = user::User> + Send + Sync + Clone + 'static,
 >(
     user_store: &U,
     conn: &connector::Connector,
@@ -70,8 +72,8 @@ pub fn open_connector<
 }
 
 pub async fn run_connector<
-    S: authrequest::AuthRequestStore,
-    U: Interface<T = users::User> + Send + Sync + Clone + 'static,
+    S: Interface<T = authrequest::AuthRequest>,
+    U: Interface<T = user::User> + Send + Sync + Clone + 'static,
 >(
     auth_request_store: &S,
     conn: &connector::Connector,
@@ -85,12 +87,13 @@ pub async fn run_connector<
     auth_req.id = uuid::Uuid::new_v4().to_string();
     auth_req.connector_id = connector_id.to_string();
     auth_req.expiry = Utc::now().timestamp() + expires_in;
-    let id = auth_request_store.put_auth_request(auth_req).await?;
+    auth_request_store.put(&auth_req, 0).await?;
 
     match connector_impl {
-        Connector::Password(_) => {
-            Ok(format!("/auth/{}/login?state={}", connector_id, id.id))
-        }
+        Connector::Password(_) => Ok(format!(
+            "/auth/{}/login?state={}",
+            connector_id, auth_req.id
+        )),
         Connector::Callback(cc) => {
             let scopes = connect::parse_scopes(&auth_req.scopes);
             tracing::debug!("{:?}", scopes);
@@ -100,7 +103,7 @@ pub async fn run_connector<
     }
 }
 
-pub async fn valid_scope<C: client::ClientStore>(
+pub async fn valid_scope<C: Interface<T = client::Client>>(
     client_store: &C,
     client_id: &str,
     scopes: &Vec<String>,
@@ -128,25 +131,24 @@ pub async fn valid_scope<C: client::ClientStore>(
                     invalid_scopes.push(scope.clone());
                     continue;
                 }
-                match client_store.get_client(peer_id, None).await {
-                    Ok(client_value) => {
-                        let mut trusted_peers = false;
-                        for id in client_value.trusted_peers {
-                            if id.eq(&client_id) {
-                                trusted_peers = true;
-                                break;
-                            }
-                        }
-                        if !trusted_peers {
-                            invalid_scopes.push(scope.clone());
-                        }
+                let mut client_value = client::Client::default();
+                if let Err(err) =
+                    client_store.get(peer_id, &mut client_value).await
+                {
+                    if err.eq(&errors::not_found("")) {
+                        invalid_scopes.push(scope.clone());
                     }
-                    Err(err) => {
-                        if err.eq(&errors::not_found("")) {
-                            invalid_scopes.push(scope.clone());
-                        }
-                        return Err(err);
+                    return Err(err);
+                }
+                let mut trusted_peers = false;
+                for id in client_value.trusted_peers {
+                    if id.eq(&client_id) {
+                        trusted_peers = true;
+                        break;
                     }
+                }
+                if !trusted_peers {
+                    invalid_scopes.push(scope.clone());
                 }
             }
         }
@@ -172,7 +174,7 @@ pub async fn valid_scope<C: client::ClientStore>(
     Ok(())
 }
 
-pub async fn parse_auth_request<C: client::ClientStore>(
+pub async fn parse_auth_request<C: Interface<T = client::Client>>(
     client_store: &C,
     req: &AuthRequest,
 ) -> Result<authrequest::AuthRequest> {
@@ -229,7 +231,8 @@ pub async fn parse_auth_request<C: client::ClientStore>(
             }
         }
     }
-    let client = client_store.get_client(&req.client_id, None).await?;
+    let mut client = client::Client::default();
+    client_store.get(&req.client_id, &mut client).await?;
     if !validate_redirect_uri(&client, &req.redirect_uri) {
         return Err(errors::bad_request("Invalid redirect_uri"));
     }
@@ -309,16 +312,55 @@ pub fn jwk_to_public(key: Box<jwk::Key>) -> Result<Box<jwk::Key>> {
 mod tests {
     use super::*;
 
-    use cim_storage::client::*;
+    use async_trait::async_trait;
+    use cim_storage::{client::Client, Event, List};
+    use cim_watch::Watcher;
+    use mockall::mock;
+
+    mock! {
+        pub ClientStore {
+            fn get(&self, opts: &str, output: &mut Client) -> Result<()>;
+        }
+    }
+
+    #[async_trait]
+    impl Interface for MockClientStore {
+        type T = Client;
+        type L = ();
+        async fn put(&self, _input: &Self::T, _ttl: u64) -> Result<()> {
+            unimplemented!()
+        }
+        async fn delete(&self, _id: &str) -> Result<()> {
+            unimplemented!()
+        }
+        async fn get(&self, id: &str, output: &mut Self::T) -> Result<()> {
+            self.get(id, output)
+        }
+        async fn list(
+            &self,
+            _opts: &Self::L,
+            _output: &mut List<Self::T>,
+        ) -> Result<()> {
+            unimplemented!()
+        }
+        fn watch<W: Watcher<Event<Self::T>>>(
+            &self,
+            _handler: W,
+            _remove: impl Fn() + Send + 'static,
+        ) -> Box<dyn Fn() + Send> {
+            unimplemented!()
+        }
+        async fn count(&self, _opts: &Self::L, _unscoped: bool) -> Result<i64> {
+            unimplemented!()
+        }
+    }
 
     #[tokio::test]
     async fn test_parse_auth_request() {
         let mut client_store = MockClientStore::new();
-        client_store.expect_get_client().returning(|_, _| {
-            Ok(Client {
-                id: "client_id".to_owned(),
-                ..Default::default()
-            })
+        client_store.expect_get().returning(|_, output| {
+            output.id = "client_id".to_owned();
+            Ok(())
         });
 
         let req = AuthRequest {

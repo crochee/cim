@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use cim_slo::{errors, Result};
-use cim_storage::keys::KeyStore;
+use cim_storage::{Interface, List};
 
 use crate::{
     services::oidc::{
@@ -108,18 +108,23 @@ async fn discovery_handler(app: AppState) -> Json<OpenIDConfiguration> {
 async fn jwk_handler(
     app: AppState,
 ) -> Result<(http::HeaderMap, Json<key::JsonWebKeySet>)> {
-    let keys = app.store.key.get_key().await?;
+    let mut list = List::default();
+    app.store.key.list(&(), &mut list).await?;
+
     let mut jwks = key::JsonWebKeySet {
-        keys: Vec::with_capacity(keys.verification_keys.len() + 1),
+        keys: Vec::with_capacity(list.total as usize * 2 + 1),
     };
-    for vk in keys.verification_keys {
-        jwks.keys.push(vk.public_key.clone());
+    let mut max_age = 120;
+    for keys in list.data {
+        for vk in keys.verification_keys {
+            jwks.keys.push(vk.public_key.clone());
+        }
+        let age = keys.next_rotation - Utc::now().timestamp();
+        if age > max_age {
+            max_age = age
+        }
     }
     let mut headers = HeaderMap::new();
-    let mut max_age = keys.next_rotation - Utc::now().timestamp();
-    if max_age < 120 {
-        max_age = 120
-    }
     headers.insert(
         header::CACHE_CONTROL,
         format!("max-age={}, must-revalidate", max_age)

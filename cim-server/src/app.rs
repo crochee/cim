@@ -24,8 +24,8 @@ pub struct App {
     pub config: AppConfig,
     pub matcher: Pim<Regexp>,
     pub store: Store,
-    pub key_rotator: KeyRotator<cim_storage::keys::KeyImpl>,
-    pub access_token: AccessToken<cim_storage::keys::KeyImpl>,
+    pub key_rotator: KeyRotator<cim_storage::KeysImpl>,
+    pub access_token: AccessToken<cim_storage::KeysImpl>,
 }
 
 impl App {
@@ -37,7 +37,7 @@ impl App {
         let store = Store::new(pool.clone());
 
         let key_rotator = KeyRotator::new(
-            cim_storage::keys::KeyImpl::new(pool.clone()),
+            cim_storage::KeysImpl::new(pool.clone()),
             RotationStrategy {
                 rotation_frequency: 6 * 60 * 60,
                 keep: 24 * 60 * 60,
@@ -45,7 +45,7 @@ impl App {
         );
 
         let access_token = AccessToken::new(
-            cim_storage::keys::KeyImpl::new(pool),
+            cim_storage::KeysImpl::new(pool),
             config.expiration,
             HashSet::new(),
             config.endpoint.clone(),
@@ -62,40 +62,46 @@ impl App {
 }
 
 pub struct Store {
-    pub user: cim_storage::users::UserImpl,
-    pub role: cim_storage::roles::RoleImpl,
-    pub group: cim_storage::groups::GroupImpl,
-    pub policy: cim_storage::policies::PolicyImpl,
-    pub key: cim_storage::keys::KeyImpl,
-    pub auth_request: cim_storage::authrequest::AuthRequestImpl,
-    pub auth_code: cim_storage::authcode::AuthCodeImpl,
-    pub connector: cim_storage::connector::ConnectorImpl,
-    pub client: cim_storage::client::ClientImpl,
-    pub refresh: cim_storage::refresh::RefreshTokenImpl,
-    pub offline_session: cim_storage::offlinesession::OfflineSessionImpl,
+    pub user: cim_storage::UserImpl,
+    pub role: cim_storage::RoleImpl,
+    pub role_binding: cim_storage::RoleBindingImpl,
+    pub group: cim_storage::GroupImpl,
+    pub group_user: cim_storage::GroupUserImpl,
+    pub policy: cim_storage::PolicyImpl,
+    pub policy_binding: cim_storage::PolicyBindingImpl,
+    pub key: cim_storage::KeysImpl,
+    pub auth_request: cim_storage::AuthRequestImpl,
+    pub auth_code: cim_storage::AuthCodeImpl,
+    pub connector: cim_storage::ConnectorImpl,
+    pub client: cim_storage::ClientImpl,
+    pub refresh: cim_storage::RefreshTokenImpl,
+    pub offline_session: cim_storage::OfflineSessionImpl,
 }
 
 impl Store {
     pub fn new(pool: MySqlPool) -> Self {
-        let user = cim_storage::users::UserImpl::new(pool.clone());
-        let role = cim_storage::roles::RoleImpl::new(pool.clone());
-        let group = cim_storage::groups::GroupImpl::new(pool.clone());
-        let policy = cim_storage::policies::PolicyImpl::new(pool.clone());
-        let key = cim_storage::keys::KeyImpl::new(pool.clone());
-        let auth_request =
-            cim_storage::authrequest::AuthRequestImpl::new(pool.clone());
-        let auth_code = cim_storage::authcode::AuthCodeImpl::new(pool.clone());
-        let connector =
-            cim_storage::connector::ConnectorImpl::new(pool.clone());
-        let client = cim_storage::client::ClientImpl::new(pool.clone());
-        let refresh = cim_storage::refresh::RefreshTokenImpl::new(pool.clone());
-        let offline_session =
-            cim_storage::offlinesession::OfflineSessionImpl::new(pool);
+        let user = cim_storage::UserImpl::new(pool.clone());
+        let role = cim_storage::RoleImpl::new(pool.clone());
+        let role_binding = cim_storage::RoleBindingImpl::new(pool.clone());
+        let group = cim_storage::GroupImpl::new(pool.clone());
+        let group_user = cim_storage::GroupUserImpl::new(pool.clone());
+        let policy = cim_storage::PolicyImpl::new(pool.clone());
+        let policy_binding = cim_storage::PolicyBindingImpl::new(pool.clone());
+        let key = cim_storage::KeysImpl::new(pool.clone());
+        let auth_request = cim_storage::AuthRequestImpl::new(pool.clone());
+        let auth_code = cim_storage::AuthCodeImpl::new(pool.clone());
+        let connector = cim_storage::ConnectorImpl::new(pool.clone());
+        let client = cim_storage::ClientImpl::new(pool.clone());
+        let refresh = cim_storage::RefreshTokenImpl::new(pool.clone());
+        let offline_session = cim_storage::OfflineSessionImpl::new(pool);
         Self {
             user,
             role,
+            role_binding,
             group,
+            group_user,
             policy,
+            policy_binding,
             key,
             auth_request,
             auth_code,

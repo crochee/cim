@@ -3,11 +3,7 @@ use serde::Deserialize;
 
 use cim_slo::{errors, Result};
 use cim_storage::{
-    client,
-    connector::{self, ConnectorStore},
-    offlinesession::{self, OfflineSessionStore},
-    refresh::{self, RefreshTokenStore},
-    users, Interface,
+    client, connector, offlinesession, refresh_token, user, Interface, List,
 };
 
 use crate::services::oidc::{
@@ -35,11 +31,14 @@ pub struct RefreshGrant<'a, R, C, T, O, U> {
 
 impl<'a, R, C, T, O, U> RefreshGrant<'a, R, C, T, O, U>
 where
-    R: RefreshTokenStore,
-    C: ConnectorStore,
+    R: Interface<T = refresh_token::RefreshToken>,
+    C: Interface<T = connector::Connector>,
     T: token::Token,
-    O: OfflineSessionStore,
-    U: Interface<T = users::User> + Send + Sync + Clone + 'static,
+    O: Interface<
+        T = offlinesession::OfflineSession,
+        L = offlinesession::ListParams,
+    >,
+    U: Interface<T = user::User> + Send + Sync + Clone + 'static,
 {
     pub fn now(&self) -> DateTime<Utc> {
         Utc::now()
@@ -70,9 +69,9 @@ where
     ) -> Result<token::TokenResponse> {
         let mut claim_refresh_token: token::ClaimRefreshToken =
             serde_json::from_str(&opts.refresh_token).map_err(errors::any)?;
-        let mut refresh_token = self
-            .refresh_store
-            .get_refresh_token(&claim_refresh_token.refresh_id)
+        let mut refresh_token = refresh_token::RefreshToken::default();
+        self.refresh_store
+            .get(&claim_refresh_token.refresh_id, &mut refresh_token)
             .await?;
         if !refresh_token.client_id.eq(&client_info.id) {
             return Err(errors::bad_request(
@@ -90,18 +89,29 @@ where
                 "refresh token expired because it was not used in time",
             ));
         }
-        let mut connector_value = self
-            .connector_store
-            .get_connector(&refresh_token.connector_id)
+        let mut connector_value = connector::Connector::default();
+        self.connector_store
+            .get(&refresh_token.connector_id, &mut connector_value)
             .await?;
 
-        let mut session = self
-            .offline_session_store
-            .get_offline_session(
-                &refresh_token.claim.sub,
-                &refresh_token.connector_id,
+        let mut sessions = List::default();
+        self.offline_session_store
+            .list(
+                &offlinesession::ListParams {
+                    user_id: Some(refresh_token.claim.sub.clone()),
+                    conn_id: Some(refresh_token.connector_id.clone()),
+                    pagination: cim_storage::Pagination {
+                        count_disable: true,
+                        ..Default::default()
+                    },
+                },
+                &mut sessions,
             )
             .await?;
+        if sessions.data.is_empty() {
+            return Err(errors::not_found("Offline session not found"));
+        }
+        let mut session = sessions.data.remove(0);
 
         match &refresh_token.connector_data {
             Some(v) => connector_value.connector_data = Some(v.clone()),
@@ -164,7 +174,7 @@ where
     async fn update_refresh_token(
         &self,
         claim_refresh_token: &mut token::ClaimRefreshToken,
-        refresh_token: &mut refresh::RefreshToken,
+        refresh_token: &mut refresh_token::RefreshToken,
         connector_value: &connector::Connector,
         offline_session: &mut offlinesession::OfflineSession,
         scopes: &Vec<String>,
@@ -211,7 +221,7 @@ where
             }
         }
         refresh_token.claim = ident.claim.clone();
-        self.refresh_store.put_refresh_token(refresh_token).await?;
+        self.refresh_store.put(refresh_token, 0).await?;
 
         if let Some(offline_session_value) =
             offline_session.refresh.get_mut(&refresh_token.client_id)
@@ -225,9 +235,7 @@ where
             }
         }
 
-        self.offline_session_store
-            .put_offline_session(offline_session)
-            .await?;
+        self.offline_session_store.put(offline_session, 0).await?;
         Ok(ident)
     }
 }

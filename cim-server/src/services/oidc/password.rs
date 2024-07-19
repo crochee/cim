@@ -6,8 +6,8 @@ use sha2::{Digest, Sha256};
 use utoipa::ToSchema;
 use validator::Validate;
 
-use cim_slo::{errors, Result};
-use cim_storage::{authcode, authrequest, offlinesession};
+use cim_slo::{errors, next_id, Result};
+use cim_storage::{authcode, authrequest, offlinesession, Interface, List};
 
 use super::{connect::Identity, token};
 
@@ -25,15 +25,23 @@ pub struct AuthReqID {
     pub prompt: Option<String>,
 }
 
-pub async fn get_auth_request<S: authrequest::AuthRequestStore>(
+pub async fn get_auth_request<S: Interface<T = authrequest::AuthRequest>>(
     auth_request_store: &S,
     req: &AuthReqID,
 ) -> Result<authrequest::AuthRequest> {
-    auth_request_store.get_auth_request(&req.state).await
+    let mut auth_request = authrequest::AuthRequest::default();
+    auth_request_store
+        .get(&req.state, &mut auth_request)
+        .await?;
+    Ok(auth_request)
 }
+
 pub async fn finalize_login<
-    S: authrequest::AuthRequestStore,
-    O: offlinesession::OfflineSessionStore,
+    S: Interface<T = authrequest::AuthRequest>,
+    O: Interface<
+        T = offlinesession::OfflineSession,
+        L = offlinesession::ListParams,
+    >,
 >(
     auth_request_store: &S,
     offline_session_store: &O,
@@ -45,7 +53,7 @@ pub async fn finalize_login<
     auth_req.claim = identity.claim.clone();
     auth_req.connector_data = identity.connector_data.clone();
 
-    auth_request_store.put_auth_request(auth_req).await?;
+    auth_request_store.put(auth_req, 0).await?;
     if !auth_req.force_approval_prompt {
         return Ok(("".to_string(), true));
     }
@@ -64,37 +72,48 @@ pub async fn finalize_login<
     if auth_req.scopes.contains(&String::from("offline_access")) {
         return Ok((return_url, false));
     }
-    match offline_session_store
-        .get_offline_session(&auth_req.claim.sub, &auth_req.connector_id)
-        .await
-    {
-        Ok(mut session) => {
-            if let Some(connector_data) = &auth_req.connector_data {
-                session.connector_data = Some(connector_data.clone());
-                offline_session_store.put_offline_session(&session).await?;
-            }
-        }
-        Err(err) => {
-            if !errors::not_found("").eq(&err) {
-                return Err(err);
-            }
-            offline_session_store
-                .put_offline_session(&offlinesession::OfflineSession {
+    let mut sessions = List::default();
+    offline_session_store
+        .list(
+            &offlinesession::ListParams {
+                user_id: Some(auth_req.claim.sub.clone()),
+                conn_id: Some(auth_req.connector_id.clone()),
+                pagination: cim_storage::Pagination {
+                    count_disable: true,
+                    ..Default::default()
+                },
+            },
+            &mut sessions,
+        )
+        .await?;
+    if sessions.data.is_empty() {
+        let id = next_id().map_err(errors::any)?;
+        offline_session_store
+            .put(
+                &offlinesession::OfflineSession {
+                    id: id.to_string(),
                     user_id: auth_req.claim.sub.clone(),
                     conn_id: auth_req.connector_id.clone(),
                     connector_data: auth_req.connector_data.clone(),
                     ..Default::default()
-                })
-                .await?;
+                },
+                0,
+            )
+            .await?;
+    } else {
+        let mut session = sessions.data.remove(0);
+        if let Some(connector_data) = &auth_req.connector_data {
+            session.connector_data = Some(connector_data.clone());
+            offline_session_store.put(&session, 0).await?;
         }
-    };
+    }
     Ok((return_url, false))
 }
 
 pub async fn send_code<
-    S: authrequest::AuthRequestStore,
+    S: Interface<T = authrequest::AuthRequest>,
     T: token::Token,
-    C: authcode::AuthCodeStore,
+    C: Interface<T = authcode::AuthCode>,
 >(
     auth_request_store: &S,
     token_creater: &T,
@@ -104,9 +123,7 @@ pub async fn send_code<
     if Utc::now().timestamp() > auth_request.expiry {
         return Err(errors::bad_request("User session has expired."));
     }
-    auth_request_store
-        .delete_auth_request(&auth_request.id)
-        .await?;
+    auth_request_store.delete(&auth_request.id).await?;
     let u = auth_request.redirect_uri.parse::<Uri>().map_err(|err| {
         errors::bad_request(format!("Invalid redirect_uri. {}", err).as_str())
     })?;
@@ -118,9 +135,12 @@ pub async fn send_code<
     for response_type in &auth_request.response_types {
         match response_type.as_str() {
             super::RESPONSE_TYPE_CODE => {
-                let code_val = authcode::AuthCode::default();
+                let code_val = authcode::AuthCode {
+                    id: next_id().map_err(errors::any)?.to_string(),
+                    ..Default::default()
+                };
                 code = Some(code_val.clone());
-                authcode_store.put_auth_code(&code_val).await?;
+                authcode_store.put(&code_val, 0).await?;
             }
             super::RESPONSE_TYPE_IDTOKEN => {
                 implicit_or_hybrid = true;

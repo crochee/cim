@@ -20,6 +20,15 @@ pub struct JsonCondition {
     pub options: Box<RawValue>,
 }
 
+impl PartialEq for JsonCondition {
+    fn eq(&self, other: &Self) -> bool {
+        if self.jtype == other.jtype {
+            return self.options.get() == other.options.get();
+        }
+        false
+    }
+}
+
 impl JsonCondition {
     pub fn into(&self) -> Result<Box<dyn Condition>> {
         match self.jtype.as_str() {

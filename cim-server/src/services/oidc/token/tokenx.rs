@@ -9,7 +9,7 @@ use sha2::{Digest, Sha256};
 use tracing::error;
 
 use cim_slo::{errors, Result};
-use cim_storage::keys::KeyStore;
+use cim_storage::{key::Keys, Interface, List};
 
 use super::{Claims, Token};
 
@@ -43,10 +43,16 @@ impl<T> AccessToken<T> {
 #[async_trait]
 impl<T> Token for AccessToken<T>
 where
-    T: KeyStore + Send + Sync,
+    T: Interface<T = Keys, L = ()> + Send,
 {
     async fn token(&self, claims: &Claims) -> Result<(String, i64)> {
-        let keys = self.key_store.get_key().await?;
+        let mut output: List<Keys> = List::default();
+        self.key_store.list(&(), &mut output).await?;
+        if output.data.is_empty() {
+            return Err(errors::not_found("key not found"));
+        }
+        let keys = output.data.remove(0);
+
         let now = self.now();
 
         let mut token_claims = claims.clone();
@@ -80,8 +86,14 @@ where
     }
 
     async fn verify(&self, token: &str) -> Result<Claims> {
+        let mut output: List<Keys> = List::default();
+        self.key_store.list(&(), &mut output).await?;
+        if output.data.is_empty() {
+            return Err(errors::not_found("key not found"));
+        }
+        let keys = output.data.remove(0);
+
         let header = jwt::decode_header(token).map_err(errors::any)?;
-        let keys = self.key_store.get_key().await?;
 
         for vk in keys.verification_keys.iter() {
             if header.kid.is_some() && !vk.public_key.key_id.eq(&header.kid) {
@@ -183,6 +195,7 @@ impl JwkKey<jwk::Key> {
 
 #[cfg(test)]
 mod tests {
+    use cim_watch::Watcher;
     use rand::Rng;
     use rsa::traits::{PrivateKeyParts, PublicKeyParts};
 
@@ -190,9 +203,48 @@ mod tests {
 
     use crate::services::oidc::jwk_to_public;
     use cim_storage::{
-        keys::{Keys, MockKeyStore, VerificationKey},
-        Claim,
+        key::{Keys, VerificationKey},
+        Claim, Event, List,
     };
+    use mockall::mock;
+
+    mock! {
+        pub KeyStore {
+            fn list(&self, opts: &(), output: &mut List<Keys>) -> Result<()>;
+        }
+    }
+
+    #[async_trait]
+    impl Interface for MockKeyStore {
+        type T = Keys;
+        type L = ();
+        async fn put(&self, _input: &Self::T, _ttl: u64) -> Result<()> {
+            unimplemented!()
+        }
+        async fn delete(&self, _id: &str) -> Result<()> {
+            unimplemented!()
+        }
+        async fn get(&self, _id: &str, _output: &mut Self::T) -> Result<()> {
+            unimplemented!()
+        }
+        async fn list(
+            &self,
+            opts: &Self::L,
+            output: &mut List<Self::T>,
+        ) -> Result<()> {
+            self.list(opts, output)
+        }
+        fn watch<W: Watcher<Event<Self::T>>>(
+            &self,
+            _handler: W,
+            _remove: impl Fn() + Send + 'static,
+        ) -> Box<dyn Fn() + Send> {
+            unimplemented!()
+        }
+        async fn count(&self, _opts: &Self::L, _unscoped: bool) -> Result<i64> {
+            unimplemented!()
+        }
+    }
 
     #[tokio::test]
     async fn token_encode_decode() {
@@ -240,8 +292,9 @@ mod tests {
         let mut signing_key_pub = signing_key.clone();
         signing_key_pub.key = jwk_to_public(signing_key.key.clone()).unwrap();
 
-        key_store.expect_get_key().returning(move || {
-            Ok(Keys {
+        key_store.expect_list().returning(move |_, output| {
+            output.data.push(Keys {
+                id: 1.to_string(),
                 signing_key: signing_key.clone(),
                 signing_key_pub: signing_key_pub.clone(),
                 verification_keys: vec![VerificationKey {
@@ -249,7 +302,8 @@ mod tests {
                     public_key: signing_key_pub.clone(),
                 }],
                 next_rotation: 0,
-            })
+            });
+            Ok(())
         });
         let t = AccessToken::new(
             key_store,

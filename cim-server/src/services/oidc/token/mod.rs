@@ -12,10 +12,7 @@ use serde_json::value::RawValue;
 
 use cim_slo::{errors, next_id, Result};
 use cim_storage::{
-    client::{Client, ClientStore},
-    offlinesession::{OfflineSession, OfflineSessionStore, RefreshTokenRef},
-    refresh::{RefreshToken, RefreshTokenStore},
-    Claim,
+    client, offlinesession, refresh_token, Claim, Interface, List,
 };
 
 pub use tokenx::AccessToken;
@@ -61,12 +58,14 @@ pub const GRANT_TYPE_AUTHORIZATION_CODE: &str = "authorization_code";
 pub const GRANT_TYPE_REFRESH_TOKEN: &str = "refresh_token";
 pub const GRANT_TYPE_PASSWORD: &str = "password";
 
-pub async fn get_client_and_valid<C: ClientStore>(
+pub async fn get_client_and_valid<C: Interface<T = client::Client>>(
     client_store: &C,
     client_id: &str,
     client_secret: &str,
-) -> Result<Client> {
-    let client = client_store.get_client(client_id, None).await?;
+) -> Result<client::Client> {
+    let mut client = client::Client::default();
+    client_store.get(client_id, &mut client).await?;
+
     if !constant_time_eq(client.secret.as_bytes(), client_secret.as_bytes()) {
         return Err(errors::unauthorized());
     }
@@ -80,8 +79,11 @@ pub struct RefreshTokenHandler<'a, R, O> {
 
 impl<'a, R, O> RefreshTokenHandler<'a, R, O>
 where
-    R: RefreshTokenStore,
-    O: OfflineSessionStore,
+    R: Interface<T = refresh_token::RefreshToken>,
+    O: Interface<
+        T = offlinesession::OfflineSession,
+        L = offlinesession::ListParams,
+    >,
 {
     pub async fn handle(
         &self,
@@ -94,7 +96,7 @@ where
     ) -> Result<Option<String>> {
         let mut refresh_token_value = None;
         if scopes.contains(&String::from("offline_access")) {
-            let refresh_token = RefreshToken {
+            let refresh_token = refresh_token::RefreshToken {
                 id: next_id().map_err(errors::any)?.to_string(),
                 client_id: client_id.to_string(),
                 scopes: scopes.clone(),
@@ -114,24 +116,17 @@ where
                 .map_err(errors::any)?,
             );
 
-            let id = self
-                .refresh_token_store
-                .put_refresh_token(&refresh_token)
-                .await?;
-            match self.handle_offline(&refresh_token, &id.id).await {
+            self.refresh_token_store.put(&refresh_token, 0).await?;
+            match self.handle_offline(&refresh_token, &refresh_token.id).await {
                 Ok(Some(token_ref_id)) => {
-                    self.refresh_token_store
-                        .delete_refresh_token(&token_ref_id)
-                        .await?;
+                    self.refresh_token_store.delete(&token_ref_id).await?;
                 }
                 Err(err) => {
                     tracing::error!(
                         "failed to handle offline session: {}",
                         err
                     );
-                    self.refresh_token_store
-                        .delete_refresh_token(&id.id)
-                        .await?;
+                    self.refresh_token_store.delete(&refresh_token.id).await?;
                     return Err(err);
                 }
                 _ => {}
@@ -142,56 +137,56 @@ where
     }
     async fn handle_offline(
         &self,
-        refresh_token: &RefreshToken,
+        refresh_token: &refresh_token::RefreshToken,
         id: &str,
     ) -> Result<Option<String>> {
-        let token_ref = RefreshTokenRef {
+        let token_ref = offlinesession::RefreshTokenRef {
             id: id.to_owned(),
             client_id: refresh_token.client_id.clone(),
             created_at: refresh_token.created_at,
             last_used_at: refresh_token.last_used_at,
         };
-        match self
-            .offline_session_store
-            .get_offline_session(
-                &refresh_token.claim.sub,
-                &refresh_token.connector_id,
+        let mut sessions = List::default();
+        self.offline_session_store
+            .list(
+                &offlinesession::ListParams {
+                    user_id: Some(refresh_token.claim.sub.clone()),
+                    conn_id: Some(refresh_token.connector_id.clone()),
+                    pagination: cim_storage::Pagination {
+                        count_disable: true,
+                        ..Default::default()
+                    },
+                },
+                &mut sessions,
             )
-            .await
-        {
-            Ok(mut session) => {
-                if let Some(old_session) =
-                    session.refresh.get_mut(&token_ref.client_id)
-                {
-                    return Ok(Some(old_session.id.clone()));
-                }
-                session
-                    .refresh
-                    .insert(token_ref.client_id.clone(), token_ref);
-                session.connector_data = refresh_token.connector_data.clone();
-                self.offline_session_store
-                    .put_offline_session(&session)
-                    .await?;
-            }
-            Err(err) => {
-                if !errors::not_found("").eq(&err) {
-                    return Err(err);
-                }
-                let mut offline_session = OfflineSession {
-                    user_id: refresh_token.claim.sub.clone(),
-                    conn_id: refresh_token.connector_id.clone(),
-                    connector_data: refresh_token.connector_data.clone(),
-                    ..Default::default()
-                };
-                offline_session
-                    .refresh
-                    .insert(token_ref.client_id.clone(), token_ref);
+            .await?;
+        if sessions.data.is_empty() {
+            let mut offline_session = offlinesession::OfflineSession {
+                id: next_id().map_err(errors::any)?.to_string(),
+                user_id: refresh_token.claim.sub.clone(),
+                conn_id: refresh_token.connector_id.clone(),
+                connector_data: refresh_token.connector_data.clone(),
+                ..Default::default()
+            };
+            offline_session
+                .refresh
+                .insert(token_ref.client_id.clone(), token_ref);
 
-                self.offline_session_store
-                    .put_offline_session(&offline_session)
-                    .await?;
+            self.offline_session_store.put(&offline_session, 0).await?;
+        } else {
+            let mut session = sessions.data.remove(0);
+            if let Some(old_session) =
+                session.refresh.get_mut(&token_ref.client_id)
+            {
+                return Ok(Some(old_session.id.clone()));
             }
+            session
+                .refresh
+                .insert(token_ref.client_id.clone(), token_ref);
+            session.connector_data = refresh_token.connector_data.clone();
+            self.offline_session_store.put(&session, 0).await?;
         }
+
         Ok(None)
     }
 }

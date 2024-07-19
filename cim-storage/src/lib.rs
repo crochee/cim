@@ -4,16 +4,21 @@ mod cache;
 pub mod client;
 pub mod connector;
 pub mod convert;
-pub mod groups;
-pub mod keys;
+pub mod group;
+pub mod group_user;
+pub mod key;
+mod mariadb;
 mod model;
 pub mod offlinesession;
-pub mod policies;
+pub mod policy;
+pub mod policy_binding;
 mod pool;
-pub mod refresh;
-pub mod roles;
-pub mod users;
+pub mod refresh_token;
+pub mod role;
+pub mod role_binding;
+pub mod user;
 
+pub use mariadb::*;
 pub use model::{Claim, ClaimOpts, List, Pagination, ID};
 pub use pool::connection_manager;
 

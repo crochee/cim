@@ -37,7 +37,7 @@ CREATE TABLE `policy` (
     `account_id` BIGINT(20) UNSIGNED NOT NULL DEFAULT '0' COMMENT 'account id',
     `desc` VARCHAR(255) NOT NULL COMMENT 'policy description',
     `version` VARCHAR(255) NOT NULL COMMENT 'policy version',
-    `content` LONGTEXT NOT NULL COMMENT 'policy content',
+    `statement` LONGTEXT NOT NULL COMMENT 'policy statement',
     `deleted` BIGINT(20) UNSIGNED NOT NULL DEFAULT '0' COMMENT 'soft delete flag',
     `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT 'create time',
     `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT 'update time',
@@ -73,7 +73,7 @@ CREATE TABLE `group` (
     INDEX `idx_deleted` (`deleted`) USING BTREE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = 'group info';
 
-CREATE TABLE `role_bindings` (
+CREATE TABLE `role_binding` (
     `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'user_role ID',
     `role_id` BIGINT(20) NOT NULL COMMENT 'role id',
     `user_type` TINYINT NOT NULL COMMENT 'user type',
@@ -85,9 +85,9 @@ CREATE TABLE `role_bindings` (
     PRIMARY KEY (`id`),
     UNIQUE `idx_role_id_user_type_user_id_deleted` (`role_id`, `user_type`, `user_id`, `deleted`) USING BTREE,
     INDEX `idx_deleted` (`deleted`) USING BTREE
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = 'role_bindings info';
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = 'role_binding info';
 
-CREATE TABLE `policy_bindings` (
+CREATE TABLE `policy_binding` (
     `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'user_group_role ID',
     `policy_id` BIGINT(20) NOT NULL COMMENT 'policy id',
     `bindings_type` TINYINT NOT NULL COMMENT 'bindings type 1:user 2:group 3:role',
@@ -99,7 +99,7 @@ CREATE TABLE `policy_bindings` (
     PRIMARY KEY (`id`),
     UNIQUE `idx_policy_id_bindings_type_bindings_id_deleted` (`policy_id`, `bindings_type`, `bindings_id`, `deleted`) USING BTREE,
     INDEX `idx_deleted` (`deleted`) USING BTREE
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = 'policy bindings info';
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = 'policy binding info';
 
 CREATE TABLE `group_user` (
     `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'user_group_user ID',
@@ -223,6 +223,7 @@ CREATE TABLE `key` (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = 'keys info';
 
 CREATE TABLE `offline_session` (
+    `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'offline_session ID',
 	`user_id` VARCHAR(255) NOT NULL,
 	`conn_id` VARCHAR(255) NOT NULL,
 	`refresh` TEXT NOT NULL,
@@ -231,7 +232,7 @@ CREATE TABLE `offline_session` (
     `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT 'create time',
     `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT 'update time',
     `deleted_at` DATETIME(3) NULL DEFAULT NULL COMMENT 'delete time',
-	PRIMARY KEY (`user_id`, `conn_id`),
+	UNIQUE KEY (`user_id`, `conn_id`),
     INDEX `idx_deleted` (`deleted`) USING BTREE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = 'offline_session info';
 

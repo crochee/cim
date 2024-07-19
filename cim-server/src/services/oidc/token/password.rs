@@ -2,11 +2,7 @@ use serde::Deserialize;
 
 use cim_slo::{errors, Result};
 use cim_storage::{
-    client::{Client, ClientStore},
-    connector::ConnectorStore,
-    offlinesession::OfflineSessionStore,
-    refresh::RefreshTokenStore,
-    users, Interface,
+    client, connector, offlinesession, refresh_token, user, Interface,
 };
 
 use crate::services::oidc::{
@@ -32,16 +28,19 @@ pub struct PasswordGrant<'a, C, S, T, R, O, U> {
 
 impl<'a, C, S, T, R, O, U> PasswordGrant<'a, C, S, T, R, O, U>
 where
-    C: ClientStore,
-    S: ConnectorStore,
+    C: Interface<T = client::Client>,
+    S: Interface<T = connector::Connector>,
     T: token::Token,
-    R: RefreshTokenStore,
-    O: OfflineSessionStore,
-    U: Interface<T = users::User> + Send + Sync + Clone + 'static,
+    R: Interface<T = refresh_token::RefreshToken>,
+    O: Interface<
+        T = offlinesession::OfflineSession,
+        L = offlinesession::ListParams,
+    >,
+    U: Interface<T = user::User> + Send + Sync + Clone + 'static,
 {
     pub async fn grant(
         &self,
-        client_value: &Client,
+        client_value: &client::Client,
         opts: &PasswordGrantOpts,
         password_conn: &str,
     ) -> Result<token::TokenResponse> {

@@ -12,7 +12,10 @@ use http::StatusCode;
 use tracing::info;
 
 use cim_slo::{errors, next_id, Result};
-use cim_storage::{users::*, Event, EventData, Interface, List, ID};
+use cim_storage::{
+    user::{Content, ListParams, User},
+    Event, EventData, Interface, List, ID,
+};
 
 use crate::{
     shutdown_signal,
@@ -35,7 +38,7 @@ async fn create_user(
     app: AppState,
     Valid(Json(input)): Valid<Json<Content>>,
 ) -> Result<(StatusCode, Json<ID>)> {
-    if !header.is_allow(&app.matcher, "cim:iam:user", HashMap::from([])) {
+    if !header.is_allow(&app.matcher, HashMap::from([])) {
         return Err(errors::unauthorized());
     }
     info!("list query {:#?}", input);
@@ -72,7 +75,6 @@ async fn list_user(
         ListWatch::List(filter) => {
             if !header.is_allow(
                 &app.matcher,
-                "cim:iam:user:*",
                 HashMap::from([]),
             ) {
                 return Err(errors::unauthorized());
@@ -85,7 +87,6 @@ async fn list_user(
         ListWatch::Ws((ws, filter)) => {
             if !header.is_allow(
                 &app.matcher,
-                "cim:iam:user:*",
                 HashMap::from([]),
             ) {
                 return Err(errors::unauthorized());
@@ -166,7 +167,6 @@ async fn get_user(
     app.store.user.get(&id, &mut user_result).await?;
     if !header.is_allow(
         &app.matcher,
-        "cim:iam:user:{id}",
         HashMap::from([(
             "account_id".to_owned(),
             user_result.account_id.clone(),
@@ -188,7 +188,6 @@ async fn delete_user(
     app.store.user.get(&id, &mut user_result).await?;
     if !header.is_allow(
         &app.matcher,
-        "cim:iam:user:{id}",
         HashMap::from([(
             "account_id".to_owned(),
             user_result.account_id.clone(),
@@ -212,7 +211,6 @@ async fn put_user(
     app.store.user.get(&id, &mut user_result).await?;
     if !header.is_allow(
         &app.matcher,
-        "cim:iam:user:{id}",
         HashMap::from([(
             "account_id".to_owned(),
             user_result.account_id.clone(),

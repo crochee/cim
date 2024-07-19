@@ -5,8 +5,11 @@ use rsa::traits::{PrivateKeyParts, PublicKeyParts};
 use serde::Serialize;
 use utoipa::ToSchema;
 
-use cim_slo::{errors, Result};
-use cim_storage::keys::*;
+use cim_slo::{errors, next_id, Result};
+use cim_storage::{
+    key::{Keys, VerificationKey},
+    Interface, List,
+};
 
 use super::jwk_to_public;
 
@@ -35,37 +38,34 @@ impl<S> KeyRotator<S> {
 
 impl<S> KeyRotator<S>
 where
-    S: KeyStore,
+    S: Interface<T = Keys, L = ()>,
 {
     pub async fn rotate(&self) -> Result<()> {
-        let mut keys = match self.store.get_key().await {
-            Ok(v) => v,
-            Err(err) => {
-                if !err.eq(&errors::not_found("")) {
-                    return Err(err);
-                }
-                let (signing_key, signing_key_pub) = self.create_key()?;
-                let now_time = Self::time_now();
-                return self
-                    .store
-                    .create_key(&Keys {
-                        signing_key,
-                        signing_key_pub: signing_key_pub.clone(),
-                        verification_keys: vec![VerificationKey {
-                            expiry: now_time + self.strategy.keep,
-                            public_key: signing_key_pub,
-                        }],
-                        next_rotation: now_time
-                            + self.strategy.rotation_frequency,
-                    })
-                    .await;
-            }
-        };
+        let mut output: List<Keys> = List::default();
+        self.store.list(&(), &mut output).await?;
+
+        let mut keys = Keys::default();
+
+        if !output.data.is_empty() {
+            keys = output.data.remove(0);
+        } else {
+            let (signing_key, signing_key_pub) = self.create_key()?;
+            let now_time = Self::time_now();
+            let id = next_id().map_err(errors::any)?;
+            keys.id = id.to_string();
+            keys.signing_key = signing_key;
+            keys.signing_key_pub = signing_key_pub.clone();
+            keys.verification_keys = vec![VerificationKey {
+                expiry: now_time + self.strategy.keep,
+                public_key: signing_key_pub,
+            }];
+            keys.next_rotation = now_time + self.strategy.rotation_frequency;
+        }
         if keys.next_rotation > Self::time_now() {
             return Ok(());
         }
         self.update_key(&mut keys)?;
-        self.store.update_key(&keys).await
+        self.store.put(&keys, 0).await
     }
 
     fn time_now() -> i64 {

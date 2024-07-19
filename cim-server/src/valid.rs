@@ -12,13 +12,13 @@ use axum::{
     },
     Form, Json,
 };
-use http::{header, request::Parts, HeaderMap, HeaderName};
+use http::{header, request::Parts, HeaderMap, HeaderName, Method};
 use serde::de::DeserializeOwned;
 use validator::Validate;
 
 use cim_pim::{Matcher, Pim, Statement};
 use cim_slo::errors::{self, Code, WithBacktrace};
-use cim_storage::{policies::StatementStore, users::User, Interface};
+use cim_storage::{policy::StatementStore, user::User, Interface};
 
 use crate::AppState;
 
@@ -104,7 +104,24 @@ where
         let auth = AuthUser::from_request_parts(parts, state).await?;
         let host = Host::from_request_parts(parts, state).await?;
         let client_ip = ClientIp::from_request_parts(parts, state).await?;
-
+        let action = match parts.method {
+            Method::POST => "create",
+            Method::GET => "get",
+            Method::PUT => "update",
+            Method::PATCH => "patch",
+            Method::DELETE => "delete",
+            _ => "",
+        };
+        let mut path =
+            parts.uri.path().trim_start_matches("/v").split('/').skip(1);
+        let mut resource = String::from("crn:iam:");
+        if let Some(v) = path.next() {
+            resource.push_str(v.trim_end_matches('s'));
+        };
+        if let Some(v) = path.next() {
+            resource.push(':');
+            resource.push_str(v);
+        }
         let subject = auth.user.id.clone();
         let mut result = Header {
             user: auth.user,
@@ -112,12 +129,13 @@ where
             client_ip: client_ip.ip,
             list: Vec::new(),
             req: cim_pim::Request {
-                resource: "".to_string(),
-                action: parts.method.to_string().to_lowercase(),
+                resource,
+                action: action.to_owned(),
                 subject,
                 context: HashMap::from([(
-                    "clientIP".to_owned(),
-                    serde_json::value::to_raw_value("192.168.1.67").unwrap(),
+                    "client_ip".to_owned(),
+                    serde_json::value::to_raw_value(&client_ip.ip.to_string())
+                        .unwrap(),
                 )]),
             },
         };
@@ -133,11 +151,9 @@ impl Header {
     pub fn is_allow<M: Matcher>(
         &self,
         matcher: &Pim<M>,
-        resource: &str,
         hash_map: HashMap<String, String>,
     ) -> bool {
         let mut req = self.req.clone();
-        req.resource = resource.to_string();
         hash_map.iter().for_each(|(k, v)| {
             req.context.insert(
                 k.to_string(),

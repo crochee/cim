@@ -1,30 +1,34 @@
+use std::collections::HashMap;
+
 use axum::{
-    extract::Path,
-    routing::{get, post},
+    extract::{ws::Message, Path},
+    response::{IntoResponse, Response},
+    routing::get,
     Json, Router,
 };
 
+use futures_util::{SinkExt, StreamExt};
 use http::StatusCode;
 use tracing::info;
 
-use cim_slo::Result;
-use cim_storage::{groups::*, List, ID};
+use cim_slo::{errors, next_id, Result};
+use cim_storage::{
+    group::{Content, Group, ListParams},
+    Event, EventData, Interface, List, ID,
+};
 
 use crate::{
-    services::groups,
-    valid::{Header, Valid},
-    var::SOURCE_SYSTEM,
+    shutdown_signal,
+    valid::{Header, ListWatch, Valid},
     AppState,
 };
 
 pub fn new_router(state: AppState) -> Router {
     Router::new()
         .route("/groups", get(list_group).post(create_group))
-        .nest(
+        .route(
             "/groups/:id",
-            Router::new()
-                .route("/", get(get_group).delete(delete_group).put(put_group))
-                .route("/users/:user_id", post(add_user).delete(delete_user)),
+            get(get_group).delete(delete_group).put(put_group),
         )
         .with_state(state)
 }
@@ -32,24 +36,112 @@ pub fn new_router(state: AppState) -> Router {
 async fn create_group(
     header: Header,
     app: AppState,
-    Valid(Json(mut input)): Valid<Json<Content>>,
+    Valid(Json(input)): Valid<Json<Content>>,
 ) -> Result<(StatusCode, Json<ID>)> {
-    input.account_id = header.account_id;
-    info!("list query {:#?}", input);
-    let id = app.store.group.create_group(None, &input).await?;
-    Ok((StatusCode::CREATED, id.into()))
+    if !header.is_allow(&app.matcher, HashMap::from([])) {
+        return Err(errors::unauthorized());
+    }
+    let id = next_id().map_err(errors::any)?;
+    app.store
+        .group
+        .put(
+            &Group {
+                id: id.to_string(),
+                account_id: header.user.account_id,
+                name: input.name,
+                desc: input.desc,
+                ..Default::default()
+            },
+            0,
+        )
+        .await?;
+    Ok((StatusCode::CREATED, ID { id: id.to_string() }.into()))
 }
 
 async fn list_group(
     header: Header,
     app: AppState,
-    Valid(mut filter): Valid<ListOpts>,
-) -> Result<Json<List<Group>>> {
-    if header.source.ne(&Some(SOURCE_SYSTEM.to_owned())) {
-        filter.account_id = Some(header.account_id);
+    list_watch: ListWatch<ListParams>,
+) -> Result<Response> {
+    match list_watch {
+        ListWatch::List(filter) => {
+            if !header.is_allow(&app.matcher, HashMap::from([])) {
+                return Err(errors::unauthorized());
+            }
+
+            let mut list = List::default();
+            app.store.group.list(&filter, &mut list).await?;
+            Ok(Json(list).into_response())
+        }
+        ListWatch::Ws((ws, filter)) => {
+            if !header.is_allow(&app.matcher, HashMap::from([])) {
+                return Err(errors::unauthorized());
+            }
+
+            Ok(ws.on_upgrade(move |socket| async move {
+                let (wtx, wrx) = std::sync::mpsc::channel::<Event<Group>>();
+                let remove = app.store.group.watch(
+                    move |event| {
+                        wtx.send(event).unwrap();
+                    },
+                    move || {
+                        info!("remove out 2");
+                    },
+                );
+                let (mut sender, mut receiver) = socket.split();
+                let mut send_task = tokio::spawn(async move {
+                    while let Ok(item) = wrx.recv() {
+                        let result: EventData<Group> = item.into();
+                        if let Some(ref v) = filter.id {
+                            if result.data.id.ne(v) {
+                                continue;
+                            }
+                        }
+                        if let Some(ref v) = filter.account_id {
+                            if result.data.account_id.ne(v) {
+                                continue;
+                            }
+                        }
+
+                        let data = serde_json::to_vec(&result).unwrap();
+                        if sender.send(Message::Binary(data)).await.is_err() {
+                            break;
+                        }
+                    }
+                });
+                let mut recv_task = tokio::spawn(async move {
+                    loop {
+                        tokio::select! {
+                        msg = receiver.next() => {
+                        if let Some(msg) = msg {
+                            if let Ok(msg) = msg {
+                                if let Message::Close(_) = msg {
+                                    break;
+                                }
+                            } else {
+                                break;
+                            }
+                        }
+                        },
+                        _ = shutdown_signal() => {
+                            break;
+                        }
+                        }
+                    }
+                });
+                tokio::select! {
+                    _ = (&mut send_task) => {
+                        remove();
+                        recv_task.abort();
+                    },
+                    _ = (&mut recv_task) => {
+                        remove();
+                        send_task.abort();
+                    }
+                }
+            }))
+        }
     }
-    let list = app.store.group.list_group(&filter).await?;
-    Ok(list.into())
 }
 
 async fn get_group(
@@ -57,12 +149,15 @@ async fn get_group(
     app: AppState,
     Path(id): Path<String>,
 ) -> Result<Json<Group>> {
-    let mut account_id = None;
-    if header.source.ne(&Some(SOURCE_SYSTEM.to_owned())) {
-        account_id = Some(header.account_id);
+    let mut result = Group::default();
+    app.store.group.get(&id, &mut result).await?;
+    if !header.is_allow(
+        &app.matcher,
+        HashMap::from([("account_id".to_owned(), result.account_id.clone())]),
+    ) {
+        return Err(errors::unauthorized());
     }
-    let resp = app.store.group.get_group(&id, account_id).await?;
-    Ok(resp.into())
+    Ok(result.into())
 }
 
 async fn delete_group(
@@ -70,11 +165,15 @@ async fn delete_group(
     app: AppState,
     Path(id): Path<String>,
 ) -> Result<StatusCode> {
-    let mut account_id = None;
-    if header.source.ne(&Some(SOURCE_SYSTEM.to_owned())) {
-        account_id = Some(header.account_id);
+    let mut result = Group::default();
+    app.store.group.get(&id, &mut result).await?;
+    if !header.is_allow(
+        &app.matcher,
+        HashMap::from([("account_id".to_owned(), result.account_id.clone())]),
+    ) {
+        return Err(errors::unauthorized());
     }
-    app.store.group.delete_group(&id, account_id).await?;
+    app.store.group.delete(&id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -82,33 +181,19 @@ async fn put_group(
     header: Header,
     app: AppState,
     Path(id): Path<String>,
-    Valid(Json(mut content)): Valid<Json<Content>>,
+    Valid(Json(content)): Valid<Json<Content>>,
 ) -> Result<StatusCode> {
-    info!("list query {:#?} {:#?}", content, header);
-    content.account_id = header.account_id;
-    groups::put_group(&app.store.group, &id, &content).await?;
-    Ok(StatusCode::NO_CONTENT)
-}
+    let mut result = Group::default();
+    app.store.group.get(&id, &mut result).await?;
+    if !header.is_allow(
+        &app.matcher,
+        HashMap::from([("account_id".to_owned(), result.account_id.clone())]),
+    ) {
+        return Err(errors::unauthorized());
+    }
+    result.name = content.name;
+    result.desc = content.desc;
 
-async fn add_user(
-    header: Header,
-    app: AppState,
-    Path((id, user_id)): Path<(String, String)>,
-) -> Result<StatusCode> {
-    info!("list query {:#?} {}", id, user_id);
-    app.store
-        .group
-        .attach_user(&id, Some(header.account_id), &user_id)
-        .await?;
-    Ok(StatusCode::NO_CONTENT)
-}
-
-async fn delete_user(
-    header: Header,
-    app: AppState,
-    Path((id, user_id)): Path<(String, String)>,
-) -> Result<StatusCode> {
-    info!("list query {:#?} {} {}", header.account_id, id, user_id);
-    app.store.group.detach_user(&id, &user_id).await?;
+    app.store.group.put(&result, 0).await?;
     Ok(StatusCode::NO_CONTENT)
 }

@@ -3,7 +3,7 @@ use tracing::debug;
 use cim_pim::Request;
 use cim_pim::{Matcher, Pim};
 use cim_slo::{errors, Result};
-use cim_storage::policies;
+use cim_storage::policy::StatementStore;
 
 /// authorize return  ok or error
 pub async fn authorize<P, R>(
@@ -12,7 +12,7 @@ pub async fn authorize<P, R>(
     input: &Request,
 ) -> Result<()>
 where
-    P: policies::StatementStore,
+    P: StatementStore,
     R: Matcher,
 {
     let statements = policy.get_statement(input).await?;
@@ -31,11 +31,11 @@ mod tests {
 
     use super::authorize;
     use cim_pim::*;
-    use cim_storage::policies;
+    use cim_storage::policy;
 
     #[tokio::test]
     async fn test_authorize() {
-        let mut p = policies::MockStatementStore::new();
+        let mut p = policy::MockStatementStore::new();
         p.expect_get_statement().returning(|_| {
             Ok(vec![Statement {
             effect: Effect::Allow,

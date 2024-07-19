@@ -26,7 +26,7 @@ pub struct ID {
 pub struct Pagination {
     pub limit: u64,
     pub offset: u64,
-    #[validate(custom = "check_order_by")]
+    #[validate(custom(function = "check_order_by"))]
     pub order_by: Option<String>,
     // 内部字段，不参与序列化, 标识不启用计数查询
     pub count_disable: bool,

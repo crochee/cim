@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
 use cim_slo::{crypto::password::verify, errors, Result};
-use cim_storage::{users, Claim, Interface};
+use cim_storage::{user::User, Claim, Interface};
 
 use super::{Identity, Info, PasswordConnector, Scopes};
 
@@ -18,7 +18,7 @@ impl<S> UserPassword<S> {
 #[async_trait]
 impl<S> PasswordConnector for UserPassword<S>
 where
-    S: Interface<T = users::User> + Send + Sync,
+    S: Interface<T = User> + Send + Sync,
 {
     fn prompt(&self) -> &'static str {
         "User"
@@ -27,7 +27,7 @@ where
         false
     }
     async fn login(&self, _s: &Scopes, info: &Info) -> Result<Identity> {
-        let mut user = users::User::default();
+        let mut user = User::default();
         self.store.get(&info.subject, &mut user).await?;
         if !verify(
             &user.password.unwrap_or_default(),
@@ -49,7 +49,7 @@ where
         _s: &Scopes,
         identity: &Identity,
     ) -> Result<Identity> {
-        let mut user = users::User::default();
+        let mut user = User::default();
         self.store.get(&identity.claim.sub, &mut user).await?;
 
         if user.id != identity.claim.sub {
