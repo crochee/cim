@@ -18,7 +18,7 @@ where
     let statements = policy.get_statement(input).await?;
     debug!("statements:{:#?}", statements);
     matcher
-        .is_allow(statements, input)
+        .is_allow(&statements, input)
         .map_err(|err| errors::forbidden(&err.to_string()))
 }
 

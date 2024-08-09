@@ -1,5 +1,4 @@
 use std::{
-    collections::HashMap,
     net::{IpAddr, SocketAddr},
     ops::Deref,
 };
@@ -7,20 +6,15 @@ use std::{
 use async_trait::async_trait;
 use axum::{
     extract::{
-        ConnectInfo, FromRef, FromRequest, FromRequestParts, Request,
-        WebSocketUpgrade,
+        ConnectInfo, FromRequest, FromRequestParts, Request, WebSocketUpgrade,
     },
     Form, Json,
 };
-use http::{header, request::Parts, HeaderMap, HeaderName, Method};
+use http::{header, request::Parts, HeaderMap, HeaderName};
 use serde::de::DeserializeOwned;
 use validator::Validate;
 
-use cim_pim::{Matcher, Pim, Statement};
 use cim_slo::errors::{self, Code, WithBacktrace};
-use cim_storage::{policy::StatementStore, user::User, Interface};
-
-use crate::AppState;
 
 pub struct Valid<T>(pub T);
 
@@ -78,89 +72,6 @@ where
             .map_err(|err| errors::bad_request(&err))?;
         value.deref().validate().map_err(Code::Validates)?;
         Ok(Self(value))
-    }
-}
-
-#[derive(Validate, Debug)]
-pub struct Header {
-    pub user: User,
-    pub host: String,
-    pub client_ip: IpAddr,
-    list: Vec<Statement>,
-    req: cim_pim::Request,
-}
-
-#[async_trait]
-impl<S> FromRequestParts<S> for Header
-where
-    AppState: FromRef<S>,
-    S: Send + Sync,
-{
-    type Rejection = WithBacktrace;
-    async fn from_request_parts(
-        parts: &mut Parts,
-        state: &S,
-    ) -> Result<Self, Self::Rejection> {
-        let auth = AuthUser::from_request_parts(parts, state).await?;
-        let host = Host::from_request_parts(parts, state).await?;
-        let client_ip = ClientIp::from_request_parts(parts, state).await?;
-        let action = match parts.method {
-            Method::POST => "create",
-            Method::GET => "get",
-            Method::PUT => "update",
-            Method::PATCH => "patch",
-            Method::DELETE => "delete",
-            _ => "",
-        };
-        let mut path =
-            parts.uri.path().trim_start_matches("/v").split('/').skip(1);
-        let mut resource = String::from("crn:iam:");
-        if let Some(v) = path.next() {
-            resource.push_str(v.trim_end_matches('s'));
-        };
-        if let Some(v) = path.next() {
-            resource.push(':');
-            resource.push_str(v);
-        }
-        let subject = auth.user.id.clone();
-        let mut result = Header {
-            user: auth.user,
-            host: host.host,
-            client_ip: client_ip.ip,
-            list: Vec::new(),
-            req: cim_pim::Request {
-                resource,
-                action: action.to_owned(),
-                subject,
-                context: HashMap::from([(
-                    "client_ip".to_owned(),
-                    serde_json::value::to_raw_value(&client_ip.ip.to_string())
-                        .unwrap(),
-                )]),
-            },
-        };
-        let app = AppState::from_ref(state);
-        // TODO:mutl statement source support
-        result.list = app.store.policy.get_statement(&result.req).await?;
-        result.validate().map_err(Code::Validates)?;
-        Ok(result)
-    }
-}
-
-impl Header {
-    pub fn is_allow<M: Matcher>(
-        &self,
-        matcher: &Pim<M>,
-        hash_map: HashMap<String, String>,
-    ) -> bool {
-        let mut req = self.req.clone();
-        hash_map.iter().for_each(|(k, v)| {
-            req.context.insert(
-                k.to_string(),
-                serde_json::value::to_raw_value(v).unwrap(),
-            );
-        });
-        matcher.is_allow(self.list.clone(), &req).is_ok()
     }
 }
 
@@ -300,35 +211,5 @@ where
         };
 
         Ok(Self { ip })
-    }
-}
-
-pub struct AuthUser {
-    pub user: User,
-}
-
-#[async_trait]
-impl<S> FromRequestParts<S> for AuthUser
-where
-    AppState: FromRef<S>,
-    S: Send + Sync,
-{
-    type Rejection = WithBacktrace;
-    async fn from_request_parts(
-        parts: &mut Parts,
-        state: &S,
-    ) -> Result<Self, Self::Rejection> {
-        // TODO: check token  and parse token  replace x-user-id
-        let app = AppState::from_ref(state);
-        let user_id = parts
-            .headers
-            .get("X-User-ID")
-            .ok_or_else(|| errors::forbidden("missing X-User-ID"))?
-            .to_str()
-            .unwrap_or_default();
-        let mut user = User::default();
-        app.store.user.get(user_id, &mut user).await?;
-
-        Ok(Self { user })
     }
 }

@@ -18,8 +18,9 @@ use cim_storage::{
 };
 
 use crate::{
+    auth::{Auth, Info},
     shutdown_signal,
-    valid::{Header, ListWatch, Valid},
+    valid::{ListWatch, Valid},
     AppState,
 };
 
@@ -34,13 +35,10 @@ pub fn new_router(state: AppState) -> Router {
 }
 
 async fn create_user(
-    header: Header,
+    _auth: Auth,
     app: AppState,
     Valid(Json(input)): Valid<Json<Content>>,
 ) -> Result<(StatusCode, Json<ID>)> {
-    if !header.is_allow(&app.matcher, HashMap::from([])) {
-        return Err(errors::unauthorized());
-    }
     info!("list query {:#?}", input);
     let id = next_id().map_err(errors::any)?;
     let account_id = match &input.account_id {
@@ -67,31 +65,17 @@ async fn create_user(
 }
 
 async fn list_user(
-    header: Header,
+    _auth: Auth,
     app: AppState,
     list_watch: ListWatch<ListParams>,
 ) -> Result<Response> {
     match list_watch {
         ListWatch::List(filter) => {
-            if !header.is_allow(
-                &app.matcher,
-                HashMap::from([]),
-            ) {
-                return Err(errors::unauthorized());
-            }
-
             let mut list = List::default();
             app.store.user.list(&filter, &mut list).await?;
             Ok(Json(list).into_response())
         }
         ListWatch::Ws((ws, filter)) => {
-            if !header.is_allow(
-                &app.matcher,
-                HashMap::from([]),
-            ) {
-                return Err(errors::unauthorized());
-            }
-
             Ok(ws.on_upgrade(move |socket| async move {
                 let (wtx, wrx) = std::sync::mpsc::channel::<Event<User>>();
                 let remove = app.store.user.watch(
@@ -159,13 +143,13 @@ async fn list_user(
 }
 
 async fn get_user(
-    header: Header,
+    mut info: Info,
     app: AppState,
     Path(id): Path<String>,
 ) -> Result<Json<User>> {
     let mut user_result = User::default();
     app.store.user.get(&id, &mut user_result).await?;
-    if !header.is_allow(
+    if !info.is_allow(
         &app.matcher,
         HashMap::from([(
             "account_id".to_owned(),
@@ -180,13 +164,13 @@ async fn get_user(
 }
 
 async fn delete_user(
-    header: Header,
+    mut info: Info,
     app: AppState,
     Path(id): Path<String>,
 ) -> Result<StatusCode> {
     let mut user_result = User::default();
     app.store.user.get(&id, &mut user_result).await?;
-    if !header.is_allow(
+    if !info.is_allow(
         &app.matcher,
         HashMap::from([(
             "account_id".to_owned(),
@@ -201,15 +185,14 @@ async fn delete_user(
 }
 
 async fn put_user(
-    header: Header,
+    mut info: Info,
     app: AppState,
     Path(id): Path<String>,
     Valid(Json(content)): Valid<Json<Content>>,
 ) -> Result<StatusCode> {
-    info!("list query {:#?} {:#?}", content, header);
     let mut user_result = User::default();
     app.store.user.get(&id, &mut user_result).await?;
-    if !header.is_allow(
+    if !info.is_allow(
         &app.matcher,
         HashMap::from([(
             "account_id".to_owned(),

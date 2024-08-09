@@ -18,8 +18,9 @@ use cim_storage::{
 };
 
 use crate::{
+    auth::{Auth, Info},
     shutdown_signal,
-    valid::{Header, ListWatch, Valid},
+    valid::{ListWatch, Valid},
     AppState,
 };
 
@@ -34,20 +35,17 @@ pub fn new_router(state: AppState) -> Router {
 }
 
 async fn create_group(
-    header: Header,
+    auth: Auth,
     app: AppState,
     Valid(Json(input)): Valid<Json<Content>>,
 ) -> Result<(StatusCode, Json<ID>)> {
-    if !header.is_allow(&app.matcher, HashMap::from([])) {
-        return Err(errors::unauthorized());
-    }
     let id = next_id().map_err(errors::any)?;
     app.store
         .group
         .put(
             &Group {
                 id: id.to_string(),
-                account_id: header.user.account_id,
+                account_id: auth.user.account_id,
                 name: input.name,
                 desc: input.desc,
                 ..Default::default()
@@ -59,25 +57,17 @@ async fn create_group(
 }
 
 async fn list_group(
-    header: Header,
+    _auth: Auth,
     app: AppState,
     list_watch: ListWatch<ListParams>,
 ) -> Result<Response> {
     match list_watch {
         ListWatch::List(filter) => {
-            if !header.is_allow(&app.matcher, HashMap::from([])) {
-                return Err(errors::unauthorized());
-            }
-
             let mut list = List::default();
             app.store.group.list(&filter, &mut list).await?;
             Ok(Json(list).into_response())
         }
         ListWatch::Ws((ws, filter)) => {
-            if !header.is_allow(&app.matcher, HashMap::from([])) {
-                return Err(errors::unauthorized());
-            }
-
             Ok(ws.on_upgrade(move |socket| async move {
                 let (wtx, wrx) = std::sync::mpsc::channel::<Event<Group>>();
                 let remove = app.store.group.watch(
@@ -145,13 +135,13 @@ async fn list_group(
 }
 
 async fn get_group(
-    header: Header,
+    mut info: Info,
     app: AppState,
     Path(id): Path<String>,
 ) -> Result<Json<Group>> {
     let mut result = Group::default();
     app.store.group.get(&id, &mut result).await?;
-    if !header.is_allow(
+    if !info.is_allow(
         &app.matcher,
         HashMap::from([("account_id".to_owned(), result.account_id.clone())]),
     ) {
@@ -161,13 +151,13 @@ async fn get_group(
 }
 
 async fn delete_group(
-    header: Header,
+    mut info: Info,
     app: AppState,
     Path(id): Path<String>,
 ) -> Result<StatusCode> {
     let mut result = Group::default();
     app.store.group.get(&id, &mut result).await?;
-    if !header.is_allow(
+    if !info.is_allow(
         &app.matcher,
         HashMap::from([("account_id".to_owned(), result.account_id.clone())]),
     ) {
@@ -178,14 +168,14 @@ async fn delete_group(
 }
 
 async fn put_group(
-    header: Header,
+    mut info: Info,
     app: AppState,
     Path(id): Path<String>,
     Valid(Json(content)): Valid<Json<Content>>,
 ) -> Result<StatusCode> {
     let mut result = Group::default();
     app.store.group.get(&id, &mut result).await?;
-    if !header.is_allow(
+    if !info.is_allow(
         &app.matcher,
         HashMap::from([("account_id".to_owned(), result.account_id.clone())]),
     ) {

@@ -39,6 +39,15 @@ futures-util = { version = "0.3", default-features = false, features = [
     "alloc",
 ] }
 futures = "0.3 "
+sqlx = { version = "0.8", features = [
+    "mysql",
+    "runtime-tokio",
+    "tls-rustls",
+    "chrono",
+] }
+http = "1.1"
+lru = "0.12"
+rand = "0.8"
 
 [profile.release]
 codegen-units = 16

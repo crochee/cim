@@ -17,8 +17,9 @@ use cim_storage::{
 };
 
 use crate::{
+    auth::{Auth, Info},
     shutdown_signal,
-    valid::{Header, ListWatch, Valid},
+    valid::{ ListWatch, Valid},
     AppState,
 };
 
@@ -33,20 +34,17 @@ pub fn new_router(state: AppState) -> Router {
 }
 
 async fn create_policy(
-    header: Header,
-    app: AppState,
+        auth: Auth,
+        app: AppState,
     Valid(Json(content)): Valid<Json<Content>>,
 ) -> Result<(StatusCode, Json<ID>)> {
-    if !header.is_allow(&app.matcher, HashMap::from([])) {
-        return Err(errors::unauthorized());
-    }
     let id = next_id().map_err(errors::any)?;
     app.store
         .policy
         .put(
             &Policy {
                 id: id.to_string(),
-                account_id: Some(header.user.account_id),
+                account_id: Some(auth.user.account_id),
                 desc: content.desc,
                 version: content.version,
                 statement: content.statement,
@@ -59,25 +57,17 @@ async fn create_policy(
 }
 
 async fn list_policy(
-    header: Header,
-    app: AppState,
+        _auth: Auth,
+        app: AppState,
     list_watch: ListWatch<ListParams>,
 ) -> Result<Response> {
     match list_watch {
         ListWatch::List(filter) => {
-            if !header.is_allow(&app.matcher, HashMap::from([])) {
-                return Err(errors::unauthorized());
-            }
-
             let mut list = List::default();
             app.store.policy.list(&filter, &mut list).await?;
             Ok(Json(list).into_response())
         }
         ListWatch::Ws((ws, filter)) => {
-            if !header.is_allow(&app.matcher, HashMap::from([])) {
-                return Err(errors::unauthorized());
-            }
-
             Ok(ws.on_upgrade(move |socket| async move {
                 let (wtx, wrx) = std::sync::mpsc::channel::<Event<Policy>>();
                 let remove = app.store.policy.watch(
@@ -143,7 +133,7 @@ async fn list_policy(
 }
 
 async fn get_policy(
-    header: Header,
+    mut info: Info,
     app: AppState,
     Path(id): Path<String>,
 ) -> Result<Json<Policy>> {
@@ -153,14 +143,14 @@ async fn get_policy(
     if let Some(account_id) = &result.account_id {
         opts.insert("account_id".to_owned(), account_id.clone());
     }
-    if !header.is_allow(&app.matcher, opts) {
+    if !info.is_allow(&app.matcher, opts) {
         return Err(errors::unauthorized());
     }
     Ok(result.into())
 }
 
 async fn delete_policy(
-    header: Header,
+    mut info: Info,
     app: AppState,
     Path(id): Path<String>,
 ) -> Result<StatusCode> {
@@ -171,7 +161,7 @@ async fn delete_policy(
         opts.insert("account_id".to_owned(), account_id.clone());
     }
 
-    if !header.is_allow(&app.matcher, opts) {
+    if !info.is_allow(&app.matcher, opts) {
         return Err(errors::unauthorized());
     }
     app.store.policy.delete(&id).await?;
@@ -179,7 +169,7 @@ async fn delete_policy(
 }
 
 async fn put_policy(
-    header: Header,
+    mut info: Info,
     app: AppState,
     Path(id): Path<String>,
     Valid(Json(content)): Valid<Json<Content>>,
@@ -190,7 +180,7 @@ async fn put_policy(
     if let Some(account_id) = &result.account_id {
         opts.insert("account_id".to_owned(), account_id.clone());
     }
-    if !header.is_allow(&app.matcher, opts) {
+    if !info.is_allow(&app.matcher, opts) {
         return Err(errors::unauthorized());
     }
     result.desc = content.desc;

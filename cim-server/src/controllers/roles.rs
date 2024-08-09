@@ -17,8 +17,9 @@ use cim_storage::{
 };
 
 use crate::{
+    auth::{Auth, Info},
     shutdown_signal,
-    valid::{Header, ListWatch, Valid},
+    valid::{ListWatch, Valid},
     AppState,
 };
 
@@ -33,13 +34,10 @@ pub fn new_router(state: AppState) -> Router {
 }
 
 async fn create_role(
-    header: Header,
+    auth: Auth,
     app: AppState,
     Valid(Json(input)): Valid<Json<Content>>,
 ) -> Result<(StatusCode, Json<ID>)> {
-    if !header.is_allow(&app.matcher, HashMap::from([])) {
-        return Err(errors::unauthorized());
-    }
     info!("list query {:#?}", input);
     let id = next_id().map_err(errors::any)?;
     app.store
@@ -47,7 +45,7 @@ async fn create_role(
         .put(
             &Role {
                 id: id.to_string(),
-                account_id: header.user.account_id,
+                account_id: auth.user.account_id,
                 name: input.name,
                 desc: input.desc,
                 ..Default::default()
@@ -59,25 +57,17 @@ async fn create_role(
 }
 
 async fn list_role(
-    header: Header,
+    _auth: Auth,
     app: AppState,
     list_watch: ListWatch<ListParams>,
 ) -> Result<Response> {
     match list_watch {
         ListWatch::List(filter) => {
-            if !header.is_allow(&app.matcher, HashMap::from([])) {
-                return Err(errors::unauthorized());
-            }
-
             let mut list = List::default();
             app.store.role.list(&filter, &mut list).await?;
             Ok(Json(list).into_response())
         }
         ListWatch::Ws((ws, filter)) => {
-            if !header.is_allow(&app.matcher, HashMap::from([])) {
-                return Err(errors::unauthorized());
-            }
-
             Ok(ws.on_upgrade(move |socket| async move {
                 let (wtx, wrx) = std::sync::mpsc::channel::<Event<Role>>();
                 let remove = app.store.role.watch(
@@ -145,13 +135,13 @@ async fn list_role(
 }
 
 async fn get_role(
-    header: Header,
+    mut info: Info,
     app: AppState,
     Path(id): Path<String>,
 ) -> Result<Json<Role>> {
     let mut result = Role::default();
     app.store.role.get(&id, &mut result).await?;
-    if !header.is_allow(
+    if !info.is_allow(
         &app.matcher,
         HashMap::from([("account_id".to_owned(), result.account_id.clone())]),
     ) {
@@ -161,13 +151,13 @@ async fn get_role(
 }
 
 async fn delete_role(
-    header: Header,
+    mut info: Info,
     app: AppState,
     Path(id): Path<String>,
 ) -> Result<StatusCode> {
     let mut result = Role::default();
     app.store.role.get(&id, &mut result).await?;
-    if !header.is_allow(
+    if !info.is_allow(
         &app.matcher,
         HashMap::from([("account_id".to_owned(), result.account_id.clone())]),
     ) {
@@ -178,14 +168,14 @@ async fn delete_role(
 }
 
 async fn put_role(
-    header: Header,
+    mut info: Info,
     app: AppState,
     Path(id): Path<String>,
     Valid(Json(content)): Valid<Json<Content>>,
 ) -> Result<StatusCode> {
     let mut result = Role::default();
     app.store.role.get(&id, &mut result).await?;
-    if !header.is_allow(
+    if !info.is_allow(
         &app.matcher,
         HashMap::from([("account_id".to_owned(), result.account_id.clone())]),
     ) {

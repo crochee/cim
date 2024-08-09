@@ -72,6 +72,12 @@ impl From<Code> for WithBacktrace {
     }
 }
 
+impl From<WithBacktrace> for Code {
+    fn from(value: WithBacktrace) -> Self {
+        value.source
+    }
+}
+
 impl PartialEq for WithBacktrace {
     fn eq(&self, other: &Self) -> bool {
         let (_, src_code) = self.source.code();

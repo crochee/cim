@@ -110,7 +110,7 @@ fn main() -> anyhow::Result<()> {
 
     let p = Pim::new(Regexp::new(256)?);
     p.is_allow(
-        sts,
+        &sts,
         &Request {
             resource: "myrn:some.domain.com:resource:123".to_owned(),
             action: "delete".to_owned(),

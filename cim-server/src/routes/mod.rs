@@ -28,7 +28,10 @@ use utoipa_swagger_ui::SwaggerUi;
 use cim_slo::errors;
 
 use crate::{
-    controllers::{auth, groups, oidc, policies, roles, users},
+    controllers::{
+        auth, group_users, groups, oidc, policies, policy_bindings,
+        role_bindings, roles, users,
+    },
     middlewares::MakeSpanWithTrace,
     var::{HTTP_REQUESTS_DURATION_SECONDS, HTTP_REQUESTS_TOTAL},
     AppState,
@@ -64,6 +67,9 @@ impl AppRouter {
                     .merge(auth::new_router(state.clone()))
                     .merge(users::new_router(state.clone()))
                     .merge(roles::new_router(state.clone()))
+                    .merge(group_users::new_router(state.clone()))
+                    .merge(role_bindings::new_router(state.clone()))
+                    .merge(policy_bindings::new_router(state.clone()))
                     .merge(groups::new_router(state)),
             )
             .layer(
