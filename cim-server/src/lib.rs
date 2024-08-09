@@ -7,6 +7,7 @@ mod services;
 mod valid;
 mod var;
 mod version;
+mod auth;
 
 #[cfg(target_env = "msvc")]
 #[global_allocator]

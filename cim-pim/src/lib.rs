@@ -23,7 +23,7 @@ impl<M> Pim<M> {
 impl<M: Matcher> Pim<M> {
     pub fn is_allow(
         &self,
-        list: Vec<Statement>,
+        list: &[Statement],
         input: &Request,
     ) -> Result<()> {
         let mut allowed = false;
@@ -206,7 +206,7 @@ mod tests {
 
         let p = super::Pim::new(Regexp::new(256).unwrap());
         p.is_allow(
-            sts,
+            &sts,
             &Request {
                 resource: "myrn:some.domain.com:resource:123".to_owned(),
                 action: "delete".to_owned(),
