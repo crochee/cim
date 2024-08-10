@@ -20,9 +20,9 @@ migrate: ## migrate database
 	@sqlx database create && sqlx migrate run
 
 .PHONY: rs
-rs: ## run server
-	sudo docker build -f ./server/build/Dockerfile -t server:latest . && \
-	sudo docker run -itd -p 30050:30050 --restart=always --name server server:latest
+rs: build ## run server
+	docker build -f server.Dockerfile -t server:latest . && \
+	docker run -itd -p 30050:30050 --restart=always --name server server:latest
 
 .PHONY: database
 database: ## install database cli

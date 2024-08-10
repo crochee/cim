@@ -1,4 +1,3 @@
-
 #!/bin/sh
 # alpine不支持bash
 set -e
@@ -14,9 +13,9 @@ fi
 
 # If container is started as root user, restart as dedicated dev user
 # allow the container to be started with `--user`
-if [ "$1" = 'server' -a "$(id -u)" = '0' ]; then
-	find . \! -user dev -exec chown dev '{}' +
-	exec gosu dev "$0" "$@"
+if [ "$1" = 'server' ] && [ "$(id -u)" = '0' ]; then
+    find . \! -user dev -exec chown dev '{}' +
+    exec gosu dev "$0" "$@"
 fi
 
 um="$(umask)"

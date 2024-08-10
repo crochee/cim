@@ -1,9 +1,10 @@
+ARG TAG=v0.1.0
 FROM lukemathwalker/cargo-chef:latest AS chef
 WORKDIR app
 
 FROM chef AS planner
 # 代码拷贝
-RUN git clone -b release-v1.0.0 https://github.com/crochee/cim.git
+RUN git clone -b $TAG https://github.com/crochee/cim.git
 
 RUN cargo chef prepare --recipe-path recipe.json
 
@@ -12,7 +13,7 @@ COPY --from=planner /app/recipe.json recipe.json
 # Build dependencies - this is the caching Docker layer!
 RUN cargo chef cook --release --recipe-path recipe.json
 # Build application
-RUN git clone -b release-v1.0.0 https://github.com/crochee/cim.git
+RUN git clone -b $TAG https://github.com/crochee/cim.git
 RUN cargo build --release
 
 # We do not need the Rust toolchain to run the binary!

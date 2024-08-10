@@ -35,7 +35,6 @@ pub fn new_router(state: AppState) -> Router {
 }
 
 async fn create_user(
-    _auth: Auth,
     app: AppState,
     Valid(Json(input)): Valid<Json<Content>>,
 ) -> Result<(StatusCode, Json<ID>)> {

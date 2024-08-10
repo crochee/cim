@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use chrono::Utc;
-use cim_pim::{Request, Statement};
-use sqlx::{MySqlPool, Row};
+use sqlx::{types::Json, MySqlPool, Row};
 
+use cim_pim::{Request, Statement};
 use cim_slo::{errors, Result};
 use cim_watch::{Watcher, WatcherHub};
 
@@ -32,8 +32,6 @@ impl Interface for PolicyImpl {
     type T = Policy;
     type L = ListParams;
     async fn put(&self, input: &Self::T, _ttl: u64) -> Result<()> {
-        let statement =
-            serde_json::to_string(&input.statement).map_err(errors::any)?;
         sqlx::query(
             r#"REPLACE INTO `policy`
             (`id`,`account_id`,`desc`,`version`,`statement`)
@@ -43,7 +41,7 @@ impl Interface for PolicyImpl {
         .bind(&input.account_id)
         .bind(&input.desc)
         .bind(&input.version)
-        .bind(statement)
+        .bind(Json(&input.statement))
         .execute(&self.pool)
         .await
         .map_err(errors::any)?;
@@ -107,12 +105,10 @@ impl Interface for PolicyImpl {
         output.account_id = row.try_get("account_id").map_err(errors::any)?;
         output.desc = row.try_get("desc").map_err(errors::any)?;
         output.version = row.try_get("version").map_err(errors::any)?;
-
-        output.statement = serde_json::from_str(
-            &row.try_get::<String, _>("statement").map_err(errors::any)?,
-        )
-        .map_err(errors::any)?;
-
+        output.statement = row
+            .try_get::<Json<Vec<Statement>>, _>("statement")
+            .map_err(errors::any)?
+            .0;
         output.created_at = row.try_get("created_at").map_err(errors::any)?;
         output.updated_at = row.try_get("updated_at").map_err(errors::any)?;
         Ok(())
@@ -174,11 +170,10 @@ impl Interface for PolicyImpl {
                 account_id: row.try_get("account_id").map_err(errors::any)?,
                 desc: row.try_get("desc").map_err(errors::any)?,
                 version: row.try_get("version").map_err(errors::any)?,
-                statement: serde_json::from_str(
-                    &row.try_get::<String, _>("statement")
-                        .map_err(errors::any)?,
-                )
-                .map_err(errors::any)?,
+                statement: row
+                    .try_get::<Json<Vec<Statement>>, _>("statement")
+                    .map_err(errors::any)?
+                    .0,
                 created_at: row.try_get("created_at").map_err(errors::any)?,
                 updated_at: row.try_get("updated_at").map_err(errors::any)?,
             });

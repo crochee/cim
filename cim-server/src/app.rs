@@ -39,8 +39,8 @@ impl App {
         let key_rotator = KeyRotator::new(
             cim_storage::KeysImpl::new(pool.clone()),
             RotationStrategy {
-                rotation_frequency: 6 * 60 * 60,
-                keep: 24 * 60 * 60,
+                rotation_frequency:  60 * 60,
+                keep:  60 * 60,
             },
         );
 

@@ -45,28 +45,32 @@ where
         let mut output: List<Keys> = List::default();
         self.store.list(&(), &mut output).await?;
 
-        let mut keys = Keys::default();
-
         if !output.data.is_empty() {
-            keys = output.data.remove(0);
-        } else {
-            let (signing_key, signing_key_pub) = self.create_key()?;
-            let now_time = Self::time_now();
-            let id = next_id().map_err(errors::any)?;
-            keys.id = id.to_string();
-            keys.signing_key = signing_key;
-            keys.signing_key_pub = signing_key_pub.clone();
-            keys.verification_keys = vec![VerificationKey {
-                expiry: now_time + self.strategy.keep,
-                public_key: signing_key_pub,
-            }];
-            keys.next_rotation = now_time + self.strategy.rotation_frequency;
+            let mut keys = output.data.remove(0);
+            if keys.next_rotation > Self::time_now() {
+                info!("Skipping key rotation");
+                return Ok(());
+            }
+            self.update_key(&mut keys)?;
+            return self.store.put(&keys, 0).await;
         }
-        if keys.next_rotation > Self::time_now() {
-            return Ok(());
-        }
-        self.update_key(&mut keys)?;
-        self.store.put(&keys, 0).await
+        let (signing_key, signing_key_pub) = self.create_key()?;
+        let now_time = Self::time_now();
+        self.store
+            .put(
+                &Keys {
+                    id: next_id().map_err(errors::any)?.to_string(),
+                    signing_key,
+                    signing_key_pub: signing_key_pub.clone(),
+                    verification_keys: vec![VerificationKey {
+                        expiry: now_time + self.strategy.keep,
+                        public_key: signing_key_pub,
+                    }],
+                    next_rotation: now_time + self.strategy.rotation_frequency,
+                },
+                0,
+            )
+            .await
     }
 
     fn time_now() -> i64 {

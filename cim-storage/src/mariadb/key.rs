@@ -1,10 +1,14 @@
 use async_trait::async_trait;
-use sqlx::{MySqlPool, Row};
+use jsonwebkey::JsonWebKey;
+use sqlx::{types::Json, MySqlPool, Row};
 
 use cim_slo::{errors, Result};
 use cim_watch::Watcher;
 
-use crate::{key::Keys, Event, Interface, List};
+use crate::{
+    key::{Keys, VerificationKey},
+    Event, Interface, List,
+};
 
 #[derive(Clone)]
 pub struct KeysImpl {
@@ -22,21 +26,15 @@ impl Interface for KeysImpl {
     type T = Keys;
     type L = ();
     async fn put(&self, nk: &Self::T, _ttl: u64) -> Result<()> {
-        let verification_keys = serde_json::to_string(&nk.verification_keys)
-            .map_err(errors::any)?;
-        let signing_key =
-            serde_json::to_string(&nk.signing_key).map_err(errors::any)?;
-        let signing_key_pub =
-            serde_json::to_string(&nk.signing_key_pub).map_err(errors::any)?;
         sqlx::query(
             r#"REPLACE INTO `key`
             (`id`,`verification_keys`,`signing_key`,`signing_key_pub`,`next_rotation`)
             VALUES(?,?,?,?,?);"#,
         )
         .bind(&nk.id)
-        .bind(verification_keys)
-        .bind(signing_key)
-        .bind(signing_key_pub)
+        .bind(Json(&nk.verification_keys))
+        .bind(Json(&nk.signing_key))
+        .bind(Json(&nk.signing_key_pub))
         .bind(nk.next_rotation as u64)
         .execute(&self.pool)
         .await
@@ -76,21 +74,18 @@ impl Interface for KeysImpl {
             .try_get::<u64, _>("id")
             .map_err(errors::any)?
             .to_string();
-        output.signing_key = serde_json::from_str(
-            &row.try_get::<String, _>("signing_key")
-                .map_err(errors::any)?,
-        )
-        .map_err(errors::any)?;
-        output.signing_key_pub = serde_json::from_str(
-            &row.try_get::<String, _>("signing_key_pub")
-                .map_err(errors::any)?,
-        )
-        .map_err(errors::any)?;
-        output.verification_keys = serde_json::from_str(
-            &row.try_get::<String, _>("verification_keys")
-                .map_err(errors::any)?,
-        )
-        .map_err(errors::any)?;
+        output.signing_key = row
+            .try_get::<Json<JsonWebKey>, _>("signing_key")
+            .map_err(errors::any)?
+            .0;
+        output.signing_key_pub = row
+            .try_get::<Json<JsonWebKey>, _>("signing_key_pub")
+            .map_err(errors::any)?
+            .0;
+        output.verification_keys = row
+            .try_get::<Json<Vec<VerificationKey>>, _>("verification_keys")
+            .map_err(errors::any)?
+            .0;
         output.next_rotation = row
             .try_get::<u64, _>("next_rotation")
             .map_err(errors::any)? as i64;
@@ -125,21 +120,20 @@ impl Interface for KeysImpl {
                     .try_get::<u64, _>("id")
                     .map_err(errors::any)?
                     .to_string(),
-                signing_key: serde_json::from_str(
-                    &row.try_get::<String, _>("signing_key")
-                        .map_err(errors::any)?,
-                )
-                .map_err(errors::any)?,
-                signing_key_pub: serde_json::from_str(
-                    &row.try_get::<String, _>("signing_key_pub")
-                        .map_err(errors::any)?,
-                )
-                .map_err(errors::any)?,
-                verification_keys: serde_json::from_str(
-                    &row.try_get::<String, _>("verification_keys")
-                        .map_err(errors::any)?,
-                )
-                .map_err(errors::any)?,
+                signing_key: row
+                    .try_get::<Json<JsonWebKey>, _>("signing_key")
+                    .map_err(errors::any)?
+                    .0,
+                signing_key_pub: row
+                    .try_get::<Json<JsonWebKey>, _>("signing_key_pub")
+                    .map_err(errors::any)?
+                    .0,
+                verification_keys: row
+                    .try_get::<Json<Vec<VerificationKey>>, _>(
+                        "verification_keys",
+                    )
+                    .map_err(errors::any)?
+                    .0,
                 next_rotation: row
                     .try_get::<u64, _>("next_rotation")
                     .map_err(errors::any)?
