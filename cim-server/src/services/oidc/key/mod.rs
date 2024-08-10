@@ -3,6 +3,7 @@ use jsonwebkey as jwk;
 use rand::Rng;
 use rsa::traits::{PrivateKeyParts, PublicKeyParts};
 use serde::Serialize;
+use tracing::info;
 use utoipa::ToSchema;
 
 use cim_slo::{errors, next_id, Result};

@@ -43,7 +43,7 @@ CREATE TABLE `policy` (
     `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT 'update time',
     `deleted_at` DATETIME(3) NULL DEFAULT NULL COMMENT 'delete time',
     PRIMARY KEY (`id`),
-    CONSTRAINT `content` CHECK (json_valid(`content`)),
+    CONSTRAINT `statement` CHECK (json_valid(`statement`)),
     INDEX `idx_deleted` (`deleted`) USING BTREE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = 'policy info';
 
@@ -232,6 +232,7 @@ CREATE TABLE `offline_session` (
     `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT 'create time',
     `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT 'update time',
     `deleted_at` DATETIME(3) NULL DEFAULT NULL COMMENT 'delete time',
+    PRIMARY KEY (`id`),
 	UNIQUE KEY (`user_id`, `conn_id`),
     INDEX `idx_deleted` (`deleted`) USING BTREE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = 'offline_session info';

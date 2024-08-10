@@ -87,7 +87,7 @@ pub async fn run_connector<
     auth_req.id = uuid::Uuid::new_v4().to_string();
     auth_req.connector_id = connector_id.to_string();
     auth_req.expiry = Utc::now().timestamp() + expires_in;
-    auth_request_store.put(&auth_req, 0).await?;
+    auth_request_store.put(auth_req, 0).await?;
 
     match connector_impl {
         Connector::Password(_) => Ok(format!(

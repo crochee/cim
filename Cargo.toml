@@ -1,17 +1,18 @@
 [workspace]
 resolver = "2"
 members = [
-    "cim-server",
-    "cim-client",
-    "cim-pim",
-    "examples",
-    "cim-connect",
-    "cim-storage",
-    "cim-slo",
-    "cim",
-    "cim-uid",
-    "cim-macros",
-    "cim-watch",
+  "cim-server",
+  "cim-client",
+  "cim-pim",
+  "examples",
+  "cim-connect",
+  "cim-storage",
+  "cim-slo",
+  "cim",
+  "cim-uid",
+  "cim-macros",
+  "cim-watch",
+  "cim-job",
 ]
 default-members = ["cim-server"]
 
@@ -36,14 +37,14 @@ mockall = "0.13"
 async-trait = "0.1"
 axum = { version = "0.7", features = ["tracing", "ws"] }
 futures-util = { version = "0.3", default-features = false, features = [
-    "alloc",
+  "alloc",
 ] }
 futures = "0.3 "
 sqlx = { version = "0.8", features = [
-    "mysql",
-    "runtime-tokio",
-    "tls-rustls",
-    "chrono",
+  "mysql",
+  "runtime-tokio",
+  "tls-rustls",
+  "chrono",
 ] }
 http = "1.1"
 lru = "0.12"

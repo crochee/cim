@@ -1,5 +1,6 @@
 use anyhow::Context;
 use sqlx::{mysql::MySqlPoolOptions, MySqlPool};
+use tracing::info;
 
 pub async fn connection_manager(
     uri: &str,
@@ -15,7 +16,7 @@ pub async fn connection_manager(
         .context("error while initializing the database connection pool")?;
 
     if run_migrations {
-        tracing::info!("migrations enabled, running...");
+        info!("migrations enabled, running...");
         sqlx::migrate!()
             .run(&pool)
             .await

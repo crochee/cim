@@ -100,9 +100,53 @@ impl Interface for KeysImpl {
     async fn list(
         &self,
         _opts: &Self::L,
-        _output: &mut List<Self::T>,
+        output: &mut List<Self::T>,
     ) -> Result<()> {
-        todo!()
+        let mut wheres = String::new();
+        if !wheres.is_empty() {
+            wheres.push_str(" AND ");
+        }
+        wheres.push_str(r#"`deleted` = 0"#);
+        let rows = sqlx::query(
+            format!(
+                r#"SELECT `id`,`verification_keys`,`signing_key`,`signing_key_pub`,`next_rotation`
+                FROM `key`
+                WHERE {};"#,
+                wheres,
+            )
+            .as_str(),
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(errors::any)?;
+        for row in rows.iter() {
+            output.data.push(Self::T {
+                id: row
+                    .try_get::<u64, _>("id")
+                    .map_err(errors::any)?
+                    .to_string(),
+                signing_key: serde_json::from_str(
+                    &row.try_get::<String, _>("signing_key")
+                        .map_err(errors::any)?,
+                )
+                .map_err(errors::any)?,
+                signing_key_pub: serde_json::from_str(
+                    &row.try_get::<String, _>("signing_key_pub")
+                        .map_err(errors::any)?,
+                )
+                .map_err(errors::any)?,
+                verification_keys: serde_json::from_str(
+                    &row.try_get::<String, _>("verification_keys")
+                        .map_err(errors::any)?,
+                )
+                .map_err(errors::any)?,
+                next_rotation: row
+                    .try_get::<u64, _>("next_rotation")
+                    .map_err(errors::any)?
+                    as i64,
+            });
+        }
+        Ok(())
     }
     fn watch<W: Watcher<Event<Self::T>>>(
         &self,

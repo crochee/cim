@@ -1,0 +1,13 @@
+[package]
+name = "cim-job"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+cim-slo = { path = "../cim-slo" }
+
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+
+[lints]
+workspace = true

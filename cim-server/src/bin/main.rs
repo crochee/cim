@@ -65,23 +65,23 @@ fn key_rotate(app: Arc<App>) {
         if let Err(err) = app.key_rotator.rotate().await {
             error!("{}", err);
         }
-        info!("start first finish!");
         let mut interval =
             tokio::time::interval(tokio::time::Duration::from_secs(60));
 
         loop {
             tokio::select! {
-                _ = interval.tick() => {
-                    info!("start rotate...");
-                    if let Err(err) = app.key_rotator.rotate().await {
-                        error!("{}", err);
+                    _ = interval.tick() => {
+                        info!("start rotate...");
+                        if let Err(err) = app.key_rotator.rotate().await {
+                            error!("{}", err);
+                        }
+                         info!("end rotate...");
+                    },
+                    _ = shutdown_signal() => {
+                        break;
                     }
-                    info!("start rotate finish!");
-                },
-                _ = shutdown_signal() => {
-                    break;
                 }
-            }
         }
+        info!("finish rotate...");
     });
 }
