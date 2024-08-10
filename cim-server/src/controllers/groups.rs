@@ -141,12 +141,10 @@ async fn get_group(
 ) -> Result<Json<Group>> {
     let mut result = Group::default();
     app.store.group.get(&id, &mut result).await?;
-    if !info.is_allow(
+    info.is_allow(
         &app.matcher,
         HashMap::from([("account_id".to_owned(), result.account_id.clone())]),
-    ) {
-        return Err(errors::unauthorized());
-    }
+    )?;
     Ok(result.into())
 }
 
@@ -157,12 +155,10 @@ async fn delete_group(
 ) -> Result<StatusCode> {
     let mut result = Group::default();
     app.store.group.get(&id, &mut result).await?;
-    if !info.is_allow(
+    info.is_allow(
         &app.matcher,
         HashMap::from([("account_id".to_owned(), result.account_id.clone())]),
-    ) {
-        return Err(errors::unauthorized());
-    }
+    )?;
     app.store.group.delete(&id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
@@ -175,12 +171,10 @@ async fn put_group(
 ) -> Result<StatusCode> {
     let mut result = Group::default();
     app.store.group.get(&id, &mut result).await?;
-    if !info.is_allow(
+    info.is_allow(
         &app.matcher,
         HashMap::from([("account_id".to_owned(), result.account_id.clone())]),
-    ) {
-        return Err(errors::unauthorized());
-    }
+    )?;
     result.name = content.name;
     result.desc = content.desc;
 

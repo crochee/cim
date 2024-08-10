@@ -102,7 +102,7 @@ impl Interface for PolicyImpl {
             .try_get::<u64, _>("id")
             .map_err(errors::any)?
             .to_string();
-        output.account_id = row.try_get("account_id").map_err(errors::any)?;
+        output.account_id = row.try_get::<Option<u64>, _>("account_id").map_err(errors::any)?.map(|v| v.to_string());
         output.desc = row.try_get("desc").map_err(errors::any)?;
         output.version = row.try_get("version").map_err(errors::any)?;
         output.statement = row
@@ -152,7 +152,7 @@ impl Interface for PolicyImpl {
         let rows = sqlx::query(
             format!(
                 r#"SELECT `id`,`account_id`,`desc`,`version`,`statement`,`created_at`,`updated_at`
-                FROM `role`
+                FROM `policy`
                 WHERE {};"#,
                 wheres,
             )
@@ -167,7 +167,10 @@ impl Interface for PolicyImpl {
                     .try_get::<u64, _>("id")
                     .map_err(errors::any)?
                     .to_string(),
-                account_id: row.try_get("account_id").map_err(errors::any)?,
+                account_id: row
+                    .try_get::<Option<u64>, _>("account_id")
+                    .map_err(errors::any)?
+                    .map(|v| v.to_string()),
                 desc: row.try_get("desc").map_err(errors::any)?,
                 version: row.try_get("version").map_err(errors::any)?,
                 statement: row
@@ -275,22 +278,22 @@ fn combine_param(wheres: &mut String, opts: &ListParams) -> Result<()> {
 impl StatementStore for PolicyImpl {
     async fn get_statement(&self, req: &Request) -> Result<Vec<Statement>> {
         let user_id = req.subject.parse::<u64>().map_err(errors::any)?;
-        let rows = sqlx::query(r#"SELECT t2.`content`
+        let rows = sqlx::query(r#"SELECT t2.`statement`
             FROM (
                 (
-                SELECT `policy_id` FROM `policy_bindings` WHERE `bindings_id` = ? AND `bindings_type` = 1 AND `deleted` = 0
+                SELECT `policy_id` FROM `policy_binding` WHERE `bindings_id` = ? AND `bindings_type` = 1 AND `deleted` = 0
                 )
                 UNION
                 (
                 SELECT a3.`policy_id` FROM `group_user` a1 RIGHT JOIN `group` a2 ON a1.`group_id` = a2.`id`
-                RIGHT JOIN `policy_bindings` a3 ON a2.`id` = a3.`bindings_id`
+                RIGHT JOIN `policy_binding` a3 ON a2.`id` = a3.`bindings_id`
                 WHERE a1.`user_id` = ? AND a1.`deleted` = 0 AND
                 a2.`deleted` = 0 AND a3.`bindings_type` = 2 AND a3.`deleted` = 0
                 )
                 UNION
                 (
-                SELECT b3.`policy_id` FROM `role_bindings` b1 RIGHT JOIN `role` b2 ON b1.`role_id` = b2.`id`
-                RIGHT JOIN `policy_bindings` b3 ON b2.`id` = b3.`bindings_id`
+                SELECT b3.`policy_id` FROM `role_binding` b1 RIGHT JOIN `role` b2 ON b1.`role_id` = b2.`id`
+                RIGHT JOIN `policy_binding` b3 ON b2.`id` = b3.`bindings_id`
                 WHERE b1.`user_id` = ? AND b1.`deleted` = 0 AND
                 b2.`deleted` = 0 AND b3.`bindings_type` = 3 AND b3.`deleted` = 0
                 )
@@ -306,7 +309,8 @@ impl StatementStore for PolicyImpl {
         let mut result = Vec::with_capacity(rows.len());
 
         for row in rows.iter() {
-            let v = row.try_get::<String, _>("content").map_err(errors::any)?;
+            let v =
+                row.try_get::<String, _>("statement").map_err(errors::any)?;
             let mut statement: Vec<Statement> =
                 serde_json::from_str(&v).map_err(errors::any)?;
             result.append(&mut statement);

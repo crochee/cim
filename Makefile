@@ -24,6 +24,11 @@ rs: build ## run server
 	docker build -f server.Dockerfile -t server:latest . && \
 	docker run -itd -p 30050:30050 --restart=always --name server server:latest
 
+.PHONY: ds
+ds:
+	docker rm server -f && \
+	docker rmi server
+
 .PHONY: database
 database: ## install database cli
 	@cargo install sqlx-cli --no-default-features --features rustls,mysql

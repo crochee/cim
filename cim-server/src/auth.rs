@@ -2,11 +2,15 @@ use std::collections::HashMap;
 
 use async_trait::async_trait;
 use axum::extract::{FromRef, FromRequestParts};
-use cim_pim::{Matcher, Pim, Statement};
-use cim_slo::errors::{self, Code, WithBacktrace};
-use cim_storage::{policy::StatementStore, user::User, Interface};
 use http::{request::Parts, Method};
 use validator::Validate;
+
+use cim_pim::{Matcher, Pim, Statement};
+use cim_slo::{
+    errors::{self, Code, WithBacktrace},
+    Result,
+};
+use cim_storage::{policy::StatementStore, user::User, Interface};
 
 use crate::{
     valid::{ClientIp, Host},
@@ -99,14 +103,16 @@ impl Info {
         &mut self,
         matcher: &Pim<M>,
         hash_map: HashMap<String, String>,
-    ) -> bool {
+    ) -> Result<()> {
         for (k, v) in hash_map.iter() {
             self.req.context.insert(
                 k.to_string(),
                 serde_json::value::to_raw_value(v).unwrap(),
             );
         }
-        matcher.is_allow(&self.statements, &self.req).is_ok()
+        matcher
+            .is_allow(&self.statements, &self.req)
+            .map_err(|err| errors::forbidden(err.to_string().as_str()))
     }
 }
 
@@ -134,8 +140,6 @@ where
             return Err(errors::forbidden(err.to_string().as_str()));
         }
 
-        Ok(Self {
-            user: info.user,
-        })
+        Ok(Self { user: info.user })
     }
 }

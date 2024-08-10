@@ -12,6 +12,7 @@ chrono = { workspace = true }
 anyhow = { workspace = true }
 regex = { workspace = true }
 validator = { workspace = true }
+tracing = { workspace = true }
+lru = { workspace = true }
 
 cidr-utils = "0.6"
-lru = "0.12"

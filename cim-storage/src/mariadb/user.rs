@@ -241,7 +241,7 @@ impl Interface for UserImpl {
                 `name`,`given_name`,`family_name`,`middle_name`,`nickname`,
                 `preferred_username`,`profile`,`picture`,`website`,`gender`,
                 `birthday`,`birthdate`,`zoneinfo`,`locale`,`phone_number`,
-                `phone_number_verified`,`address`,`secret`,`password`,`created_at`,`updated_at`
+                `phone_number_verified`,`address`,`created_at`,`updated_at`
                 FROM `user`
                 WHERE {};"#,
                 wheres,
@@ -305,8 +305,8 @@ impl Interface for UserImpl {
                         .map_err(errors::any)?,
                     address,
                 },
-                secret: row.try_get("secret").map_err(errors::any)?,
-                password: row.try_get("password").map_err(errors::any)?,
+                secret: None,
+                password: None,
                 created_at: row.try_get("created_at").map_err(errors::any)?,
                 updated_at: row.try_get("updated_at").map_err(errors::any)?,
             });

@@ -30,11 +30,11 @@ CREATE TABLE `user` (
     `deleted_at` DATETIME(3) NULL DEFAULT NULL COMMENT 'delete time',
     PRIMARY KEY (`id`),
     INDEX `idx_deleted` (`deleted`) USING BTREE
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = 'user info';
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = 'user info';
 
 CREATE TABLE `policy` (
     `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-    `account_id` BIGINT(20) UNSIGNED NOT NULL DEFAULT '0' COMMENT 'account id',
+    `account_id` BIGINT(20) UNSIGNED NULL COMMENT 'account id',
     `desc` VARCHAR(255) NOT NULL COMMENT 'policy description',
     `version` VARCHAR(255) NOT NULL COMMENT 'policy version',
     `statement` LONGTEXT NOT NULL COMMENT 'policy statement' CHECK (json_valid(`statement`)),
@@ -44,7 +44,7 @@ CREATE TABLE `policy` (
     `deleted_at` DATETIME(3) NULL DEFAULT NULL COMMENT 'delete time',
     PRIMARY KEY (`id`),
     INDEX `idx_deleted` (`deleted`) USING BTREE
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = 'policy info';
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = 'policy info';
 
 CREATE TABLE `role` (
     `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'role ID',
@@ -57,7 +57,7 @@ CREATE TABLE `role` (
     `deleted_at` DATETIME(3) NULL DEFAULT NULL COMMENT 'delete time',
     PRIMARY KEY (`id`),
     INDEX `idx_deleted` (`deleted`) USING BTREE
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = 'role info';
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = 'role info';
 
 CREATE TABLE `group` (
     `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'user_group ID',
@@ -70,7 +70,7 @@ CREATE TABLE `group` (
     `deleted_at` DATETIME(3) NULL DEFAULT NULL COMMENT 'delete time',
     PRIMARY KEY (`id`),
     INDEX `idx_deleted` (`deleted`) USING BTREE
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = 'group info';
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = 'group info';
 
 CREATE TABLE `role_binding` (
     `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'user_role ID',
@@ -84,7 +84,7 @@ CREATE TABLE `role_binding` (
     PRIMARY KEY (`id`),
     UNIQUE `idx_role_id_user_type_user_id_deleted` (`role_id`, `user_type`, `user_id`, `deleted`) USING BTREE,
     INDEX `idx_deleted` (`deleted`) USING BTREE
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = 'role_binding info';
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = 'role_binding info';
 
 CREATE TABLE `policy_binding` (
     `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'user_group_role ID',
@@ -98,7 +98,7 @@ CREATE TABLE `policy_binding` (
     PRIMARY KEY (`id`),
     UNIQUE `idx_policy_id_bindings_type_bindings_id_deleted` (`policy_id`, `bindings_type`, `bindings_id`, `deleted`) USING BTREE,
     INDEX `idx_deleted` (`deleted`) USING BTREE
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = 'policy binding info';
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = 'policy binding info';
 
 CREATE TABLE `group_user` (
     `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'user_group_user ID',
@@ -111,7 +111,7 @@ CREATE TABLE `group_user` (
     PRIMARY KEY (`id`),
     UNIQUE `idx_group_id_user_id_deleted` (`group_id`, `user_id`, `deleted`) USING BTREE,
     INDEX `idx_deleted` (`deleted`) USING BTREE
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = 'group_user info';
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = 'group_user info';
 
 CREATE TABLE `client` (
     `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'client ID',
@@ -128,7 +128,7 @@ CREATE TABLE `client` (
     PRIMARY KEY (`id`),
     UNIQUE `idx_name_deleted` (`name`, `deleted`) USING BTREE,
     INDEX `idx_deleted` (`deleted`) USING BTREE
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = 'client info';
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = 'client info';
 
 CREATE TABLE `auth_request` (
     `id` CHAR(36) NOT NULL COMMENT 'auth_request ID',
@@ -157,7 +157,7 @@ CREATE TABLE `auth_request` (
     `deleted_at` DATETIME(3) NULL DEFAULT NULL COMMENT 'delete time',
     PRIMARY KEY (`id`),
     INDEX `idx_deleted` (`deleted`) USING BTREE
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = 'auth_request info';
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = 'auth_request info';
 
 CREATE TABLE `auth_code` (
     `id` CHAR(36) NOT NULL COMMENT 'auth_code ID',
@@ -181,7 +181,7 @@ CREATE TABLE `auth_code` (
     `deleted_at` DATETIME(3) NULL DEFAULT NULL COMMENT 'delete time',
     PRIMARY KEY (`id`),
     INDEX `idx_deleted` (`deleted`) USING BTREE
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = 'auth_code info';
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = 'auth_code info';
 
 CREATE TABLE `refresh_token` (
     `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'refresh_token ID',
@@ -204,7 +204,7 @@ CREATE TABLE `refresh_token` (
     `deleted_at` DATETIME(3) NULL DEFAULT NULL COMMENT 'delete time',
     PRIMARY KEY (`id`),
     INDEX `idx_deleted` (`deleted`) USING BTREE
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = 'refresh_token info';
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = 'refresh_token info';
 
 CREATE TABLE `key` (
     `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'key ID',
@@ -219,7 +219,7 @@ CREATE TABLE `key` (
     `deleted_at` DATETIME(3) NULL DEFAULT NULL COMMENT 'delete time',
     PRIMARY KEY (`id`),
     INDEX `idx_deleted` (`deleted`) USING BTREE
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = 'keys info';
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = 'keys info';
 
 CREATE TABLE `offline_session` (
     `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'offline_session ID',
@@ -234,7 +234,7 @@ CREATE TABLE `offline_session` (
     PRIMARY KEY (`id`),
 	UNIQUE KEY (`user_id`, `conn_id`),
     INDEX `idx_deleted` (`deleted`) USING BTREE
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = 'offline_session info';
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = 'offline_session info';
 
 CREATE TABLE `connector` (
     `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'connector ID',
@@ -250,4 +250,4 @@ CREATE TABLE `connector` (
     `deleted_at` DATETIME(3) NULL DEFAULT NULL COMMENT 'delete time',
 	PRIMARY KEY (`id`),
     INDEX `idx_deleted` (`deleted`) USING BTREE
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = 'connector info';
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = 'connector info';

@@ -141,12 +141,10 @@ async fn get_role(
 ) -> Result<Json<Role>> {
     let mut result = Role::default();
     app.store.role.get(&id, &mut result).await?;
-    if !info.is_allow(
+    info.is_allow(
         &app.matcher,
         HashMap::from([("account_id".to_owned(), result.account_id.clone())]),
-    ) {
-        return Err(errors::unauthorized());
-    }
+    )?;
     Ok(result.into())
 }
 
@@ -157,12 +155,10 @@ async fn delete_role(
 ) -> Result<StatusCode> {
     let mut result = Role::default();
     app.store.role.get(&id, &mut result).await?;
-    if !info.is_allow(
+    info.is_allow(
         &app.matcher,
         HashMap::from([("account_id".to_owned(), result.account_id.clone())]),
-    ) {
-        return Err(errors::unauthorized());
-    }
+    )?;
     app.store.role.delete(&id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
@@ -175,12 +171,10 @@ async fn put_role(
 ) -> Result<StatusCode> {
     let mut result = Role::default();
     app.store.role.get(&id, &mut result).await?;
-    if !info.is_allow(
+    info.is_allow(
         &app.matcher,
         HashMap::from([("account_id".to_owned(), result.account_id.clone())]),
-    ) {
-        return Err(errors::unauthorized());
-    }
+    )?;
     result.name = content.name;
     result.desc = content.desc;
     app.store.role.put(&result, 0).await?;

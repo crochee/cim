@@ -1,6 +1,5 @@
 pub(crate) mod boolean;
 pub(crate) mod cidr;
-pub(crate) mod equals_subject;
 pub(crate) mod numeric_cmp;
 pub(crate) mod resource_contains;
 pub(crate) mod string_cmp;
@@ -50,7 +49,6 @@ impl JsonCondition {
                         .context("Could not parse Cidr")?;
                 Ok(Box::new(result))
             }
-            "EqualsSubject" => Ok(Box::new(equals_subject::EqualsSubject)),
             "Boolean" => {
                 let result: boolean::Boolean =
                     serde_json::from_str(self.options.get())

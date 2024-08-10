@@ -147,8 +147,6 @@ async fn delete_policy_binding(
     app: AppState,
     Path(id): Path<String>,
 ) -> Result<StatusCode> {
-    let mut result = PolicyBinding::default();
-    app.store.policy_binding.get(&id, &mut result).await?;
     app.store.policy_binding.delete(&id).await?;
     Ok(StatusCode::NO_CONTENT)
 }

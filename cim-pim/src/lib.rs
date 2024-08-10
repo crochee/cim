@@ -21,11 +21,8 @@ impl<M> Pim<M> {
 }
 
 impl<M: Matcher> Pim<M> {
-    pub fn is_allow(
-        &self,
-        list: &[Statement],
-        input: &Request,
-    ) -> Result<()> {
+    pub fn is_allow(&self, list: &[Statement], input: &Request) -> Result<()> {
+        tracing::debug!("input = {:?}, list = {:?}", input, list);
         let mut allowed = false;
         for statement in list.iter() {
             if !self.matcher.matches(
@@ -113,13 +110,6 @@ mod tests {
                 "myrn:some.domain.com:resource:<\\d+>".to_owned(),
             ],
             conditions: Some(HashMap::from([
-                (
-                    "owner".to_owned(),
-                    JsonCondition {
-                        jtype: "EqualsSubject".to_owned(),
-                        options: serde_json::value::to_raw_value("{}").unwrap(),
-                    },
-                ),
                 (
                     "clientIP".to_owned(),
                     JsonCondition {
@@ -212,10 +202,6 @@ mod tests {
                 action: "delete".to_owned(),
                 subject: "peter".to_owned(),
                 context: HashMap::from([
-                    (
-                        "owner".to_owned(),
-                        serde_json::value::to_raw_value("peter").unwrap(),
-                    ),
                     (
                         "clientIP".to_owned(),
                         serde_json::value::to_raw_value("192.168.1.67")

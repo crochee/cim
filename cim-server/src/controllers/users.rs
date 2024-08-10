@@ -11,7 +11,7 @@ use futures_util::{SinkExt, StreamExt};
 use http::StatusCode;
 use tracing::info;
 
-use cim_slo::{errors, next_id, Result};
+use cim_slo::Result;
 use cim_storage::{
     user::{Content, ListParams, User},
     Event, EventData, Interface, List, ID,
@@ -19,6 +19,7 @@ use cim_storage::{
 
 use crate::{
     auth::{Auth, Info},
+    services::user,
     shutdown_signal,
     valid::{ListWatch, Valid},
     AppState,
@@ -38,28 +39,7 @@ async fn create_user(
     app: AppState,
     Valid(Json(input)): Valid<Json<Content>>,
 ) -> Result<(StatusCode, Json<ID>)> {
-    info!("list query {:#?}", input);
-    let id = next_id().map_err(errors::any)?;
-    let account_id = match &input.account_id {
-        Some(v) => v.parse().map_err(|err| errors::bad_request(&err))?,
-        None => id,
-    };
-
-    app.store
-        .user
-        .put(
-            &User {
-                id: id.to_string(),
-                account_id: account_id.to_string(),
-                desc: input.desc,
-                claim: input.claim,
-                secret: None,
-                password: Some(input.password),
-                ..Default::default()
-            },
-            0,
-        )
-        .await?;
+    let id = user::create(app, input).await?;
     Ok((StatusCode::CREATED, ID { id: id.to_string() }.into()))
 }
 
@@ -148,15 +128,13 @@ async fn get_user(
 ) -> Result<Json<User>> {
     let mut user_result = User::default();
     app.store.user.get(&id, &mut user_result).await?;
-    if !info.is_allow(
+    info.is_allow(
         &app.matcher,
         HashMap::from([(
             "account_id".to_owned(),
             user_result.account_id.clone(),
         )]),
-    ) {
-        return Err(errors::unauthorized());
-    }
+    )?;
     user_result.secret = None;
     user_result.password = None;
     Ok(user_result.into())
@@ -169,16 +147,13 @@ async fn delete_user(
 ) -> Result<StatusCode> {
     let mut user_result = User::default();
     app.store.user.get(&id, &mut user_result).await?;
-    if !info.is_allow(
+    info.is_allow(
         &app.matcher,
         HashMap::from([(
             "account_id".to_owned(),
             user_result.account_id.clone(),
         )]),
-    ) {
-        return Err(errors::unauthorized());
-    }
-
+    )?;
     app.store.user.delete(&id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
@@ -191,16 +166,13 @@ async fn put_user(
 ) -> Result<StatusCode> {
     let mut user_result = User::default();
     app.store.user.get(&id, &mut user_result).await?;
-    if !info.is_allow(
+    info.is_allow(
         &app.matcher,
         HashMap::from([(
             "account_id".to_owned(),
             user_result.account_id.clone(),
         )]),
-    ) {
-        return Err(errors::unauthorized());
-    }
-
+    )?;
     user_result.desc = content.desc;
     user_result.claim = content.claim;
     user_result.password = Some(content.password);

@@ -142,8 +142,6 @@ async fn delete_group_user(
     app: AppState,
     Path(id): Path<String>,
 ) -> Result<StatusCode> {
-    let mut result = GroupUser::default();
-    app.store.group_user.get(&id, &mut result).await?;
     app.store.group_user.delete(&id).await?;
     Ok(StatusCode::NO_CONTENT)
 }

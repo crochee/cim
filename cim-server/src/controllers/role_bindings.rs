@@ -147,8 +147,6 @@ async fn delete_role_binding(
     app: AppState,
     Path(id): Path<String>,
 ) -> Result<StatusCode> {
-    let mut result = RoleBinding::default();
-    app.store.role_binding.get(&id, &mut result).await?;
     app.store.role_binding.delete(&id).await?;
     Ok(StatusCode::NO_CONTENT)
 }

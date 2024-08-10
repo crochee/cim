@@ -199,14 +199,12 @@ where
         let ip = match ip {
             Some(v) => v,
             None => {
-                match ConnectInfo::<SocketAddr>::from_request_parts(
+                let v = ConnectInfo::<SocketAddr>::from_request_parts(
                     parts, &state,
                 )
                 .await
-                {
-                    Ok(v) => v.ip(),
-                    Err(_) => "0.0.0.0:0".parse().unwrap(),
-                }
+                .map_err(errors::any)?;
+                v.ip()
             }
         };
 

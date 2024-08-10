@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{net::SocketAddr, sync::Arc};
 
 use anyhow::{Context, Result};
 use clap::Parser;
@@ -51,7 +51,7 @@ async fn async_run_server(config: AppConfig) -> Result<()> {
         .await
         .context("could not bind to endpoint")?;
 
-    axum::serve(listener, router)
+    axum::serve(listener, router.into_make_service_with_connect_info::<SocketAddr>())
         .with_graceful_shutdown(shutdown_signal())
         .await
         .context("error while starting API server")?;

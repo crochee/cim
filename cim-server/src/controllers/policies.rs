@@ -19,7 +19,7 @@ use cim_storage::{
 use crate::{
     auth::{Auth, Info},
     shutdown_signal,
-    valid::{ ListWatch, Valid},
+    valid::{ListWatch, Valid},
     AppState,
 };
 
@@ -34,8 +34,8 @@ pub fn new_router(state: AppState) -> Router {
 }
 
 async fn create_policy(
-        auth: Auth,
-        app: AppState,
+    auth: Auth,
+    app: AppState,
     Valid(Json(content)): Valid<Json<Content>>,
 ) -> Result<(StatusCode, Json<ID>)> {
     let id = next_id().map_err(errors::any)?;
@@ -57,8 +57,8 @@ async fn create_policy(
 }
 
 async fn list_policy(
-        _auth: Auth,
-        app: AppState,
+    _auth: Auth,
+    app: AppState,
     list_watch: ListWatch<ListParams>,
 ) -> Result<Response> {
     match list_watch {
@@ -143,9 +143,7 @@ async fn get_policy(
     if let Some(account_id) = &result.account_id {
         opts.insert("account_id".to_owned(), account_id.clone());
     }
-    if !info.is_allow(&app.matcher, opts) {
-        return Err(errors::unauthorized());
-    }
+    info.is_allow(&app.matcher, opts)?;
     Ok(result.into())
 }
 
@@ -161,9 +159,7 @@ async fn delete_policy(
         opts.insert("account_id".to_owned(), account_id.clone());
     }
 
-    if !info.is_allow(&app.matcher, opts) {
-        return Err(errors::unauthorized());
-    }
+    info.is_allow(&app.matcher, opts)?;
     app.store.policy.delete(&id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
@@ -180,9 +176,7 @@ async fn put_policy(
     if let Some(account_id) = &result.account_id {
         opts.insert("account_id".to_owned(), account_id.clone());
     }
-    if !info.is_allow(&app.matcher, opts) {
-        return Err(errors::unauthorized());
-    }
+    info.is_allow(&app.matcher, opts)?;
     result.desc = content.desc;
     result.version = content.version;
     result.statement = content.statement;
