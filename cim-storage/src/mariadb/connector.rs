@@ -86,9 +86,35 @@ impl Interface for ConnectorImpl {
     async fn list(
         &self,
         _opts: &Self::L,
-        _output: &mut List<Self::T>,
+        output: &mut List<Self::T>,
     ) -> Result<()> {
-        todo!()
+        let rows = sqlx::query(
+            r#"SELECT `id`,`type`,`name`,`resource_version`,`config`,`connector_data`
+            FROM `connector`
+            WHERE deleted = 0;"#,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(errors::any)?;
+        for row in rows.iter() {
+            output.data.push(Self::T {
+                id: row
+                    .try_get::<u64, _>("id")
+                    .map_err(errors::any)?
+                    .to_string(),
+                connector_type: row.try_get("type").map_err(errors::any)?,
+                name: row.try_get("name").map_err(errors::any)?,
+                response_version: row
+                    .try_get("resource")
+                    .map_err(errors::any)?,
+                config: row.try_get("config").map_err(errors::any)?,
+                connector_data: row
+                    .try_get::<Option<String>, _>("connector_data")
+                    .map_err(errors::any)?
+                    .map(|v| RawValue::from_string(v).unwrap()),
+            });
+        }
+        Ok(())
     }
     fn watch<W: Watcher<Event<Self::T>>>(
         &self,

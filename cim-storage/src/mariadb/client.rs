@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use sqlx::{MySqlPool, Row};
+use sqlx::{types::Json, MySqlPool, Row};
 
 use cim_slo::{errors, Result};
 use cim_watch::Watcher;
@@ -22,12 +22,6 @@ impl Interface for ClientImpl {
     type T = Client;
     type L = ();
     async fn put(&self, input: &Self::T, _ttl: u64) -> Result<()> {
-        let redirect_uris =
-            serde_json::to_string(&input.redirect_uris).map_err(errors::any)?;
-
-        let trusted_peers =
-            serde_json::to_string(&input.trusted_peers).map_err(errors::any)?;
-
         let account_id = input
             .account_id
             .parse::<u64>()
@@ -40,8 +34,8 @@ impl Interface for ClientImpl {
         )
         .bind(&input.id)
         .bind(&input.secret)
-        .bind(redirect_uris)
-        .bind(trusted_peers)
+        .bind(Json(&input.redirect_uris))
+        .bind(Json(&input.trusted_peers))
         .bind(&input.name)
         .bind(&input.logo_url)
         .bind(account_id)
@@ -85,17 +79,15 @@ impl Interface for ClientImpl {
             .map_err(errors::any)?
             .to_string();
         output.secret = row.try_get("secret").map_err(errors::any)?;
-        output.redirect_uris = serde_json::from_str(
-            &row.try_get::<String, _>("redirect_uris")
-                .map_err(errors::any)?,
-        )
-        .map_err(errors::any)?;
+        output.redirect_uris = row
+            .try_get::<Json<Vec<String>>, _>("redirect_uris")
+            .map_err(errors::any)?
+            .0;
 
-        output.trusted_peers = serde_json::from_str(
-            &row.try_get::<String, _>("trusted_peers")
-                .map_err(errors::any)?,
-        )
-        .map_err(errors::any)?;
+        output.trusted_peers = row
+            .try_get::<Json<Vec<String>>, _>("trusted_peers")
+            .map_err(errors::any)?
+            .0;
         output.name = row.try_get("name").map_err(errors::any)?;
         output.logo_url = row.try_get("logo_url").map_err(errors::any)?;
         output.account_id = row
@@ -109,9 +101,43 @@ impl Interface for ClientImpl {
     async fn list(
         &self,
         _opts: &Self::L,
-        _output: &mut List<Self::T>,
+        output: &mut List<Self::T>,
     ) -> Result<()> {
-        todo!()
+        let rows = sqlx::query(
+                    r#"SELECT `id`,`secret`,`redirect_uris`,`trusted_peers`,`name`,`logo_url`,`account_id`,`created_at`,`updated_at`
+                FROM `client`
+                WHERE `deleted` = 0;"#,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(errors::any)?;
+        for row in rows.iter() {
+            output.data.push(Self::T {
+                id: row
+                    .try_get::<u64, _>("id")
+                    .map_err(errors::any)?
+                    .to_string(),
+                account_id: row
+                    .try_get::<u64, _>("account_id")
+                    .map_err(errors::any)?
+                    .to_string(),
+                secret: row.try_get("secret").map_err(errors::any)?,
+                logo_url: row.try_get("logo_url").map_err(errors::any)?,
+                redirect_uris: row
+                    .try_get::<Json<Vec<String>>, _>("redirect_uris")
+                    .map_err(errors::any)?
+                    .0,
+                trusted_peers: row
+                    .try_get::<Json<Vec<String>>, _>("trusted_peers")
+                    .map_err(errors::any)?
+                    .0,
+                name: row.try_get("name").map_err(errors::any)?,
+                created_at: row.try_get("created_at").map_err(errors::any)?,
+                updated_at: row.try_get("updated_at").map_err(errors::any)?,
+            });
+        }
+
+        Ok(())
     }
     fn watch<W: Watcher<Event<Self::T>>>(
         &self,

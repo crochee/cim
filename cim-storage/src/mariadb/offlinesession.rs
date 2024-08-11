@@ -1,13 +1,15 @@
+use std::collections::HashMap;
+
 use async_trait::async_trait;
 use serde_json::value::RawValue;
-use sqlx::{MySqlPool, Row};
+use sqlx::{types::Json, MySqlPool, Row};
 
 use cim_slo::{errors, Result};
 use cim_watch::Watcher;
 
 use crate::{
     convert::convert_param,
-    offlinesession::{ListParams, OfflineSession},
+    offlinesession::{ListParams, OfflineSession, RefreshTokenRef},
     Event, Interface, List,
 };
 
@@ -27,9 +29,6 @@ impl Interface for OfflineSessionImpl {
     type T = OfflineSession;
     type L = ListParams;
     async fn put(&self, content: &Self::T, _ttl: u64) -> Result<()> {
-        let refresh =
-            serde_json::to_string(&content.refresh).map_err(errors::any)?;
-
         sqlx::query(
             r#"REPLACE INTO `offline_session`
             (`id`,`user_id`,`conn_id`,`refresh`)
@@ -38,7 +37,7 @@ impl Interface for OfflineSessionImpl {
         .bind(&content.id)
         .bind(&content.user_id)
         .bind(&content.conn_id)
-        .bind(refresh)
+        .bind(Json(&content.refresh))
         .execute(&self.pool)
         .await
         .map_err(errors::any)?;
@@ -76,10 +75,10 @@ impl Interface for OfflineSessionImpl {
             .try_get::<u64, _>("id")
             .map_err(errors::any)?
             .to_string();
-        output.refresh = serde_json::from_str(
-            &row.try_get::<String, _>("refresh").map_err(errors::any)?,
-        )
-        .map_err(errors::any)?;
+        output.refresh = row
+            .try_get::<Json<HashMap<String, RefreshTokenRef>>, _>("refresh")
+            .map_err(errors::any)?
+            .0;
         output.connector_data = row
             .try_get::<Option<String>, _>("connector_data")
             .map_err(errors::any)?
@@ -150,11 +149,12 @@ impl Interface for OfflineSessionImpl {
                 conn_id: row
                     .try_get::<String, _>("conn_id")
                     .map_err(errors::any)?,
-                refresh: serde_json::from_str(
-                    &row.try_get::<String, _>("refresh")
-                        .map_err(errors::any)?,
-                )
-                .map_err(errors::any)?,
+                refresh: row
+                    .try_get::<Json<HashMap<String, RefreshTokenRef>>, _>(
+                        "refresh",
+                    )
+                    .map_err(errors::any)?
+                    .0,
                 connector_data: row
                     .try_get::<Option<String>, _>("connector_data")
                     .map_err(errors::any)?

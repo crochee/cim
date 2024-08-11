@@ -116,8 +116,8 @@ CREATE TABLE `group_user` (
 CREATE TABLE `client` (
     `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'client ID',
     `secret` TEXT NOT NULL COMMENT 'client secret',
-    `redirect_uris` TEXT NOT NULL, -- JSON array of strings
-    `trusted_peers` TEXT NOT NULL, -- JSON array of strings
+    `redirect_uris` LONGTEXT NOT NULL CHECK (json_valid(`redirect_uris`)),
+    `trusted_peers` LONGTEXT NOT NULL CHECK (json_valid(`trusted_peers`)),
     `name` VARCHAR(255) NOT NULL COMMENT 'client name',
     `logo_url` TEXT NOT NULL COMMENT 'client logo url',
     `account_id` BIGINT(20) UNSIGNED NOT NULL DEFAULT '0' COMMENT 'account id',
@@ -133,8 +133,8 @@ CREATE TABLE `client` (
 CREATE TABLE `auth_request` (
     `id` CHAR(36) NOT NULL COMMENT 'auth_request ID',
     `client_id` BIGINT(20) UNSIGNED NOT NULL COMMENT 'client id',
-	`response_types` TEXT NOT NULL, -- JSON array of strings
-	`scopes` TEXT NOT NULL, -- JSON array of strings
+	`response_types` LONGTEXT NOT NULL CHECK (json_valid(`response_types`)),
+	`scopes` LONGTEXT NOT NULL CHECK (json_valid(`scopes`)),
 	`redirect_uri` TEXT NOT NULL,
     `code_challenge` TEXT NOT NULL DEFAULT '',
     `code_challenge_method` TEXT NOT NULL DEFAULT '',
@@ -144,7 +144,7 @@ CREATE TABLE `auth_request` (
 	`force_approval_prompt` BOOLEAN NOT NULL,
 	`logged_in` BOOLEAN NOT NULL,
 
-	`claim` TEXT NOT NULL,
+	`claim` LONGTEXT NOT NULL CHECK (json_valid(`claim`)),
 
 	`connector_id` TEXT NOT NULL,
 	`connector_data` TEXT,
@@ -162,13 +162,13 @@ CREATE TABLE `auth_request` (
 CREATE TABLE `auth_code` (
     `id` CHAR(36) NOT NULL COMMENT 'auth_code ID',
     `client_id` BIGINT(20) UNSIGNED NOT NULL COMMENT 'client id',
-	`scopes` TEXT NOT NULL, -- JSON array of strings
+	`scopes` LONGTEXT NOT NULL CHECK (json_valid(`scopes`)),
 	`nonce` TEXT NOT NULL,
 	`redirect_uri` TEXT NOT NULL,
     `code_challenge` TEXT NOT NULL DEFAULT '',
     `code_challenge_method` TEXT NOT NULL DEFAULT '',
 
-	`claim` TEXT NOT NULL,
+	`claim` LONGTEXT NOT NULL CHECK (json_valid(`claim`)),
 
 	`connector_id` TEXT NOT NULL,
 	`connector_data` TEXT,
@@ -225,7 +225,7 @@ CREATE TABLE `offline_session` (
     `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'offline_session ID',
 	`user_id` VARCHAR(255) NOT NULL,
 	`conn_id` VARCHAR(255) NOT NULL,
-	`refresh` TEXT NOT NULL,
+	`refresh` LONGTEXT NOT NULL CHECK (json_valid(`refresh`)),
 
     `deleted` BIGINT(20) UNSIGNED NOT NULL DEFAULT '0' COMMENT 'soft delete flag',
     `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT 'create time',

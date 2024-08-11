@@ -67,7 +67,7 @@ pub async fn get_client_and_valid<C: Interface<T = client::Client>>(
     client_store.get(client_id, &mut client).await?;
 
     if !constant_time_eq(client.secret.as_bytes(), client_secret.as_bytes()) {
-        return Err(errors::unauthorized());
+        return Err(errors::forbidden("invalid client secret"));
     }
     Ok(client)
 }

@@ -1,11 +1,11 @@
 use async_trait::async_trait;
 use serde_json::value::RawValue;
-use sqlx::{MySqlPool, Row};
+use sqlx::{types::Json, MySqlPool, Row};
 
 use cim_slo::{errors, Result};
 use cim_watch::Watcher;
 
-use crate::{authcode::AuthCode, Event, Interface, List};
+use crate::{authcode::AuthCode, Claim, Event, Interface, List};
 
 #[derive(Clone)]
 pub struct AuthCodeImpl {
@@ -23,12 +23,6 @@ impl Interface for AuthCodeImpl {
     type T = AuthCode;
     type L = ();
     async fn put(&self, content: &Self::T, _ttl: u64) -> Result<()> {
-        let scopes =
-            serde_json::to_string(&content.scopes).map_err(errors::any)?;
-
-        let claim =
-            serde_json::to_string(&content.claim).map_err(errors::any)?;
-
         sqlx::query(
             r#"REPLACE INTO `auth_code`
             (`id`,`client_id`,`scopes`,`nonce`,`redirect_uri`,`code_challenge`,`code_challenge_method`,
@@ -37,12 +31,12 @@ impl Interface for AuthCodeImpl {
         )
         .bind(&content.id)
         .bind(&content.client_id)
-        .bind(scopes)
+        .bind(Json(&content.scopes))
         .bind(&content.nonce)
         .bind(&content.redirect_uri)
         .bind(&content.code_challenge)
         .bind(&content.code_challenge_method)
-        .bind(claim)
+        .bind(Json(&content.claim))
         .bind(&content.connector_id)
         .bind(content.connector_data.as_ref().map(|v| v.to_string()))
         .bind(content.expiry)
@@ -86,10 +80,10 @@ impl Interface for AuthCodeImpl {
             .map_err(errors::any)?
             .to_string();
         output.client_id = row.try_get("client_id").map_err(errors::any)?;
-        output.scopes = serde_json::from_str(
-            &row.try_get::<String, _>("scopes").map_err(errors::any)?,
-        )
-        .map_err(errors::any)?;
+        output.scopes = row
+            .try_get::<Json<Vec<String>>, _>("scopes")
+            .map_err(errors::any)?
+            .0;
         output.nonce = row.try_get("nonce").map_err(errors::any)?;
         output.redirect_uri =
             row.try_get("redirect_uri").map_err(errors::any)?;
@@ -97,10 +91,10 @@ impl Interface for AuthCodeImpl {
             row.try_get("code_challenge").map_err(errors::any)?;
         output.code_challenge_method =
             row.try_get("code_challenge_method").map_err(errors::any)?;
-        output.claim = serde_json::from_str(
-            &row.try_get::<String, _>("claim").map_err(errors::any)?,
-        )
-        .map_err(errors::any)?;
+        output.claim = row
+            .try_get::<Json<Claim>, _>("claim")
+            .map_err(errors::any)?
+            .0;
         output.connector_id =
             row.try_get("connector_id").map_err(errors::any)?;
         output.connector_data = row

@@ -1,10 +1,14 @@
 use std::collections::HashMap;
 
+use rand::Rng;
 use serde_json::json;
 
 use cim_pim::{Effect, JsonCondition, Statement};
 use cim_slo::{errors, next_id, Result};
-use cim_storage::{group, group_user, policy, policy_binding, user, Interface};
+use cim_storage::{
+    client, connector, group, group_user, policy, policy_binding, user,
+    Interface,
+};
 
 use crate::AppState;
 
@@ -120,6 +124,43 @@ pub async fn create(app: AppState, input: user::Content) -> Result<u64> {
                 policy_id: policy_id.to_string(),
                 bindings_type: policy_binding::BindingsType::Group,
                 bindings_id: group_id.to_string(),
+                ..Default::default()
+            },
+            0,
+        )
+        .await?;
+
+    let connector_id = next_id().map_err(errors::any)?;
+    app.store
+        .connector
+        .put(
+            &connector::Connector {
+                id: connector_id.to_string(),
+                connector_type: "cim".to_owned(),
+                name: "owner".to_owned(),
+                response_version: "v1.0.0".to_owned(),
+                config: "{}".to_owned(),
+                connector_data: None,
+            },
+            0,
+        )
+        .await?;
+
+    let client_id = next_id().map_err(errors::any)?;
+    let secret = rand::thread_rng()
+        .sample_iter(&rand::distributions::Alphanumeric)
+        .take(12)
+        .map(char::from)
+        .collect::<String>();
+    app.store
+        .client
+        .put(
+            &client::Client {
+                id: client_id.to_string(),
+                secret,
+                name: "owner".to_owned(),
+                logo_url: "".to_owned(),
+                account_id: user_id.to_string(),
                 ..Default::default()
             },
             0,

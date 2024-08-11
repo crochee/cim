@@ -210,8 +210,10 @@ async fn token_handler(
                 info.password(),
             )
             .await?;
+
             let opts: token::password::PasswordGrantOpts =
                 serde_urlencoded::from_bytes(&bytes).map_err(errors::any)?;
+
             let pg = token::password::PasswordGrant {
                 client_store: &app.store.client,
                 connector_store: &app.store.connector,

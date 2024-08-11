@@ -3,7 +3,7 @@ use utoipa::ToSchema;
 use validator::Validate;
 
 use cim_slo::{errors, Result};
-use cim_storage::{connector::Connector, Interface};
+use cim_storage::{connector::Connector, Interface, List};
 
 #[derive(Debug, Deserialize, Serialize, Validate, ToSchema)]
 pub struct AuthRequest {
@@ -30,7 +30,7 @@ pub struct AuthRequest {
     pub skip_approval: Option<bool>,
 }
 
-pub async fn auth<S: Interface<T = Connector>>(
+pub async fn auth<S: Interface<T = Connector, L = ()>>(
     connector_store: &S,
     req: &mut AuthRequest,
 ) -> Result<String> {
@@ -43,7 +43,14 @@ pub async fn auth<S: Interface<T = Connector>>(
                 .await?;
             connector.push_str(&connector_data.id);
         }
-        None => connector.push('1'),
+        None => {
+            let mut connector_data = List::default();
+            connector_store.list(&(), &mut connector_data).await?;
+            if connector_data.data.is_empty() {
+                return Err(errors::not_found("no connectors found"));
+            }
+            connector.push_str(&connector_data.data[0].id);
+        }
     }
     connector.push('&');
     req.connector_id = None;
