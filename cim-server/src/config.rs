@@ -30,9 +30,6 @@ pub struct AppConfig {
     #[arg(default_value_t = 3600)]
     pub expiration: i64,
     #[clap(long, env)]
-    #[arg(default_value_t = String::from("1"))]
-    pub password_connector: String,
-    #[clap(long, env)]
     #[arg(default_value_t = 10)]
     pub absolute_lifetime: i64,
     #[clap(long, env)]

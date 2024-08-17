@@ -24,7 +24,7 @@ where
         "User"
     }
     fn refresh_enabled(&self) -> bool {
-        false
+        true
     }
     async fn login(&self, _s: &Scopes, info: &Info) -> Result<Identity> {
         let mut user = User::default();

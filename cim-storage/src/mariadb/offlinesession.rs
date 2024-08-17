@@ -31,13 +31,14 @@ impl Interface for OfflineSessionImpl {
     async fn put(&self, content: &Self::T, _ttl: u64) -> Result<()> {
         sqlx::query(
             r#"REPLACE INTO `offline_session`
-            (`id`,`user_id`,`conn_id`,`refresh`)
-            VALUES(?,?,?,?);"#,
+            (`id`,`user_id`,`conn_id`,`refresh`,`connector_data`)
+            VALUES(?,?,?,?,?);"#,
         )
         .bind(&content.id)
         .bind(&content.user_id)
         .bind(&content.conn_id)
         .bind(Json(&content.refresh))
+        .bind(content.connector_data.as_ref().map(|v| v.to_string()))
         .execute(&self.pool)
         .await
         .map_err(errors::any)?;
@@ -57,8 +58,8 @@ impl Interface for OfflineSessionImpl {
     }
     async fn get(&self, id: &str, output: &mut Self::T) -> Result<()> {
         let row = match sqlx::query(
-            r#"SELECT `id`,`user_id`,`conn_id`,`refresh`
-            FROM `offline_session`
+            r#"SELECT `id`,`user_id`,`conn_id`,`refresh`,`connector_data`
+             FROM `offline_session`
             WHERE id = ? AND deleted = 0;"#,
         )
         .bind(id)
@@ -127,7 +128,7 @@ impl Interface for OfflineSessionImpl {
 
         let rows = sqlx::query(
             format!(
-                r#"SELECT `id`,`user_id`,`conn_id`,`refresh`
+            r#"SELECT `id`,`user_id`,`conn_id`,`refresh`,`connector_data`
             FROM `offline_session`
             WHERE {};"#,
                 wheres,

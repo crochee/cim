@@ -12,6 +12,9 @@ use crate::services::oidc::{self, get_connector, open_connector, token};
 
 #[derive(Debug, Deserialize)]
 pub struct CodeGrantOpts {
+    pub client_id: String,
+    pub client_secret: String,
+
     pub code: String,
     pub redirect_uri: String,
     pub code_verifier: Option<String>,

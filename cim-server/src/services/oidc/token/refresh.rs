@@ -8,16 +8,20 @@ use cim_storage::{
 
 use crate::services::oidc::{
     connect::{self, parse_scopes},
-    open_connector, token, Connector,
+    open_connector, token, valid_scope, Connector,
 };
 
 #[derive(Debug, Deserialize)]
 pub struct RefreshGrantOpts {
+    pub client_id: String,
+    pub client_secret: String,
+
     pub refresh_token: String,
     pub scope: String,
 }
 
-pub struct RefreshGrant<'a, R, C, T, O, U> {
+pub struct RefreshGrant<'a, S, R, C, T, O, U> {
+    pub client_store: &'a S,
     pub refresh_store: &'a R,
     pub connector_store: &'a C,
     pub token_creator: &'a T,
@@ -29,8 +33,9 @@ pub struct RefreshGrant<'a, R, C, T, O, U> {
     pub rotate_refresh_tokens: bool,
 }
 
-impl<'a, R, C, T, O, U> RefreshGrant<'a, R, C, T, O, U>
+impl<'a, S, R, C, T, O, U> RefreshGrant<'a, S, R, C, T, O, U>
 where
+    S: Interface<T = client::Client>,
     R: Interface<T = refresh_token::RefreshToken>,
     C: Interface<T = connector::Connector>,
     T: token::Token,
@@ -141,6 +146,13 @@ where
             ));
         }
 
+        let audience =
+            valid_scope(self.client_store, &client_info.id, &scopes).await?;
+        let aud = match audience.len() {
+            0 => "".to_string(),
+            1 => audience[0].clone(),
+            _ => serde_json::to_string(&audience).map_err(errors::any)?,
+        };
         let identity = self
             .update_refresh_token(
                 &mut claim_refresh_token,
@@ -155,6 +167,8 @@ where
 
         let mut claims = token::Claims {
             claim: identity.claim.clone(),
+            nonce: refresh_token.nonce.clone(),
+            aud,
             ..Default::default()
         };
         let (access_token, _) = self.token_creator.token(&claims).await?;

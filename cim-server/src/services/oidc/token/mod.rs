@@ -146,6 +146,7 @@ where
             created_at: refresh_token.created_at,
             last_used_at: refresh_token.last_used_at,
         };
+        let mut token_ref_id = None;
         let mut sessions = List::default();
         self.offline_session_store
             .list(
@@ -178,7 +179,7 @@ where
             if let Some(old_session) =
                 session.refresh.get_mut(&token_ref.client_id)
             {
-                return Ok(Some(old_session.id.clone()));
+                token_ref_id = Some(old_session.id.clone());
             }
             session
                 .refresh
@@ -187,6 +188,6 @@ where
             self.offline_session_store.put(&session, 0).await?;
         }
 
-        Ok(None)
+        Ok(token_ref_id)
     }
 }

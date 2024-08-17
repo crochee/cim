@@ -4,7 +4,7 @@ use axum::{
     Json, Router,
 };
 use axum_extra::{
-    headers::{authorization::Basic, Authorization},
+    headers::{authorization::Bearer, Authorization},
     TypedHeader,
 };
 use chrono::{Duration, Utc};
@@ -18,7 +18,8 @@ use cim_storage::{Interface, List};
 use crate::{
     services::oidc::{
         auth::{auth, AuthRequest},
-        key, token,
+        key,
+        token::{self, Claims, Token},
     },
     valid::Valid,
     AppState,
@@ -82,7 +83,7 @@ async fn discovery_handler(app: AppState) -> Json<OpenIDConfiguration> {
             "email".to_string(),
         ],
         token_endpoint_auth_methods_supported: vec![
-            "client_secret_basic".to_string()
+            "client_secret_post".to_string()
         ],
         code_challenge_methods_supported: vec![
             "plain".to_string(),
@@ -152,21 +153,20 @@ struct GrantOpts {
 
 async fn token_handler(
     app: AppState,
-    TypedHeader(info): TypedHeader<Authorization<Basic>>,
     RawForm(bytes): RawForm,
 ) -> Result<(HeaderMap, Json<token::TokenResponse>)> {
     let grant_opts: GrantOpts =
         serde_urlencoded::from_bytes(&bytes).map_err(errors::any)?;
-    let res = match grant_opts.grant_type.as_str() {
+    let toekn_result = match grant_opts.grant_type.as_str() {
         token::GRANT_TYPE_AUTHORIZATION_CODE => {
-            let client_info = token::get_client_and_valid(
-                &app.store.client,
-                info.username(),
-                info.password(),
-            )
-            .await?;
             let opts: token::code::CodeGrantOpts =
                 serde_urlencoded::from_bytes(&bytes).map_err(errors::any)?;
+            let client_info = token::get_client_and_valid(
+                &app.store.client,
+                &opts.client_id,
+                &opts.client_secret,
+            )
+            .await?;
             let cg = token::code::CodeGrant {
                 auth_store: &app.store.auth_code,
                 connector_store: &app.store.connector,
@@ -178,15 +178,16 @@ async fn token_handler(
             cg.grant(&client_info, &opts).await?
         }
         token::GRANT_TYPE_REFRESH_TOKEN => {
-            let client_info = token::get_client_and_valid(
-                &app.store.client,
-                info.username(),
-                info.password(),
-            )
-            .await?;
             let opts: token::refresh::RefreshGrantOpts =
                 serde_urlencoded::from_bytes(&bytes).map_err(errors::any)?;
+            let client_info = token::get_client_and_valid(
+                &app.store.client,
+                &opts.client_id,
+                &opts.client_secret,
+            )
+            .await?;
             let rg = token::refresh::RefreshGrant {
+                client_store: &app.store.client,
                 refresh_store: &app.store.refresh,
                 connector_store: &app.store.connector,
                 token_creator: &app.access_token,
@@ -204,15 +205,14 @@ async fn token_handler(
             rg.grant(&client_info, &opts).await?
         }
         token::GRANT_TYPE_PASSWORD => {
-            let client_info = token::get_client_and_valid(
-                &app.store.client,
-                info.username(),
-                info.password(),
-            )
-            .await?;
-
             let opts: token::password::PasswordGrantOpts =
                 serde_urlencoded::from_bytes(&bytes).map_err(errors::any)?;
+            let client_info = token::get_client_and_valid(
+                &app.store.client,
+                &opts.client_id,
+                &opts.client_secret,
+            )
+            .await?;
 
             let pg = token::password::PasswordGrant {
                 client_store: &app.store.client,
@@ -222,8 +222,7 @@ async fn token_handler(
                 offline_session_store: &app.store.offline_session,
                 user_store: &app.store.user,
             };
-            pg.grant(&client_info, &opts, &app.config.password_connector)
-                .await?
+            pg.grant(&client_info, &opts).await?
         }
         _ => {
             return Err(errors::bad_request(
@@ -235,16 +234,13 @@ async fn token_handler(
     let mut headers = HeaderMap::new();
     headers.insert(header::CACHE_CONTROL, "no-store".parse().unwrap());
     headers.insert(header::PRAGMA, "no-cache".parse().unwrap());
-    Ok((headers, Json(res)))
+    Ok((headers, Json(toekn_result)))
 }
 
 async fn userinfo(
     app: AppState,
-    Valid(mut auth_request): Valid<AuthRequest>,
-) -> Result<(StatusCode, HeaderMap)> {
-    let login_uri = auth(&app.store.connector, &mut auth_request).await?;
-    // redirect to EU login uri
-    let mut headers = HeaderMap::new();
-    headers.insert(header::LOCATION, login_uri.parse().map_err(errors::any)?);
-    Ok((StatusCode::FOUND, headers))
+    TypedHeader(info): TypedHeader<Authorization<Bearer>>,
+) -> Result<Json<Claims>> {
+    let claims = app.access_token.verify(info.token()).await?;
+    Ok(Json(claims))
 }

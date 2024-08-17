@@ -107,10 +107,11 @@ pub async fn valid_scope<C: Interface<T = client::Client>>(
     client_store: &C,
     client_id: &str,
     scopes: &Vec<String>,
-) -> Result<()> {
+) -> Result<Vec<String>> {
     let mut has_open_id_scope = false;
     let mut unrecognized = Vec::new();
     let mut invalid_scopes = Vec::new();
+    let mut audience = Vec::new();
     for scope in scopes {
         match scope.as_str() {
             SCOPE_OPENID => has_open_id_scope = true,
@@ -149,7 +150,9 @@ pub async fn valid_scope<C: Interface<T = client::Client>>(
                 }
                 if !trusted_peers {
                     invalid_scopes.push(scope.clone());
+                    continue;
                 }
+                audience.push(peer_id.to_owned());
             }
         }
     }
@@ -170,8 +173,11 @@ pub async fn valid_scope<C: Interface<T = client::Client>>(
             invalid_scopes
         )));
     }
+    if audience.is_empty() {
+        audience.push(client_id.to_owned());
+    }
 
-    Ok(())
+    Ok(audience)
 }
 
 pub async fn parse_auth_request<C: Interface<T = client::Client>>(

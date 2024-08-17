@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
 use utoipa::ToSchema;
+use validator::Validate;
+
+use crate::Pagination;
 
 #[derive(Debug, Default, Deserialize, Serialize, ToSchema, Clone)]
 pub struct Connector {
@@ -29,4 +32,14 @@ impl PartialEq for Connector {
         }
         false
     }
+}
+
+#[derive(Debug, Deserialize, Validate, ToSchema)]
+pub struct ListParams {
+    #[validate(length(min = 1))]
+    #[serde(rename = "type")]
+    pub connector_type: Option<String>,
+    #[serde(flatten)]
+    #[validate(nested)]
+    pub pagination: Pagination,
 }

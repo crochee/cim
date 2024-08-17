@@ -186,12 +186,12 @@ CREATE TABLE `auth_code` (
 CREATE TABLE `refresh_token` (
     `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'refresh_token ID',
     `client_id` BIGINT(20) UNSIGNED NOT NULL COMMENT 'client id',
-	`scopes` TEXT NOT NULL, -- JSON array of strings
+	`scopes` LONGTEXT NOT NULL CHECK (json_valid(`scopes`)),
 	`nonce` TEXT NOT NULL,
 	`token` TEXT NOT NULL DEFAULT '',
 	`obsolete_token` TEXT NOT NULL DEFAULT '',
 
-    `claim` TEXT NOT NULL,
+    `claim` LONGTEXT NOT NULL CHECK (json_valid(`claim`)),
 
 	`connector_id` TEXT NOT NULL,
 	`connector_data` TEXT,
@@ -226,6 +226,7 @@ CREATE TABLE `offline_session` (
 	`user_id` VARCHAR(255) NOT NULL,
 	`conn_id` VARCHAR(255) NOT NULL,
 	`refresh` LONGTEXT NOT NULL CHECK (json_valid(`refresh`)),
+	`connector_data` TEXT,
 
     `deleted` BIGINT(20) UNSIGNED NOT NULL DEFAULT '0' COMMENT 'soft delete flag',
     `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT 'create time',

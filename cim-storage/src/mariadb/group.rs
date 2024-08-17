@@ -135,7 +135,7 @@ impl Interface for GroupImpl {
             let policy_result = sqlx::query(
                 format!(
                     r#"SELECT COUNT(*) as count FROM `group`
-            WHERE {};"#,
+                    WHERE {};"#,
                     wheres,
                 )
                 .as_str(),

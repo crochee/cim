@@ -136,7 +136,7 @@ pub async fn create(app: AppState, input: user::Content) -> Result<u64> {
         .put(
             &connector::Connector {
                 id: connector_id.to_string(),
-                connector_type: "cim".to_owned(),
+                connector_type: "password".to_owned(),
                 name: "owner".to_owned(),
                 response_version: "v1.0.0".to_owned(),
                 config: "{}".to_owned(),
