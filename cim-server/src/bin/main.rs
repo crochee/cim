@@ -1,4 +1,4 @@
-use std::{net::SocketAddr, sync::Arc};
+use std::{env, net::SocketAddr, sync::Arc};
 
 use anyhow::{Context, Result};
 use clap::Parser;
@@ -9,19 +9,25 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use cim_storage::connection_manager;
 
 use cim_server::{
-    shutdown_signal, version, App, AppConfig, AppRouter, AppState,
+    load, shutdown_signal, version, App, AppConfig, AppRouter, AppState,
 };
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    dotenv::dotenv().ok();
-    let config = AppConfig::parse();
+    let args = env::args().collect::<Vec<_>>();
+    let config =
+        if args.len() == 3 && (args[1] == "-c" || args[1] == "--config") {
+            load(&args[2])?
+        } else {
+            AppConfig::parse()
+        };
 
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::new(&config.rust_log))
         .with(tracing_subscriber::fmt::layer())
         .init();
 
+    info!("{:#?}", &config);
     info!("{}", version());
     async_run_server(config).await
 }
@@ -51,10 +57,13 @@ async fn async_run_server(config: AppConfig) -> Result<()> {
         .await
         .context("could not bind to endpoint")?;
 
-    axum::serve(listener, router.into_make_service_with_connect_info::<SocketAddr>())
-        .with_graceful_shutdown(shutdown_signal())
-        .await
-        .context("error while starting API server")?;
+    axum::serve(
+        listener,
+        router.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .with_graceful_shutdown(shutdown_signal())
+    .await
+    .context("error while starting API server")?;
 
     Ok(())
 }
@@ -70,17 +79,17 @@ fn key_rotate(app: Arc<App>) {
 
         loop {
             tokio::select! {
-                    _ = interval.tick() => {
-                        info!("start rotate...");
-                        if let Err(err) = app.key_rotator.rotate().await {
-                            error!("{}", err);
-                        }
-                         info!("end rotate...");
-                    },
-                    _ = shutdown_signal() => {
-                        break;
+                _ = interval.tick() => {
+                    info!("start rotate...");
+                    if let Err(err) = app.key_rotator.rotate().await {
+                        error!("{}", err);
                     }
+                     info!("end rotate...");
+                },
+                _ = shutdown_signal() => {
+                    break;
                 }
+            }
         }
         info!("finish rotate...");
     });

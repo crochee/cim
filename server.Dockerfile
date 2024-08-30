@@ -9,7 +9,7 @@ WORKDIR /app
 COPY --from=builder /workspace/gosu /usr/local/bin/
 COPY ./target/release/server /usr/local/bin
 COPY ./entrypoint.sh /usr/local/bin/
-COPY .env /app/
+COPY server.toml /app/
 # 赋予执行权限
 RUN chmod +x /usr/local/bin/server /usr/local/bin/entrypoint.sh &&\
     groupadd -g 10000 cloud &&\
@@ -19,4 +19,4 @@ EXPOSE 30050
 STOPSIGNAL 2
 
 ENTRYPOINT ["entrypoint.sh"]
-CMD ["server"]
+CMD ["-c", "/app/server.toml"]

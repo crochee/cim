@@ -19,7 +19,6 @@ enum Commands {
 }
 
 fn main() {
-    dotenv::dotenv().ok();
     let args = Cli::parse();
     match args.command {
         Commands::Run => {

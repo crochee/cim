@@ -11,4 +11,3 @@ path = "src/bin/main.rs"
 
 [dependencies]
 clap = { workspace = true }
-dotenv = { workspace = true }

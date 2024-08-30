@@ -1,4 +1,5 @@
 mod app;
+mod auth;
 mod config;
 mod controllers;
 mod middlewares;
@@ -7,7 +8,6 @@ mod services;
 mod valid;
 mod var;
 mod version;
-mod auth;
 
 #[cfg(target_env = "msvc")]
 #[global_allocator]
@@ -20,7 +20,7 @@ static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 pub use app::{App, AppState};
-pub use config::AppConfig;
+pub use config::{load, AppConfig};
 pub use routes::AppRouter;
 use tokio::signal;
 pub use version::version;

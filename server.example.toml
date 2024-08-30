@@ -1,0 +1,11 @@
+port = 8080
+endpoint = "http://localhost"
+rust_log = "sqlx=debug,tower_http=info,cim_slo=error,cim_storage=debug,cim_pim=debug,cim_server=debug,server=debug"
+rust_backtrace = 0
+cors_origin = "127.0.0.1"
+cache_size = 512
+database_url = "mysql://root:123456@localhost:3306/cim?charset=utf8mb4&parseTime=true&loc=UTC"
+max_size = 50
+min_idle = 30
+run_migrations = true
+redis_url = "redis://127.0.0.1:6379/1"

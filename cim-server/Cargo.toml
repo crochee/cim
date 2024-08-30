@@ -18,7 +18,6 @@ cim-storage = { path = "../cim-storage" }
 cim-watch = { path = "../cim-watch" }
 cim-slo = { path = "../cim-slo", features = ["axum-resp"] }
 
-dotenv = { workspace = true }
 clap = { workspace = true }
 anyhow = { workspace = true }
 tracing = { workspace = true }
@@ -38,6 +37,7 @@ sqlx = { workspace = true }
 http = { workspace = true }
 rand = { workspace = true }
 lru = { workspace = true }
+toml = { workspace = true }
 
 tokio = { version = "1.36", features = ["full"] }
 axum-extra = { version = "0.9", features = ["typed-header"] }
