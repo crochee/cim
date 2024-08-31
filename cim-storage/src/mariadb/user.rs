@@ -4,7 +4,7 @@ use rand::Rng;
 use sqlx::{MySqlPool, Row};
 
 use cim_slo::{crypto::password::encrypt, errors, Result};
-use cim_watch::{Watcher, WatcherHub};
+use cim_watch::{WatchGuard, Watcher, WatcherHub};
 use tracing::info;
 
 use crate::{
@@ -317,10 +317,9 @@ impl Interface for UserImpl {
     fn watch<W: Watcher<Event<Self::T>>>(
         &self,
         handler: W,
-        remove: impl Fn() + Send + 'static,
-    ) -> Box<dyn Fn() + Send> {
+    ) -> Box<dyn WatchGuard + Send> {
         self.watch_hub
-            .watch(Utc::now().timestamp() as usize, handler, remove)
+            .watch(Utc::now().timestamp() as usize, handler)
     }
     async fn count(&self, opts: &Self::L, unscoped: bool) -> Result<i64> {
         let mut wheres = String::new();

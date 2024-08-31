@@ -57,14 +57,9 @@ async fn list_user(
         ListWatch::Ws((ws, filter)) => {
             Ok(ws.on_upgrade(move |socket| async move {
                 let (wtx, wrx) = std::sync::mpsc::channel::<Event<User>>();
-                let remove = app.store.user.watch(
-                    move |event| {
-                        wtx.send(event).unwrap();
-                    },
-                    move || {
-                        info!("remove out 2");
-                    },
-                );
+                let _remove = app.store.user.watch(move |event| {
+                    wtx.send(event).unwrap();
+                });
                 let (mut sender, mut receiver) = socket.split();
                 let mut send_task = tokio::spawn(async move {
                     while let Ok(item) = wrx.recv() {
@@ -108,11 +103,9 @@ async fn list_user(
                 });
                 tokio::select! {
                     _ = (&mut send_task) => {
-                        remove();
                         recv_task.abort();
                     },
                     _ = (&mut recv_task) => {
-                        remove();
                         send_task.abort();
                     }
                 }

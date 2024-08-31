@@ -3,7 +3,7 @@ use serde_json::value::RawValue;
 use sqlx::{types::Json, MySqlPool, Row};
 
 use cim_slo::{errors, Result};
-use cim_watch::Watcher;
+use cim_watch::{WatchGuard, Watcher};
 
 use crate::{refresh_token::RefreshToken, Claim, Event, Interface, List};
 
@@ -113,8 +113,7 @@ impl Interface for RefreshTokenImpl {
     fn watch<W: Watcher<Event<Self::T>>>(
         &self,
         _handler: W,
-        _remove: impl Fn() + Send + 'static,
-    ) -> Box<dyn Fn() + Send> {
+    ) -> Box<dyn WatchGuard + Send> {
         todo!()
     }
     async fn count(&self, _opts: &Self::L, _unscoped: bool) -> Result<i64> {

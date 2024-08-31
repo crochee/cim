@@ -26,7 +26,7 @@ use async_trait::async_trait;
 use serde::{de::DeserializeOwned, Serialize};
 
 use cim_slo::Result;
-use cim_watch::Watcher;
+use cim_watch::{WatchGuard, Watcher};
 
 #[async_trait]
 pub trait Interface: Sync {
@@ -44,8 +44,7 @@ pub trait Interface: Sync {
     fn watch<W: Watcher<Event<Self::T>>>(
         &self,
         handler: W,
-        remove: impl Fn() + Send + 'static,
-    ) -> Box<dyn Fn() + Send>;
+    ) -> Box<dyn WatchGuard + Send>;
 
     async fn count(&self, opts: &Self::L, unscoped: bool) -> Result<i64>;
 }

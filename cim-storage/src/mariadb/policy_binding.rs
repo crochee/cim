@@ -3,7 +3,7 @@ use chrono::Utc;
 use sqlx::{MySqlPool, Row};
 
 use cim_slo::{errors, Result};
-use cim_watch::{Watcher, WatcherHub};
+use cim_watch::{WatchGuard, Watcher, WatcherHub};
 
 use crate::{
     convert::convert_param,
@@ -178,10 +178,9 @@ impl Interface for PolicyBindingImpl {
     fn watch<W: Watcher<Event<Self::T>>>(
         &self,
         handler: W,
-        remove: impl Fn() + Send + 'static,
-    ) -> Box<dyn Fn() + Send> {
+    ) -> Box<dyn WatchGuard + Send> {
         self.watch_hub
-            .watch(Utc::now().timestamp() as usize, handler, remove)
+            .watch(Utc::now().timestamp() as usize, handler)
     }
     async fn count(&self, opts: &Self::L, unscoped: bool) -> Result<i64> {
         let mut wheres = String::new();
@@ -234,7 +233,9 @@ fn combine_param(wheres: &mut String, opts: &ListParams) -> Result<()> {
         if !wheres.is_empty() {
             wheres.push_str(" AND ");
         }
-        wheres.push_str(format!(r#"`bindings_type` = {}"#, binding_type_u8).as_str());
+        wheres.push_str(
+            format!(r#"`bindings_type` = {}"#, binding_type_u8).as_str(),
+        );
     }
     if let Some(binding_id) = &opts.bindings_id {
         if !wheres.is_empty() {

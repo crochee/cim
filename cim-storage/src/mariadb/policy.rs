@@ -4,7 +4,7 @@ use sqlx::{types::Json, MySqlPool, Row};
 
 use cim_pim::{Request, Statement};
 use cim_slo::{errors, Result};
-use cim_watch::{Watcher, WatcherHub};
+use cim_watch::{WatchGuard, Watcher, WatcherHub};
 
 use crate::{
     convert::convert_param,
@@ -102,7 +102,10 @@ impl Interface for PolicyImpl {
             .try_get::<u64, _>("id")
             .map_err(errors::any)?
             .to_string();
-        output.account_id = row.try_get::<Option<u64>, _>("account_id").map_err(errors::any)?.map(|v| v.to_string());
+        output.account_id = row
+            .try_get::<Option<u64>, _>("account_id")
+            .map_err(errors::any)?
+            .map(|v| v.to_string());
         output.desc = row.try_get("desc").map_err(errors::any)?;
         output.version = row.try_get("version").map_err(errors::any)?;
         output.statement = row
@@ -187,10 +190,9 @@ impl Interface for PolicyImpl {
     fn watch<W: Watcher<Event<Self::T>>>(
         &self,
         handler: W,
-        remove: impl Fn() + Send + 'static,
-    ) -> Box<dyn Fn() + Send> {
+    ) -> Box<dyn WatchGuard + Send> {
         self.watch_hub
-            .watch(Utc::now().timestamp() as usize, handler, remove)
+            .watch(Utc::now().timestamp() as usize, handler)
     }
     async fn count(&self, opts: &Self::L, unscoped: bool) -> Result<i64> {
         let mut wheres = String::new();

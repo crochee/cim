@@ -71,13 +71,12 @@ where
         &self,
         since_modify: usize,
         handler: W,
-        remove: impl Fn() + Send + 'static,
-    ) -> Box<dyn Fn() + Send> {
+    ) -> Box<dyn WatchGuard + Send> {
         {
             let event_history_ref = self.inner.event_history.read().unwrap();
             if let Some(event) = event_history_ref.scan(since_modify) {
                 handler.notify(event.to_owned());
-                return Box::new(|| {});
+                return Box::new(Empty);
             }
         }
         let handler_ref = Arc::new(WatcherInner {
@@ -88,11 +87,9 @@ where
             let mut watchers_ref = self.inner.watchers.write().unwrap();
             watchers_ref.push(Arc::clone(&handler_ref));
         }
-        let inner = Arc::clone(&self.inner);
-        Box::new(move || {
-            let mut watchers_ref = inner.watchers.write().unwrap();
-            watchers_ref.retain(|h| !Arc::ptr_eq(h, &handler_ref));
-            remove();
+        Box::new(Remove {
+            inner: Arc::clone(&self.inner),
+            watcher: handler_ref,
         })
     }
 
@@ -121,6 +118,32 @@ where
     }
 }
 
+pub trait WatchGuard {
+    fn remove(&self) {}
+}
+
+struct Remove<T> {
+    inner: Arc<WatcherHubInner<T>>,
+    watcher: Arc<WatcherInner<T>>,
+}
+
+impl<T> WatchGuard for Remove<T> {
+    fn remove(&self) {
+        let mut watchers_ref = self.inner.watchers.write().unwrap();
+        watchers_ref.retain(|h| !Arc::ptr_eq(h, &self.watcher));
+    }
+}
+
+impl<T> Drop for Remove<T> {
+    fn drop(&mut self) {
+        self.remove();
+    }
+}
+
+struct Empty;
+
+impl WatchGuard for Empty {}
+
 #[cfg(test)]
 mod tests {
     use std::{sync::mpsc, thread};
@@ -140,20 +163,13 @@ mod tests {
         let evt1 = evt.clone();
         let s1 = thread::spawn(move || {
             let (tx, rx) = mpsc::sync_channel::<Event<usize>>(100);
-            let remove = evt1.watch(
-                9,
-                move |event| {
-                    tx.send(event).unwrap();
-                },
-                move || {
-                    println!("remove out 1");
-                },
-            );
+            let _remove = evt1.watch(9, move |event| {
+                tx.send(event).unwrap();
+            });
             while let Ok(v) = rx.recv() {
                 match v {
                     Event::Add(value) => match value {
                         10 => {
-                            remove();
                             break;
                         }
                         b => {
@@ -170,20 +186,13 @@ mod tests {
         let evt2 = evt.clone();
         let s2 = thread::spawn(move || {
             let (tx, rx) = mpsc::sync_channel::<Event<usize>>(100);
-            let remove = evt2.watch(
-                9,
-                move |event| {
-                    tx.send(event).unwrap();
-                },
-                move || {
-                    println!("remove out 2");
-                },
-            );
+            let _remove = evt2.watch(9, move |event| {
+                tx.send(event).unwrap();
+            });
             while let Ok(v) = rx.recv() {
                 match v {
                     Event::Add(value) => match value {
                         11 => {
-                            remove();
                             break;
                         }
                         b => {

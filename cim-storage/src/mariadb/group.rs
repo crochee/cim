@@ -3,7 +3,7 @@ use chrono::Utc;
 use sqlx::{MySqlPool, Row};
 
 use cim_slo::{errors, Result};
-use cim_watch::{Watcher, WatcherHub};
+use cim_watch::{WatchGuard, Watcher, WatcherHub};
 
 use crate::{
     group::{Group, ListParams},
@@ -188,10 +188,9 @@ impl Interface for GroupImpl {
     fn watch<W: Watcher<Event<Self::T>>>(
         &self,
         handler: W,
-        remove: impl Fn() + Send + 'static,
-    ) -> Box<dyn Fn() + Send> {
+    ) -> Box<dyn WatchGuard + Send> {
         self.watch_hub
-            .watch(Utc::now().timestamp() as usize, handler, remove)
+            .watch(Utc::now().timestamp() as usize, handler)
     }
     async fn count(&self, opts: &Self::L, unscoped: bool) -> Result<i64> {
         let mut wheres = String::new();
