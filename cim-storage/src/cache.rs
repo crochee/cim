@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::RwLock};
 use async_trait::async_trait;
 
 use cim_slo::{errors, type_name, Result};
-use cim_watch::Watcher;
+use cim_watch::{WatchGuard, Watcher};
 
 use crate::{Event, Interface, List};
 
@@ -85,9 +85,8 @@ where
     fn watch<W: Watcher<Event<Self::T>>>(
         &self,
         handler: W,
-        remove: impl Fn() + Send + 'static,
-    ) -> Box<dyn Fn() + Send> {
-        self.storage.watch(handler, remove)
+    ) -> Box<dyn WatchGuard + Send> {
+        self.storage.watch(handler)
     }
     async fn count(&self, opts: &Self::L, unscoped: bool) -> Result<i64> {
         self.storage.count(opts, unscoped).await

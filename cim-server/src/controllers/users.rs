@@ -9,7 +9,6 @@ use axum::{
 
 use futures_util::{SinkExt, StreamExt};
 use http::StatusCode;
-use tracing::info;
 
 use cim_slo::Result;
 use cim_storage::{

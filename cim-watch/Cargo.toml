@@ -3,8 +3,5 @@ name = "cim-watch"
 version.workspace = true
 edition.workspace = true
 
-[dependencies]
-futures-util = { workspace = true }
-
 [lints]
 workspace = true

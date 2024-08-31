@@ -13,6 +13,7 @@ release = false
 serde_json = { workspace = true }
 anyhow = { workspace = true }
 cim-pim = { path = "../cim-pim" }
+cim-watch = { path = "../cim-watch" }
 cim-uid = { path = "../cim-uid", features = ["derive"] }
 
 [[example]]
@@ -22,3 +23,7 @@ path = "pim.rs"
 [[example]]
 name = "uid"
 path = "uid.rs"
+
+[[example]]
+name = "watch"
+path = "watch.rs"

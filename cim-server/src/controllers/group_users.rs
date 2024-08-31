@@ -12,7 +12,6 @@ use cim_storage::{
     group_user::{Content, GroupUser, ListParams},
     Event, EventData, Interface, List, ID,
 };
-use tracing::info;
 
 use crate::{
     auth::Auth,

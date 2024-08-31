@@ -195,7 +195,7 @@ impl JwkKey<jwk::Key> {
 
 #[cfg(test)]
 mod tests {
-    use cim_watch::Watcher;
+    use cim_watch::{WatchGuard, Watcher};
     use rand::Rng;
     use rsa::traits::{PrivateKeyParts, PublicKeyParts};
 
@@ -237,8 +237,7 @@ mod tests {
         fn watch<W: Watcher<Event<Self::T>>>(
             &self,
             _handler: W,
-            _remove: impl Fn() + Send + 'static,
-        ) -> Box<dyn Fn() + Send> {
+        ) -> Box<dyn WatchGuard + Send> {
             unimplemented!()
         }
         async fn count(&self, _opts: &Self::L, _unscoped: bool) -> Result<i64> {

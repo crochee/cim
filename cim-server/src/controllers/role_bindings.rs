@@ -12,7 +12,6 @@ use cim_storage::{
     role_binding::{Content, ListParams, RoleBinding},
     Event, EventData, Interface, List, ID,
 };
-use tracing::info;
 
 use crate::{
     auth::Auth,

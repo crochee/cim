@@ -27,7 +27,6 @@ async fn main() -> Result<()> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    info!("{:#?}", &config);
     info!("{}", version());
     async_run_server(config).await
 }

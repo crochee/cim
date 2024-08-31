@@ -12,7 +12,6 @@ use cim_storage::{
     policy_binding::{Content, ListParams, PolicyBinding},
     Event, EventData, Interface, List, ID,
 };
-use tracing::info;
 
 use crate::{
     auth::Auth,

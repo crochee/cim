@@ -320,7 +320,7 @@ mod tests {
 
     use async_trait::async_trait;
     use cim_storage::{client::Client, Event, List};
-    use cim_watch::Watcher;
+    use cim_watch::{WatchGuard, Watcher};
     use mockall::mock;
 
     mock! {
@@ -352,8 +352,7 @@ mod tests {
         fn watch<W: Watcher<Event<Self::T>>>(
             &self,
             _handler: W,
-            _remove: impl Fn() + Send + 'static,
-        ) -> Box<dyn Fn() + Send> {
+        ) -> Box<dyn WatchGuard + Send> {
             unimplemented!()
         }
         async fn count(&self, _opts: &Self::L, _unscoped: bool) -> Result<i64> {
