@@ -39,8 +39,8 @@ impl App {
         let key_rotator = KeyRotator::new(
             cim_storage::KeysImpl::new(pool.clone()),
             RotationStrategy {
-                rotation_frequency:  60 * 60,
-                keep:  60 * 60,
+                rotation_frequency: 60 * 60,
+                keep: 60 * 60,
             },
         );
 
@@ -62,13 +62,15 @@ impl App {
 }
 
 pub struct Store {
-    pub user: cim_storage::UserImpl,
-    pub role: cim_storage::RoleImpl,
-    pub role_binding: cim_storage::RoleBindingImpl,
-    pub group: cim_storage::GroupImpl,
-    pub group_user: cim_storage::GroupUserImpl,
-    pub policy: cim_storage::PolicyImpl,
-    pub policy_binding: cim_storage::PolicyBindingImpl,
+    pub user: cim_storage::WatchStore<cim_storage::UserImpl>,
+    pub role: cim_storage::WatchStore<cim_storage::RoleImpl>,
+    pub role_binding: cim_storage::WatchStore<cim_storage::RoleBindingImpl>,
+    pub group: cim_storage::WatchStore<cim_storage::GroupImpl>,
+    pub group_user: cim_storage::WatchStore<cim_storage::GroupUserImpl>,
+    pub statement: cim_storage::PolicyImpl,
+    pub policy: cim_storage::WatchStore<cim_storage::PolicyImpl>,
+    pub policy_binding: cim_storage::WatchStore<cim_storage::PolicyBindingImpl>,
+
     pub key: cim_storage::KeysImpl,
     pub auth_request: cim_storage::AuthRequestImpl,
     pub auth_code: cim_storage::AuthCodeImpl,
@@ -80,13 +82,27 @@ pub struct Store {
 
 impl Store {
     pub fn new(pool: MySqlPool) -> Self {
-        let user = cim_storage::UserImpl::new(pool.clone());
-        let role = cim_storage::RoleImpl::new(pool.clone());
-        let role_binding = cim_storage::RoleBindingImpl::new(pool.clone());
-        let group = cim_storage::GroupImpl::new(pool.clone());
-        let group_user = cim_storage::GroupUserImpl::new(pool.clone());
-        let policy = cim_storage::PolicyImpl::new(pool.clone());
-        let policy_binding = cim_storage::PolicyBindingImpl::new(pool.clone());
+        let user = cim_storage::WatchStore::new(cim_storage::UserImpl::new(
+            pool.clone(),
+        ));
+        let role = cim_storage::WatchStore::new(cim_storage::RoleImpl::new(
+            pool.clone(),
+        ));
+        let role_binding = cim_storage::WatchStore::new(
+            cim_storage::RoleBindingImpl::new(pool.clone()),
+        );
+        let group = cim_storage::WatchStore::new(cim_storage::GroupImpl::new(
+            pool.clone(),
+        ));
+        let group_user = cim_storage::WatchStore::new(
+            cim_storage::GroupUserImpl::new(pool.clone()),
+        );
+        let statement = cim_storage::PolicyImpl::new(pool.clone());
+        let policy = cim_storage::WatchStore::new(statement.clone());
+
+        let policy_binding = cim_storage::WatchStore::new(
+            cim_storage::PolicyBindingImpl::new(pool.clone()),
+        );
         let key = cim_storage::KeysImpl::new(pool.clone());
         let auth_request = cim_storage::AuthRequestImpl::new(pool.clone());
         let auth_code = cim_storage::AuthCodeImpl::new(pool.clone());
@@ -100,6 +116,7 @@ impl Store {
             role_binding,
             group,
             group_user,
+            statement,
             policy,
             policy_binding,
             key,

@@ -29,10 +29,11 @@ pub async fn get_auth_request<S: Interface<T = authrequest::AuthRequest>>(
     auth_request_store: &S,
     req: &AuthReqID,
 ) -> Result<authrequest::AuthRequest> {
-    let mut auth_request = authrequest::AuthRequest::default();
-    auth_request_store
-        .get(&req.state, &mut auth_request)
-        .await?;
+    let mut auth_request = authrequest::AuthRequest {
+        id: req.state.clone(),
+        ..Default::default()
+    };
+    auth_request_store.get(&mut auth_request).await?;
     Ok(auth_request)
 }
 
@@ -123,7 +124,10 @@ pub async fn send_code<
     if Utc::now().timestamp() > auth_request.expiry {
         return Err(errors::bad_request("User session has expired."));
     }
-    auth_request_store.delete(&auth_request.id).await?;
+    let mut auth_request = authrequest::AuthRequest::default();
+    auth_request.id = auth_request.id.clone();
+
+    auth_request_store.delete(&auth_request).await?;
     let u = auth_request.redirect_uri.parse::<Uri>().map_err(|err| {
         errors::bad_request(format!("Invalid redirect_uri. {}", err).as_str())
     })?;

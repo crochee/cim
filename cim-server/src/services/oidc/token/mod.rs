@@ -63,8 +63,11 @@ pub async fn get_client_and_valid<C: Interface<T = client::Client>>(
     client_id: &str,
     client_secret: &str,
 ) -> Result<client::Client> {
-    let mut client = client::Client::default();
-    client_store.get(client_id, &mut client).await?;
+    let mut client = client::Client {
+        id: client_id.to_string(),
+        ..Default::default()
+    };
+    client_store.get(&mut client).await?;
 
     if !constant_time_eq(client.secret.as_bytes(), client_secret.as_bytes()) {
         return Err(errors::forbidden("invalid client secret"));
@@ -119,14 +122,22 @@ where
             self.refresh_token_store.put(&refresh_token, 0).await?;
             match self.handle_offline(&refresh_token, &refresh_token.id).await {
                 Ok(Some(token_ref_id)) => {
-                    self.refresh_token_store.delete(&token_ref_id).await?;
+                    let refresh_token = refresh_token::RefreshToken {
+                        id: token_ref_id,
+                        ..Default::default()
+                    };
+                    self.refresh_token_store.delete(&refresh_token).await?;
                 }
                 Err(err) => {
                     tracing::error!(
                         "failed to handle offline session: {}",
                         err
                     );
-                    self.refresh_token_store.delete(&refresh_token.id).await?;
+                    let refresh_token = refresh_token::RefreshToken {
+                        id: refresh_token.id.clone(),
+                        ..Default::default()
+                    };
+                    self.refresh_token_store.delete(&refresh_token).await?;
                     return Err(err);
                 }
                 _ => {}

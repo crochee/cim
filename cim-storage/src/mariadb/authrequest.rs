@@ -3,11 +3,10 @@ use serde_json::value::RawValue;
 use sqlx::{types::Json, MySqlPool, Row};
 
 use cim_slo::{errors, Result};
-use cim_watch::{WatchGuard, Watcher};
 
-use crate::{authrequest::AuthRequest, Claim, Event, Interface, List};
+use crate::{authrequest::AuthRequest, Claim, Interface, List};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct AuthRequestImpl {
     pool: MySqlPool,
 }
@@ -22,6 +21,8 @@ impl AuthRequestImpl {
 impl Interface for AuthRequestImpl {
     type T = AuthRequest;
     type L = ();
+
+    #[tracing::instrument]
     async fn put(&self, content: &Self::T, _ttl: u64) -> Result<()> {
         sqlx::query(
             r#"REPLACE INTO `auth_request`
@@ -52,7 +53,13 @@ impl Interface for AuthRequestImpl {
         Ok(())
     }
 
-    async fn delete(&self, id: &str) -> Result<()> {
+    #[tracing::instrument]
+    async fn delete(&self, input: &Self::T) -> Result<()> {
+        let id = input
+            .id
+            .parse::<u64>()
+            .map_err(|err| errors::bad_request(&err))?;
+
         sqlx::query(
             r#"UPDATE `auth_request` SET `deleted` = `id`,`deleted_at`= now()
             WHERE id = ? AND `deleted` = 0;"#,
@@ -63,7 +70,14 @@ impl Interface for AuthRequestImpl {
         .map_err(errors::any)?;
         Ok(())
     }
-    async fn get(&self, id: &str, output: &mut Self::T) -> Result<()> {
+
+    #[tracing::instrument]
+    async fn get(&self, output: &mut Self::T) -> Result<()> {
+        let id = output
+            .id
+            .parse::<u64>()
+            .map_err(|err| errors::bad_request(&err))?;
+
         let row = match sqlx::query(
             r#"SELECT `id`,`client_id`,`response_types`,`scopes`,`redirect_uri`,`code_challenge`,`code_challenge_method`,
             `nonce`,`state`,`hmac_key`,`force_approval_prompt`,`logged_in`,`claim`,`connector_id`,`connector_data`,`expiry`
@@ -127,12 +141,7 @@ impl Interface for AuthRequestImpl {
     ) -> Result<()> {
         todo!()
     }
-    fn watch<W: Watcher<Event<Self::T>>>(
-        &self,
-        _handler: W,
-    ) -> Box<dyn WatchGuard + Send> {
-        todo!()
-    }
+
     async fn count(&self, _opts: &Self::L, _unscoped: bool) -> Result<i64> {
         todo!()
     }

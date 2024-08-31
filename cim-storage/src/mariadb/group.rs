@@ -1,27 +1,21 @@
 use async_trait::async_trait;
-use chrono::Utc;
 use sqlx::{MySqlPool, Row};
 
 use cim_slo::{errors, Result};
-use cim_watch::{WatchGuard, Watcher, WatcherHub};
 
 use crate::{
     group::{Group, ListParams},
-    Event, Interface, List,
+    Interface, List,
 };
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct GroupImpl {
     pool: MySqlPool,
-    watch_hub: WatcherHub<Event<Group>>,
 }
 
 impl GroupImpl {
     pub fn new(pool: MySqlPool) -> Self {
-        Self {
-            pool,
-            watch_hub: WatcherHub::default(),
-        }
+        Self { pool }
     }
 }
 
@@ -29,6 +23,8 @@ impl GroupImpl {
 impl Interface for GroupImpl {
     type T = Group;
     type L = ListParams;
+
+    #[tracing::instrument]
     async fn put(&self, input: &Self::T, _ttl: u64) -> Result<()> {
         sqlx::query(
             r#"REPLACE INTO `group`
@@ -42,15 +38,16 @@ impl Interface for GroupImpl {
         .execute(&self.pool)
         .await
         .map_err(errors::any)?;
-        self.watch_hub.notify(
-            Utc::now().timestamp() as usize,
-            Event::Put(input.to_owned()),
-        );
+
         Ok(())
     }
 
-    async fn delete(&self, id: &str) -> Result<()> {
-        let id = id.parse::<u64>().map_err(|err| errors::bad_request(&err))?;
+    #[tracing::instrument]
+    async fn delete(&self, input: &Self::T) -> Result<()> {
+        let id = input
+            .id
+            .parse::<u64>()
+            .map_err(|err| errors::bad_request(&err))?;
         if sqlx::query(
             r#"SELECT COUNT(*) as count FROM `group_user` WHERE `group_id` = ? AND `deleted` = 0"#,
         )
@@ -77,17 +74,16 @@ impl Interface for GroupImpl {
         .execute(&self.pool)
         .await
         .map_err(errors::any)?;
-        self.watch_hub.notify(
-            Utc::now().timestamp() as usize,
-            Event::Delete(Self::T {
-                id: id.to_string(),
-                ..Default::default()
-            }),
-        );
+
         Ok(())
     }
-    async fn get(&self, id: &str, output: &mut Self::T) -> Result<()> {
-        let id = id.parse::<u64>().map_err(|err| errors::bad_request(&err))?;
+
+    #[tracing::instrument]
+    async fn get(&self, output: &mut Self::T) -> Result<()> {
+        let id = output
+            .id
+            .parse::<u64>()
+            .map_err(|err| errors::bad_request(&err))?;
         let row = match sqlx::query(
             r#"SELECT `id`,`account_id`,`name`,`desc`,`created_at`,`updated_at`
                 FROM `group`
@@ -118,6 +114,8 @@ impl Interface for GroupImpl {
         output.updated_at = row.try_get("updated_at").map_err(errors::any)?;
         Ok(())
     }
+
+    #[tracing::instrument]
     async fn list(
         &self,
         opts: &Self::L,
@@ -185,13 +183,8 @@ impl Interface for GroupImpl {
 
         Ok(())
     }
-    fn watch<W: Watcher<Event<Self::T>>>(
-        &self,
-        handler: W,
-    ) -> Box<dyn WatchGuard + Send> {
-        self.watch_hub
-            .watch(Utc::now().timestamp() as usize, handler)
-    }
+
+    #[tracing::instrument]
     async fn count(&self, opts: &Self::L, unscoped: bool) -> Result<i64> {
         let mut wheres = String::new();
         combine_param(&mut wheres, opts)?;

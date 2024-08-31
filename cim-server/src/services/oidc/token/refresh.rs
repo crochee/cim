@@ -4,6 +4,7 @@ use serde::Deserialize;
 use cim_slo::{errors, Result};
 use cim_storage::{
     client, connector, offlinesession, refresh_token, user, Interface, List,
+    WatchInterface,
 };
 
 use crate::services::oidc::{
@@ -43,7 +44,7 @@ where
         T = offlinesession::OfflineSession,
         L = offlinesession::ListParams,
     >,
-    U: Interface<T = user::User> + Send + Sync + Clone + 'static,
+    U: WatchInterface<T = user::User> + Send + Sync + Clone + 'static,
 {
     pub fn now(&self) -> DateTime<Utc> {
         Utc::now()
@@ -74,10 +75,11 @@ where
     ) -> Result<token::TokenResponse> {
         let mut claim_refresh_token: token::ClaimRefreshToken =
             serde_json::from_str(&opts.refresh_token).map_err(errors::any)?;
-        let mut refresh_token = refresh_token::RefreshToken::default();
-        self.refresh_store
-            .get(&claim_refresh_token.refresh_id, &mut refresh_token)
-            .await?;
+        let mut refresh_token = refresh_token::RefreshToken {
+            id: claim_refresh_token.refresh_id.clone(),
+            ..Default::default()
+        };
+        self.refresh_store.get(&mut refresh_token).await?;
         if !refresh_token.client_id.eq(&client_info.id) {
             return Err(errors::bad_request(
                 "refresh token does not belong to this client",
@@ -94,10 +96,11 @@ where
                 "refresh token expired because it was not used in time",
             ));
         }
-        let mut connector_value = connector::Connector::default();
-        self.connector_store
-            .get(&refresh_token.connector_id, &mut connector_value)
-            .await?;
+        let mut connector_value = connector::Connector {
+            id: refresh_token.connector_id.clone(),
+            ..Default::default()
+        };
+        self.connector_store.get(&mut connector_value).await?;
 
         let mut sessions = List::default();
         self.offline_session_store

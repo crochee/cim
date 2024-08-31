@@ -3,11 +3,10 @@ use serde_json::value::RawValue;
 use sqlx::{types::Json, MySqlPool, Row};
 
 use cim_slo::{errors, Result};
-use cim_watch::{WatchGuard, Watcher};
 
-use crate::{refresh_token::RefreshToken, Claim, Event, Interface, List};
+use crate::{refresh_token::RefreshToken, Claim, Interface, List};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct RefreshTokenImpl {
     pool: MySqlPool,
 }
@@ -22,6 +21,8 @@ impl RefreshTokenImpl {
 impl Interface for RefreshTokenImpl {
     type T = RefreshToken;
     type L = ();
+
+    #[tracing::instrument]
     async fn put(&self, content: &Self::T, _ttl: u64) -> Result<()> {
         sqlx::query(
             r#"REPLACE INTO `refresh_token`
@@ -45,7 +46,13 @@ impl Interface for RefreshTokenImpl {
         Ok(())
     }
 
-    async fn delete(&self, id: &str) -> Result<()> {
+    #[tracing::instrument]
+    async fn delete(&self, input: &Self::T) -> Result<()> {
+        let id = input
+            .id
+            .parse::<u64>()
+            .map_err(|err| errors::bad_request(&err))?;
+
         sqlx::query(
             r#"UPDATE `refresh_token` SET `deleted` = `id`,`deleted_at`= now()
             WHERE id = ? AND `deleted` = 0;"#,
@@ -56,7 +63,13 @@ impl Interface for RefreshTokenImpl {
         .map_err(errors::any)?;
         Ok(())
     }
-    async fn get(&self, id: &str, output: &mut Self::T) -> Result<()> {
+    #[tracing::instrument]
+    async fn get(&self, output: &mut Self::T) -> Result<()> {
+        let id = output
+            .id
+            .parse::<u64>()
+            .map_err(|err| errors::bad_request(&err))?;
+
         let row = match sqlx::query(
             r#"SELECT `id`,`client_id`,`scopes`,`nonce`,`token`,`obsolete_token`,
             `claim`,`connector_id`,`connector_data`,`last_used_at`
@@ -110,12 +123,7 @@ impl Interface for RefreshTokenImpl {
     ) -> Result<()> {
         todo!()
     }
-    fn watch<W: Watcher<Event<Self::T>>>(
-        &self,
-        _handler: W,
-    ) -> Box<dyn WatchGuard + Send> {
-        todo!()
-    }
+
     async fn count(&self, _opts: &Self::L, _unscoped: bool) -> Result<i64> {
         todo!()
     }

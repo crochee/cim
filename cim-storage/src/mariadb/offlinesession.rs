@@ -5,15 +5,14 @@ use serde_json::value::RawValue;
 use sqlx::{types::Json, MySqlPool, Row};
 
 use cim_slo::{errors, Result};
-use cim_watch::{WatchGuard, Watcher};
 
 use crate::{
     convert::convert_param,
     offlinesession::{ListParams, OfflineSession, RefreshTokenRef},
-    Event, Interface, List,
+    Interface, List,
 };
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct OfflineSessionImpl {
     pool: MySqlPool,
 }
@@ -28,6 +27,8 @@ impl OfflineSessionImpl {
 impl Interface for OfflineSessionImpl {
     type T = OfflineSession;
     type L = ListParams;
+
+    #[tracing::instrument]
     async fn put(&self, content: &Self::T, _ttl: u64) -> Result<()> {
         sqlx::query(
             r#"REPLACE INTO `offline_session`
@@ -45,7 +46,13 @@ impl Interface for OfflineSessionImpl {
         Ok(())
     }
 
-    async fn delete(&self, id: &str) -> Result<()> {
+    #[tracing::instrument]
+    async fn delete(&self, input: &Self::T) -> Result<()> {
+        let id = input
+            .id
+            .parse::<u64>()
+            .map_err(|err| errors::bad_request(&err))?;
+
         sqlx::query(
             r#"UPDATE `offline_session` SET `deleted` = `id`,`deleted_at`= now()
             WHERE id = ? AND `deleted` = 0;"#,
@@ -56,7 +63,13 @@ impl Interface for OfflineSessionImpl {
         .map_err(errors::any)?;
         Ok(())
     }
-    async fn get(&self, id: &str, output: &mut Self::T) -> Result<()> {
+
+    #[tracing::instrument]
+    async fn get(&self, output: &mut Self::T) -> Result<()> {
+        let id = output
+            .id
+            .parse::<u64>()
+            .map_err(|err| errors::bad_request(&err))?;
         let row = match sqlx::query(
             r#"SELECT `id`,`user_id`,`conn_id`,`refresh`,`connector_data`
              FROM `offline_session`
@@ -90,6 +103,8 @@ impl Interface for OfflineSessionImpl {
             row.try_get::<String, _>("conn_id").map_err(errors::any)?;
         Ok(())
     }
+
+    #[tracing::instrument]
     async fn list(
         &self,
         opts: &Self::L,
@@ -164,12 +179,7 @@ impl Interface for OfflineSessionImpl {
         }
         Ok(())
     }
-    fn watch<W: Watcher<Event<Self::T>>>(
-        &self,
-        _handler: W,
-    ) -> Box<dyn WatchGuard + Send> {
-        todo!()
-    }
+
     async fn count(&self, _opts: &Self::L, _unscoped: bool) -> Result<i64> {
         todo!()
     }

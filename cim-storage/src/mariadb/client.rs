@@ -2,11 +2,10 @@ use async_trait::async_trait;
 use sqlx::{types::Json, MySqlPool, Row};
 
 use cim_slo::{errors, Result};
-use cim_watch::{WatchGuard, Watcher};
 
-use crate::{client::Client, Event, Interface, List};
+use crate::{client::Client, Interface, List};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ClientImpl {
     pool: MySqlPool,
 }
@@ -21,6 +20,8 @@ impl ClientImpl {
 impl Interface for ClientImpl {
     type T = Client;
     type L = ();
+
+    #[tracing::instrument]
     async fn put(&self, input: &Self::T, _ttl: u64) -> Result<()> {
         let account_id = input
             .account_id
@@ -45,7 +46,13 @@ impl Interface for ClientImpl {
         Ok(())
     }
 
-    async fn delete(&self, id: &str) -> Result<()> {
+    #[tracing::instrument]
+    async fn delete(&self, input: &Self::T) -> Result<()> {
+        let id = input
+            .id
+            .parse::<u64>()
+            .map_err(|err| errors::bad_request(&err))?;
+
         sqlx::query(
             r#"UPDATE `client` SET `deleted` = `id`,`deleted_at`= now()
             WHERE id = ? AND `deleted` = 0;"#,
@@ -56,8 +63,13 @@ impl Interface for ClientImpl {
         .map_err(errors::any)?;
         Ok(())
     }
-    async fn get(&self, id: &str, output: &mut Self::T) -> Result<()> {
-        let id = id.parse::<u64>().map_err(|err| errors::bad_request(&err))?;
+
+    #[tracing::instrument]
+    async fn get(&self, output: &mut Self::T) -> Result<()> {
+        let id = output
+            .id
+            .parse::<u64>()
+            .map_err(|err| errors::bad_request(&err))?;
         let row = match sqlx::query(
             r#"SELECT `id`,`secret`,`redirect_uris`,`trusted_peers`,`name`,`logo_url`,`account_id`,`created_at`,`updated_at`
                 FROM `client`
@@ -98,6 +110,8 @@ impl Interface for ClientImpl {
         output.updated_at = row.try_get("updated_at").map_err(errors::any)?;
         Ok(())
     }
+
+    #[tracing::instrument]
     async fn list(
         &self,
         _opts: &Self::L,
@@ -139,12 +153,7 @@ impl Interface for ClientImpl {
 
         Ok(())
     }
-    fn watch<W: Watcher<Event<Self::T>>>(
-        &self,
-        _handler: W,
-    ) -> Box<dyn WatchGuard + Send> {
-        todo!()
-    }
+
     async fn count(&self, _opts: &Self::L, _unscoped: bool) -> Result<i64> {
         todo!()
     }

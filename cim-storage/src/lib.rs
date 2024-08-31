@@ -1,6 +1,6 @@
 pub mod authcode;
 pub mod authrequest;
-mod cache;
+// mod cache;
 pub mod client;
 pub mod connector;
 pub mod convert;
@@ -17,61 +17,67 @@ pub mod refresh_token;
 pub mod role;
 pub mod role_binding;
 pub mod user;
+mod watch;
+
+use async_trait::async_trait;
+use cim_watch::{WatchGuard, Watcher};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
+
+use cim_slo::Result;
 
 pub use mariadb::*;
 pub use model::{Claim, ClaimOpts, List, Pagination, ID};
 pub use pool::connection_manager;
-
-use async_trait::async_trait;
-use serde::{de::DeserializeOwned, Serialize};
-
-use cim_slo::Result;
-use cim_watch::{WatchGuard, Watcher};
+pub use watch::WatchStore;
 
 #[async_trait]
 pub trait Interface: Sync {
-    type T: DeserializeOwned + Serialize + Send + Sync + PartialEq;
+    type T: DeserializeOwned
+        + Serialize
+        + Send
+        + Sync
+        + PartialEq
+        + Clone
+        + Default
+        + 'static;
+
     type L: Sync;
 
     async fn put(&self, input: &Self::T, ttl: u64) -> Result<()>;
-    async fn delete(&self, id: &str) -> Result<()>;
-    async fn get(&self, id: &str, output: &mut Self::T) -> Result<()>;
+    async fn delete(&self, input: &Self::T) -> Result<()>;
+    async fn get(&self, output: &mut Self::T) -> Result<()>;
     async fn list(
         &self,
         opts: &Self::L,
         output: &mut List<Self::T>,
     ) -> Result<()>;
-    fn watch<W: Watcher<Event<Self::T>>>(
-        &self,
-        handler: W,
-    ) -> Box<dyn WatchGuard + Send>;
-
     async fn count(&self, opts: &Self::L, unscoped: bool) -> Result<i64>;
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Event<T> {
+    Add(T),
     Put(T),
     Delete(T),
 }
 
-#[derive(serde::Serialize, serde::Deserialize)]
-pub struct EventData<T> {
-    pub action: String,
-    pub data: T,
-}
-
-impl<T> From<Event<T>> for EventData<T> {
-    fn from(event: Event<T>) -> Self {
-        match event {
-            Event::Put(data) => Self {
-                action: "put".to_owned(),
-                data,
-            },
-            Event::Delete(data) => Self {
-                action: "delete".to_owned(),
-                data,
-            },
+impl<T> Event<T> {
+    pub fn get(&self) -> &T {
+        match self {
+            Event::Add(t) => t,
+            Event::Put(t) => t,
+            Event::Delete(t) => t,
         }
     }
+}
+
+#[async_trait]
+pub trait WatchInterface: Interface {
+    fn watch<W: Watcher<Event<Self::T>>>(
+        &self,
+        since_modify: usize,
+        handler: W,
+    ) -> Box<dyn WatchGuard + Send>;
+
+    async fn create(&self, input: &Self::T) -> Result<()>;
 }

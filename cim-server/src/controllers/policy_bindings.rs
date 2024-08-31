@@ -10,7 +10,7 @@ use http::StatusCode;
 use cim_slo::{errors, next_id, Result};
 use cim_storage::{
     policy_binding::{Content, ListParams, PolicyBinding},
-    Event, EventData, Interface, List, ID,
+    Event, Interface, List, WatchInterface, ID,
 };
 
 use crate::{
@@ -43,16 +43,13 @@ async fn create_policy_binding(
     let id = next_id().map_err(errors::any)?;
     app.store
         .policy_binding
-        .put(
-            &PolicyBinding {
-                id: id.to_string(),
-                policy_id: input.policy_id,
-                bindings_type: input.bindings_type,
-                bindings_id: input.bindings_id,
-                ..Default::default()
-            },
-            0,
-        )
+        .create(&PolicyBinding {
+            id: id.to_string(),
+            policy_id: input.policy_id,
+            bindings_type: input.bindings_type,
+            bindings_id: input.bindings_id,
+            ..Default::default()
+        })
         .await?;
     Ok((StatusCode::CREATED, ID { id: id.to_string() }.into()))
 }
@@ -72,20 +69,22 @@ async fn list_policy_binding(
             Ok(ws.on_upgrade(move |socket| async move {
                 let (wtx, wrx) =
                     std::sync::mpsc::channel::<Event<PolicyBinding>>();
-                let _remove = app.store.policy_binding.watch(move |event| {
-                    wtx.send(event).unwrap();
-                });
+                let _remove = app.store.policy_binding.watch(
+                    0,
+                    move |event: Event<PolicyBinding>| {
+                        let result = event.get();
+                        if let Some(ref v) = filter.id {
+                            if result.id.ne(v) {
+                                return;
+                            }
+                        }
+                        wtx.send(event).unwrap();
+                    },
+                );
                 let (mut sender, mut receiver) = socket.split();
                 let mut send_task = tokio::spawn(async move {
                     while let Ok(item) = wrx.recv() {
-                        let result: EventData<PolicyBinding> = item.into();
-                        if let Some(ref v) = filter.id {
-                            if result.data.id.ne(v) {
-                                continue;
-                            }
-                        }
-
-                        let data = serde_json::to_vec(&result).unwrap();
+                        let data = serde_json::to_vec(&item).unwrap();
                         if sender.send(Message::Binary(data)).await.is_err() {
                             break;
                         }
@@ -130,7 +129,8 @@ async fn get_policy_binding(
     Path(id): Path<String>,
 ) -> Result<Json<PolicyBinding>> {
     let mut result = PolicyBinding::default();
-    app.store.policy_binding.get(&id, &mut result).await?;
+    result.id = id;
+    app.store.policy_binding.get(&mut result).await?;
     Ok(result.into())
 }
 
@@ -139,7 +139,9 @@ async fn delete_policy_binding(
     app: AppState,
     Path(id): Path<String>,
 ) -> Result<StatusCode> {
-    app.store.policy_binding.delete(&id).await?;
+    let mut result = PolicyBinding::default();
+    result.id = id;
+    app.store.policy_binding.delete(&result).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -150,7 +152,9 @@ async fn put_policy_binding(
     Valid(Json(content)): Valid<Json<Content>>,
 ) -> Result<StatusCode> {
     let mut result = PolicyBinding::default();
-    app.store.policy_binding.get(&id, &mut result).await?;
+    result.id = id;
+    app.store.policy_binding.get(&mut result).await?;
+
     result.policy_id = content.policy_id;
     result.bindings_type = content.bindings_type;
     result.bindings_id = content.bindings_id;

@@ -10,7 +10,7 @@ use http::StatusCode;
 use cim_slo::{errors, next_id, Result};
 use cim_storage::{
     role_binding::{Content, ListParams, RoleBinding},
-    Event, EventData, Interface, List, ID,
+    Event, Interface, List, WatchInterface, ID,
 };
 
 use crate::{
@@ -43,16 +43,13 @@ async fn create_role_binding(
     let id = next_id().map_err(errors::any)?;
     app.store
         .role_binding
-        .put(
-            &RoleBinding {
-                id: id.to_string(),
-                role_id: input.role_id,
-                user_type: input.user_type,
-                user_id: input.user_id,
-                ..Default::default()
-            },
-            0,
-        )
+        .create(&RoleBinding {
+            id: id.to_string(),
+            role_id: input.role_id,
+            user_type: input.user_type,
+            user_id: input.user_id,
+            ..Default::default()
+        })
         .await?;
     Ok((StatusCode::CREATED, ID { id: id.to_string() }.into()))
 }
@@ -72,20 +69,22 @@ async fn list_role_binding(
             Ok(ws.on_upgrade(move |socket| async move {
                 let (wtx, wrx) =
                     std::sync::mpsc::channel::<Event<RoleBinding>>();
-                let _remove = app.store.role_binding.watch(move |event| {
-                    wtx.send(event).unwrap();
-                });
+                let _remove = app.store.role_binding.watch(
+                    0,
+                    move |event: Event<RoleBinding>| {
+                        let result = event.get();
+                        if let Some(ref v) = filter.id {
+                            if result.id.ne(v) {
+                                return;
+                            }
+                        }
+                        wtx.send(event).unwrap();
+                    },
+                );
                 let (mut sender, mut receiver) = socket.split();
                 let mut send_task = tokio::spawn(async move {
                     while let Ok(item) = wrx.recv() {
-                        let result: EventData<RoleBinding> = item.into();
-                        if let Some(ref v) = filter.id {
-                            if result.data.id.ne(v) {
-                                continue;
-                            }
-                        }
-
-                        let data = serde_json::to_vec(&result).unwrap();
+                        let data = serde_json::to_vec(&item).unwrap();
                         if sender.send(Message::Binary(data)).await.is_err() {
                             break;
                         }
@@ -130,7 +129,8 @@ async fn get_role_binding(
     Path(id): Path<String>,
 ) -> Result<Json<RoleBinding>> {
     let mut result = RoleBinding::default();
-    app.store.role_binding.get(&id, &mut result).await?;
+    result.id = id;
+    app.store.role_binding.get(&mut result).await?;
     Ok(result.into())
 }
 
@@ -139,7 +139,9 @@ async fn delete_role_binding(
     app: AppState,
     Path(id): Path<String>,
 ) -> Result<StatusCode> {
-    app.store.role_binding.delete(&id).await?;
+    let mut result = RoleBinding::default();
+    result.id = id;
+    app.store.role_binding.delete(&result).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -150,7 +152,8 @@ async fn put_role_binding(
     Valid(Json(content)): Valid<Json<Content>>,
 ) -> Result<StatusCode> {
     let mut result = RoleBinding::default();
-    app.store.role_binding.get(&id, &mut result).await?;
+    result.id = id;
+    app.store.role_binding.get(&mut result).await?;
 
     result.role_id = content.role_id;
     result.user_type = content.user_type;

@@ -45,8 +45,11 @@ where
             .to_str()
             .unwrap_or_default();
 
-        let mut user = User::default();
-        app.store.user.get(user_id, &mut user).await?;
+        let mut user = User {
+            id: user_id.to_owned(),
+            ..Default::default()
+        };
+        app.store.user.get(&mut user).await?;
 
         let host = Host::from_request_parts(parts, state).await?;
         let client_ip = ClientIp::from_request_parts(parts, state).await?;
@@ -86,7 +89,7 @@ where
             ]),
         };
         // TODO:mutl statement source support
-        let statements = app.store.policy.get_statement(&req).await?;
+        let statements = app.store.statement.get_statement(&req).await?;
 
         let result = Self {
             user,

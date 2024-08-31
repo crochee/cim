@@ -3,15 +3,14 @@ use serde_json::value::RawValue;
 use sqlx::{MySqlPool, Row};
 
 use cim_slo::{errors, Result};
-use cim_watch::{WatchGuard, Watcher};
 
 use crate::{
     connector::{Connector, ListParams},
     convert::convert_param,
-    Event, Interface, List,
+    Interface, List,
 };
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ConnectorImpl {
     pool: MySqlPool,
 }
@@ -26,6 +25,8 @@ impl ConnectorImpl {
 impl Interface for ConnectorImpl {
     type T = Connector;
     type L = ListParams;
+
+    #[tracing::instrument]
     async fn put(&self, content: &Self::T, _ttl: u64) -> Result<()> {
         sqlx::query(
             r#"REPLACE INTO `connector`
@@ -44,7 +45,12 @@ impl Interface for ConnectorImpl {
         Ok(())
     }
 
-    async fn delete(&self, id: &str) -> Result<()> {
+    #[tracing::instrument]
+    async fn delete(&self, input: &Self::T) -> Result<()> {
+        let id = input
+            .id
+            .parse::<u64>()
+            .map_err(|err| errors::bad_request(&err))?;
         sqlx::query(
             r#"UPDATE `connector` SET `deleted` = `id`,`deleted_at`= now()
             WHERE id = ? AND `deleted` = 0;"#,
@@ -55,7 +61,14 @@ impl Interface for ConnectorImpl {
         .map_err(errors::any)?;
         Ok(())
     }
-    async fn get(&self, id: &str, output: &mut Self::T) -> Result<()> {
+
+    #[tracing::instrument]
+    async fn get(&self, output: &mut Self::T) -> Result<()> {
+        let id = output
+            .id
+            .parse::<u64>()
+            .map_err(|err| errors::bad_request(&err))?;
+
         let row = match sqlx::query(
             r#"SELECT `id`,`type`,`name`,`resource_version`,`config`,`connector_data`
             FROM `connector`
@@ -87,6 +100,8 @@ impl Interface for ConnectorImpl {
         output.config = row.try_get("config").map_err(errors::any)?;
         Ok(())
     }
+
+    #[tracing::instrument]
     async fn list(
         &self,
         opts: &Self::L,
@@ -154,12 +169,7 @@ impl Interface for ConnectorImpl {
         }
         Ok(())
     }
-    fn watch<W: Watcher<Event<Self::T>>>(
-        &self,
-        _handler: W,
-    ) -> Box<dyn WatchGuard + Send> {
-        todo!()
-    }
+
     async fn count(&self, _opts: &Self::L, _unscoped: bool) -> Result<i64> {
         todo!()
     }

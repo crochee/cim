@@ -1,29 +1,23 @@
 use async_trait::async_trait;
-use chrono::Utc;
 use rand::Rng;
 use sqlx::{MySqlPool, Row};
 
 use cim_slo::{crypto::password::encrypt, errors, Result};
-use cim_watch::{WatchGuard, Watcher, WatcherHub};
 use tracing::info;
 
 use crate::{
     user::{ListParams, User},
-    ClaimOpts, Event, Interface, List,
+    ClaimOpts, Interface, List,
 };
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct UserImpl {
     pool: MySqlPool,
-    watch_hub: WatcherHub<Event<User>>,
 }
 
 impl UserImpl {
     pub fn new(pool: MySqlPool) -> Self {
-        Self {
-            pool,
-            watch_hub: WatcherHub::default(),
-        }
+        Self { pool }
     }
 }
 
@@ -31,6 +25,8 @@ impl UserImpl {
 impl Interface for UserImpl {
     type T = User;
     type L = ListParams;
+
+    #[tracing::instrument]
     async fn put(&self, input: &Self::T, _ttl: u64) -> Result<()> {
         let mut address = None;
         if let Some(v) = &input.claim.address {
@@ -85,15 +81,15 @@ impl Interface for UserImpl {
         .execute(&self.pool)
         .await
         .map_err(errors::any)?;
-        self.watch_hub.notify(
-            Utc::now().timestamp() as usize,
-            Event::Put(input.to_owned()),
-        );
         Ok(())
     }
 
-    async fn delete(&self, id: &str) -> Result<()> {
-        let id = id.parse::<u64>().map_err(|err| errors::bad_request(&err))?;
+    #[tracing::instrument]
+    async fn delete(&self, input: &Self::T) -> Result<()> {
+        let id = input
+            .id
+            .parse::<u64>()
+            .map_err(|err| errors::bad_request(&err))?;
         if sqlx::query(
             r#"SELECT COUNT(*) as count FROM `group_user` WHERE `user_id` = ? AND `deleted` = 0"#,
         )
@@ -120,17 +116,15 @@ impl Interface for UserImpl {
         .execute(&self.pool)
         .await
         .map_err(errors::any)?;
-        self.watch_hub.notify(
-            Utc::now().timestamp() as usize,
-            Event::Delete(Self::T {
-                id: id.to_string(),
-                ..Default::default()
-            }),
-        );
+
         Ok(())
     }
-    async fn get(&self, id: &str, output: &mut Self::T) -> Result<()> {
-        let id = id.parse::<u64>().map_err(|err| errors::bad_request(&err))?;
+    #[tracing::instrument]
+    async fn get(&self, output: &mut Self::T) -> Result<()> {
+        let id = output
+            .id
+            .parse::<u64>()
+            .map_err(|err| errors::bad_request(&err))?;
         let row = match sqlx::query(
                 r#"SELECT `id`,`account_id`,`desc`,`email`,`email_verified`,
                 `name`,`given_name`,`family_name`,`middle_name`,`nickname`,
@@ -200,6 +194,7 @@ impl Interface for UserImpl {
         output.password = row.try_get("password").map_err(errors::any)?;
         Ok(())
     }
+    #[tracing::instrument]
     async fn list(
         &self,
         opts: &Self::L,
@@ -314,13 +309,8 @@ impl Interface for UserImpl {
 
         Ok(())
     }
-    fn watch<W: Watcher<Event<Self::T>>>(
-        &self,
-        handler: W,
-    ) -> Box<dyn WatchGuard + Send> {
-        self.watch_hub
-            .watch(Utc::now().timestamp() as usize, handler)
-    }
+
+    #[tracing::instrument]
     async fn count(&self, opts: &Self::L, unscoped: bool) -> Result<i64> {
         let mut wheres = String::new();
         combine_param(&mut wheres, opts)?;

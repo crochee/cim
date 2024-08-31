@@ -13,7 +13,7 @@ use http::StatusCode;
 use cim_slo::{errors, next_id, Result};
 use cim_storage::{
     group::{Content, Group, ListParams},
-    Event, EventData, Interface, List, ID,
+    Event, Interface, List, WatchInterface, ID,
 };
 
 use crate::{
@@ -41,16 +41,13 @@ async fn create_group(
     let id = next_id().map_err(errors::any)?;
     app.store
         .group
-        .put(
-            &Group {
-                id: id.to_string(),
-                account_id: auth.user.account_id,
-                name: input.name,
-                desc: input.desc,
-                ..Default::default()
-            },
-            0,
-        )
+        .create(&Group {
+            id: id.to_string(),
+            account_id: auth.user.account_id,
+            name: input.name,
+            desc: input.desc,
+            ..Default::default()
+        })
         .await?;
     Ok((StatusCode::CREATED, ID { id: id.to_string() }.into()))
 }
@@ -69,25 +66,25 @@ async fn list_group(
         ListWatch::Ws((ws, filter)) => {
             Ok(ws.on_upgrade(move |socket| async move {
                 let (wtx, wrx) = std::sync::mpsc::channel::<Event<Group>>();
-                let _remove = app.store.group.watch(move |event| {
-                    wtx.send(event).unwrap();
-                });
-                let (mut sender, mut receiver) = socket.split();
-                let mut send_task = tokio::spawn(async move {
-                    while let Ok(item) = wrx.recv() {
-                        let result: EventData<Group> = item.into();
+                let _remove =
+                    app.store.group.watch(0, move |event: Event<Group>| {
+                        let result = event.get();
                         if let Some(ref v) = filter.id {
-                            if result.data.id.ne(v) {
-                                continue;
+                            if result.id.ne(v) {
+                                return;
                             }
                         }
                         if let Some(ref v) = filter.account_id {
-                            if result.data.account_id.ne(v) {
-                                continue;
+                            if result.account_id.ne(v) {
+                                return;
                             }
                         }
-
-                        let data = serde_json::to_vec(&result).unwrap();
+                        wtx.send(event).unwrap();
+                    });
+                let (mut sender, mut receiver) = socket.split();
+                let mut send_task = tokio::spawn(async move {
+                    while let Ok(item) = wrx.recv() {
+                        let data = serde_json::to_vec(&item).unwrap();
                         if sender.send(Message::Binary(data)).await.is_err() {
                             break;
                         }
@@ -132,7 +129,8 @@ async fn get_group(
     Path(id): Path<String>,
 ) -> Result<Json<Group>> {
     let mut result = Group::default();
-    app.store.group.get(&id, &mut result).await?;
+    result.id = id;
+    app.store.group.get(&mut result).await?;
     info.is_allow(
         &app.matcher,
         HashMap::from([("account_id".to_owned(), result.account_id.clone())]),
@@ -146,12 +144,13 @@ async fn delete_group(
     Path(id): Path<String>,
 ) -> Result<StatusCode> {
     let mut result = Group::default();
-    app.store.group.get(&id, &mut result).await?;
+    result.id = id;
+    app.store.group.get(&mut result).await?;
     info.is_allow(
         &app.matcher,
         HashMap::from([("account_id".to_owned(), result.account_id.clone())]),
     )?;
-    app.store.group.delete(&id).await?;
+    app.store.group.delete(&result).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -162,14 +161,15 @@ async fn put_group(
     Valid(Json(content)): Valid<Json<Content>>,
 ) -> Result<StatusCode> {
     let mut result = Group::default();
-    app.store.group.get(&id, &mut result).await?;
+    result.id = id;
+    app.store.group.get(&mut result).await?;
     info.is_allow(
         &app.matcher,
         HashMap::from([("account_id".to_owned(), result.account_id.clone())]),
     )?;
+
     result.name = content.name;
     result.desc = content.desc;
-
     app.store.group.put(&result, 0).await?;
     Ok(StatusCode::NO_CONTENT)
 }

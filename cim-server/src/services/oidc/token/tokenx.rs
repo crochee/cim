@@ -195,7 +195,6 @@ impl JwkKey<jwk::Key> {
 
 #[cfg(test)]
 mod tests {
-    use cim_watch::{WatchGuard, Watcher};
     use rand::Rng;
     use rsa::traits::{PrivateKeyParts, PublicKeyParts};
 
@@ -204,7 +203,7 @@ mod tests {
     use crate::services::oidc::jwk_to_public;
     use cim_storage::{
         key::{Keys, VerificationKey},
-        Claim, Event, List,
+        Claim, List,
     };
     use mockall::mock;
 
@@ -221,10 +220,10 @@ mod tests {
         async fn put(&self, _input: &Self::T, _ttl: u64) -> Result<()> {
             unimplemented!()
         }
-        async fn delete(&self, _id: &str) -> Result<()> {
+        async fn delete(&self, _input: &Self::T) -> Result<()> {
             unimplemented!()
         }
-        async fn get(&self, _id: &str, _output: &mut Self::T) -> Result<()> {
+        async fn get(&self, _output: &mut Self::T) -> Result<()> {
             unimplemented!()
         }
         async fn list(
@@ -233,12 +232,6 @@ mod tests {
             output: &mut List<Self::T>,
         ) -> Result<()> {
             self.list(opts, output)
-        }
-        fn watch<W: Watcher<Event<Self::T>>>(
-            &self,
-            _handler: W,
-        ) -> Box<dyn WatchGuard + Send> {
-            unimplemented!()
         }
         async fn count(&self, _opts: &Self::L, _unscoped: bool) -> Result<i64> {
             unimplemented!()

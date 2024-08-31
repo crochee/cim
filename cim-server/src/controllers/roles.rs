@@ -13,7 +13,7 @@ use tracing::info;
 use cim_slo::{errors, next_id, Result};
 use cim_storage::{
     role::{Content, ListParams, Role},
-    Event, EventData, Interface, List, ID,
+    Event, Interface, List, WatchInterface, ID,
 };
 
 use crate::{
@@ -42,16 +42,13 @@ async fn create_role(
     let id = next_id().map_err(errors::any)?;
     app.store
         .role
-        .put(
-            &Role {
-                id: id.to_string(),
-                account_id: auth.user.account_id,
-                name: input.name,
-                desc: input.desc,
-                ..Default::default()
-            },
-            0,
-        )
+        .create(&Role {
+            id: id.to_string(),
+            account_id: auth.user.account_id,
+            name: input.name,
+            desc: input.desc,
+            ..Default::default()
+        })
         .await?;
     Ok((StatusCode::CREATED, ID { id: id.to_string() }.into()))
 }
@@ -70,25 +67,25 @@ async fn list_role(
         ListWatch::Ws((ws, filter)) => {
             Ok(ws.on_upgrade(move |socket| async move {
                 let (wtx, wrx) = std::sync::mpsc::channel::<Event<Role>>();
-                let _remove = app.store.role.watch(move |event| {
-                    wtx.send(event).unwrap();
-                });
-                let (mut sender, mut receiver) = socket.split();
-                let mut send_task = tokio::spawn(async move {
-                    while let Ok(item) = wrx.recv() {
-                        let result: EventData<Role> = item.into();
+                let _remove =
+                    app.store.role.watch(0, move |event: Event<Role>| {
+                        let result = event.get();
                         if let Some(ref v) = filter.id {
-                            if result.data.id.ne(v) {
-                                continue;
+                            if result.id.ne(v) {
+                                return;
                             }
                         }
                         if let Some(ref v) = filter.account_id {
-                            if result.data.account_id.ne(v) {
-                                continue;
+                            if result.account_id.ne(v) {
+                                return;
                             }
                         }
-
-                        let data = serde_json::to_vec(&result).unwrap();
+                        wtx.send(event).unwrap();
+                    });
+                let (mut sender, mut receiver) = socket.split();
+                let mut send_task = tokio::spawn(async move {
+                    while let Ok(item) = wrx.recv() {
+                        let data = serde_json::to_vec(&item).unwrap();
                         if sender.send(Message::Binary(data)).await.is_err() {
                             break;
                         }
@@ -133,7 +130,8 @@ async fn get_role(
     Path(id): Path<String>,
 ) -> Result<Json<Role>> {
     let mut result = Role::default();
-    app.store.role.get(&id, &mut result).await?;
+    result.id = id;
+    app.store.role.get(&mut result).await?;
     info.is_allow(
         &app.matcher,
         HashMap::from([("account_id".to_owned(), result.account_id.clone())]),
@@ -147,12 +145,13 @@ async fn delete_role(
     Path(id): Path<String>,
 ) -> Result<StatusCode> {
     let mut result = Role::default();
-    app.store.role.get(&id, &mut result).await?;
+    result.id = id;
+    app.store.role.get(&mut result).await?;
     info.is_allow(
         &app.matcher,
         HashMap::from([("account_id".to_owned(), result.account_id.clone())]),
     )?;
-    app.store.role.delete(&id).await?;
+    app.store.role.delete(&result).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -162,14 +161,15 @@ async fn put_role(
     Path(id): Path<String>,
     Valid(Json(content)): Valid<Json<Content>>,
 ) -> Result<StatusCode> {
-    let mut result = Role::default();
-    app.store.role.get(&id, &mut result).await?;
+    let mut role = Role::default();
+    role.id = id;
+    app.store.role.get(&mut role).await?;
     info.is_allow(
         &app.matcher,
-        HashMap::from([("account_id".to_owned(), result.account_id.clone())]),
+        HashMap::from([("account_id".to_owned(), role.account_id.clone())]),
     )?;
-    result.name = content.name;
-    result.desc = content.desc;
-    app.store.role.put(&result, 0).await?;
+    role.name = content.name;
+    role.desc = content.desc;
+    app.store.role.put(&role, 0).await?;
     Ok(StatusCode::NO_CONTENT)
 }

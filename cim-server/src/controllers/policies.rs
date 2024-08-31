@@ -12,7 +12,7 @@ use http::StatusCode;
 use cim_slo::{errors, next_id, Result};
 use cim_storage::{
     policy::{Content, ListParams, Policy},
-    Event, EventData, Interface, List, ID,
+    Event, Interface, List, WatchInterface, ID,
 };
 
 use crate::{
@@ -40,17 +40,14 @@ async fn create_policy(
     let id = next_id().map_err(errors::any)?;
     app.store
         .policy
-        .put(
-            &Policy {
-                id: id.to_string(),
-                account_id: Some(auth.user.account_id),
-                desc: content.desc,
-                version: content.version,
-                statement: content.statement,
-                ..Default::default()
-            },
-            0,
-        )
+        .create(&Policy {
+            id: id.to_string(),
+            account_id: Some(auth.user.account_id),
+            desc: content.desc,
+            version: content.version,
+            statement: content.statement,
+            ..Default::default()
+        })
         .await?;
     Ok((StatusCode::CREATED, ID { id: id.to_string() }.into()))
 }
@@ -69,23 +66,23 @@ async fn list_policy(
         ListWatch::Ws((ws, filter)) => {
             Ok(ws.on_upgrade(move |socket| async move {
                 let (wtx, wrx) = std::sync::mpsc::channel::<Event<Policy>>();
-                let _remove = app.store.policy.watch(move |event| {
-                    wtx.send(event).unwrap();
-                });
+                let _remove =
+                    app.store.policy.watch(0, move |event: Event<Policy>| {
+                        let result = event.get();
+                        if let Some(ref v) = filter.id {
+                            if result.id.ne(v) {
+                                return;
+                            }
+                        }
+                        if result.account_id != filter.account_id {
+                            return;
+                        }
+                        wtx.send(event).unwrap();
+                    });
                 let (mut sender, mut receiver) = socket.split();
                 let mut send_task = tokio::spawn(async move {
                     while let Ok(item) = wrx.recv() {
-                        let result: EventData<Policy> = item.into();
-                        if let Some(ref v) = filter.id {
-                            if result.data.id.ne(v) {
-                                continue;
-                            }
-                        }
-                        if result.data.account_id != filter.account_id {
-                            continue;
-                        }
-
-                        let data = serde_json::to_vec(&result).unwrap();
+                        let data = serde_json::to_vec(&item).unwrap();
                         if sender.send(Message::Binary(data)).await.is_err() {
                             break;
                         }
@@ -130,7 +127,8 @@ async fn get_policy(
     Path(id): Path<String>,
 ) -> Result<Json<Policy>> {
     let mut result = Policy::default();
-    app.store.policy.get(&id, &mut result).await?;
+    result.id = id;
+    app.store.policy.get(&mut result).await?;
     let mut opts = HashMap::new();
     if let Some(account_id) = &result.account_id {
         opts.insert("account_id".to_owned(), account_id.clone());
@@ -145,14 +143,15 @@ async fn delete_policy(
     Path(id): Path<String>,
 ) -> Result<StatusCode> {
     let mut result = Policy::default();
-    app.store.policy.get(&id, &mut result).await?;
+    result.id = id;
+    app.store.policy.get(&mut result).await?;
     let mut opts = HashMap::new();
     if let Some(account_id) = &result.account_id {
         opts.insert("account_id".to_owned(), account_id.clone());
     }
 
     info.is_allow(&app.matcher, opts)?;
-    app.store.policy.delete(&id).await?;
+    app.store.policy.delete(&result).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -163,16 +162,17 @@ async fn put_policy(
     Valid(Json(content)): Valid<Json<Content>>,
 ) -> Result<StatusCode> {
     let mut result = Policy::default();
-    app.store.policy.get(&id, &mut result).await?;
+    result.id = id;
+    app.store.policy.get(&mut result).await?;
     let mut opts = HashMap::new();
     if let Some(account_id) = &result.account_id {
         opts.insert("account_id".to_owned(), account_id.clone());
     }
     info.is_allow(&app.matcher, opts)?;
+
     result.desc = content.desc;
     result.version = content.version;
     result.statement = content.statement;
-
     app.store.policy.put(&result, 0).await?;
     Ok(StatusCode::NO_CONTENT)
 }

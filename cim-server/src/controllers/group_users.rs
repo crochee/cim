@@ -10,7 +10,7 @@ use http::StatusCode;
 use cim_slo::{errors, next_id, Result};
 use cim_storage::{
     group_user::{Content, GroupUser, ListParams},
-    Event, EventData, Interface, List, ID,
+    Event, Interface, List, WatchInterface, ID,
 };
 
 use crate::{
@@ -40,15 +40,12 @@ async fn create_group_user(
     let id = next_id().map_err(errors::any)?;
     app.store
         .group_user
-        .put(
-            &GroupUser {
-                id: id.to_string(),
-                group_id: input.group_id,
-                user_id: input.user_id,
-                ..Default::default()
-            },
-            0,
-        )
+        .create(&GroupUser {
+            id: id.to_string(),
+            group_id: input.group_id,
+            user_id: input.user_id,
+            ..Default::default()
+        })
         .await?;
     Ok((StatusCode::CREATED, ID { id: id.to_string() }.into()))
 }
@@ -67,20 +64,22 @@ async fn list_group_user(
         ListWatch::Ws((ws, filter)) => {
             Ok(ws.on_upgrade(move |socket| async move {
                 let (wtx, wrx) = std::sync::mpsc::channel::<Event<GroupUser>>();
-                let _remove = app.store.group_user.watch(move |event| {
-                    wtx.send(event).unwrap();
-                });
+                let _remove = app.store.group_user.watch(
+                    0,
+                    move |event: Event<GroupUser>| {
+                        let result = event.get();
+                        if let Some(ref v) = filter.id {
+                            if result.id.ne(v) {
+                                return;
+                            }
+                        }
+                        wtx.send(event).unwrap();
+                    },
+                );
                 let (mut sender, mut receiver) = socket.split();
                 let mut send_task = tokio::spawn(async move {
                     while let Ok(item) = wrx.recv() {
-                        let result: EventData<GroupUser> = item.into();
-                        if let Some(ref v) = filter.id {
-                            if result.data.id.ne(v) {
-                                continue;
-                            }
-                        }
-
-                        let data = serde_json::to_vec(&result).unwrap();
+                        let data = serde_json::to_vec(&item).unwrap();
                         if sender.send(Message::Binary(data)).await.is_err() {
                             break;
                         }
@@ -125,7 +124,8 @@ async fn get_group_user(
     Path(id): Path<String>,
 ) -> Result<Json<GroupUser>> {
     let mut result = GroupUser::default();
-    app.store.group_user.get(&id, &mut result).await?;
+    result.id = id;
+    app.store.group_user.get(&mut result).await?;
     Ok(result.into())
 }
 
@@ -134,7 +134,9 @@ async fn delete_group_user(
     app: AppState,
     Path(id): Path<String>,
 ) -> Result<StatusCode> {
-    app.store.group_user.delete(&id).await?;
+    let mut result = GroupUser::default();
+    result.id = id;
+    app.store.group_user.delete(&result).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -145,7 +147,9 @@ async fn put_group_user(
     Valid(Json(content)): Valid<Json<Content>>,
 ) -> Result<StatusCode> {
     let mut result = GroupUser::default();
-    app.store.group_user.get(&id, &mut result).await?;
+    result.id = id;
+    app.store.group_user.get(&mut result).await?;
+
     result.user_id = content.user_id;
     result.group_id = content.group_id;
     app.store.group_user.put(&result, 0).await?;

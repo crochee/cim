@@ -5,7 +5,8 @@ use sha2::{Digest, Sha256};
 
 use cim_slo::{errors, Result};
 use cim_storage::{
-    authcode, client, connector, offlinesession, refresh_token, user, Interface,
+    authcode, client, connector, offlinesession, refresh_token, user,
+    Interface, WatchInterface,
 };
 
 use crate::services::oidc::{self, get_connector, open_connector, token};
@@ -39,7 +40,7 @@ where
         T = offlinesession::OfflineSession,
         L = offlinesession::ListParams,
     >,
-    U: Interface<T = user::User> + Send + Sync + Clone + 'static,
+    U: WatchInterface<T = user::User> + Send + Sync + Clone + 'static,
 {
     pub async fn grant(
         &self,
@@ -49,8 +50,11 @@ where
         if opts.code.is_empty() {
             return Err(errors::bad_request("code is empty"));
         }
-        let mut auth_code = authcode::AuthCode::default();
-        self.auth_store.get(&opts.code, &mut auth_code).await?;
+        let mut auth_code = authcode::AuthCode {
+            id: opts.code.clone(),
+            ..Default::default()
+        };
+        self.auth_store.get(&mut auth_code).await?;
 
         if Utc::now().timestamp() > auth_code.expiry {
             return Err(errors::bad_request("code is expired"));
@@ -91,7 +95,8 @@ where
         claims.access_token = Some(access_token.clone());
 
         let (id_token, expires_in) = self.token_creator.token(&claims).await?;
-        self.auth_store.delete(&opts.code).await?;
+
+        self.auth_store.delete(&auth_code).await?;
 
         let connector =
             get_connector(self.connector_store, &auth_code.connector_id)

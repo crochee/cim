@@ -13,7 +13,7 @@ use http::StatusCode;
 use cim_slo::Result;
 use cim_storage::{
     user::{Content, ListParams, User},
-    Event, EventData, Interface, List, ID,
+    Event, Interface, List, WatchInterface, ID,
 };
 
 use crate::{
@@ -56,25 +56,26 @@ async fn list_user(
         ListWatch::Ws((ws, filter)) => {
             Ok(ws.on_upgrade(move |socket| async move {
                 let (wtx, wrx) = std::sync::mpsc::channel::<Event<User>>();
-                let _remove = app.store.user.watch(move |event| {
-                    wtx.send(event).unwrap();
-                });
-                let (mut sender, mut receiver) = socket.split();
-                let mut send_task = tokio::spawn(async move {
-                    while let Ok(item) = wrx.recv() {
-                        let result: EventData<User> = item.into();
+                let _remove =
+                    app.store.user.watch(0, move |event: Event<User>| {
+                        let result = event.get();
                         if let Some(ref v) = filter.id {
-                            if result.data.id.ne(v) {
-                                continue;
+                            if result.id.ne(v) {
+                                return;
                             }
                         }
                         if let Some(ref v) = filter.account_id {
-                            if result.data.account_id.ne(v) {
-                                continue;
+                            if result.account_id.ne(v) {
+                                return;
                             }
                         }
 
-                        let data = serde_json::to_vec(&result).unwrap();
+                        wtx.send(event).unwrap();
+                    });
+                let (mut sender, mut receiver) = socket.split();
+                let mut send_task = tokio::spawn(async move {
+                    while let Ok(item) = wrx.recv() {
+                        let data = serde_json::to_vec(&item).unwrap();
                         if sender.send(Message::Binary(data)).await.is_err() {
                             break;
                         }
@@ -119,7 +120,8 @@ async fn get_user(
     Path(id): Path<String>,
 ) -> Result<Json<User>> {
     let mut user_result = User::default();
-    app.store.user.get(&id, &mut user_result).await?;
+    user_result.id = id;
+    app.store.user.get(&mut user_result).await?;
     info.is_allow(
         &app.matcher,
         HashMap::from([(
@@ -138,7 +140,8 @@ async fn delete_user(
     Path(id): Path<String>,
 ) -> Result<StatusCode> {
     let mut user_result = User::default();
-    app.store.user.get(&id, &mut user_result).await?;
+    user_result.id = id;
+    app.store.user.get(&mut user_result).await?;
     info.is_allow(
         &app.matcher,
         HashMap::from([(
@@ -146,7 +149,7 @@ async fn delete_user(
             user_result.account_id.clone(),
         )]),
     )?;
-    app.store.user.delete(&id).await?;
+    app.store.user.delete(&user_result).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -156,18 +159,16 @@ async fn put_user(
     Path(id): Path<String>,
     Valid(Json(content)): Valid<Json<Content>>,
 ) -> Result<StatusCode> {
-    let mut user_result = User::default();
-    app.store.user.get(&id, &mut user_result).await?;
+    let mut user = User::default();
+    user.id = id;
+    app.store.user.get(&mut user).await?;
     info.is_allow(
         &app.matcher,
-        HashMap::from([(
-            "account_id".to_owned(),
-            user_result.account_id.clone(),
-        )]),
+        HashMap::from([("account_id".to_owned(), user.account_id.clone())]),
     )?;
-    user_result.desc = content.desc;
-    user_result.claim = content.claim;
-    user_result.password = Some(content.password);
-    app.store.user.put(&user_result, 0).await?;
+    user.desc = content.desc;
+    user.claim = content.claim;
+    user.password = Some(content.password);
+    app.store.user.put(&user, 0).await?;
     Ok(StatusCode::NO_CONTENT)
 }

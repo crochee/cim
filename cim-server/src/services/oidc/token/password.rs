@@ -3,7 +3,7 @@ use serde::Deserialize;
 use cim_slo::{errors, Result};
 use cim_storage::{
     client, connector, offlinesession, refresh_token, user, Interface, List,
-    Pagination,
+    Pagination, WatchInterface,
 };
 
 use crate::services::oidc::{
@@ -41,7 +41,7 @@ where
         T = offlinesession::OfflineSession,
         L = offlinesession::ListParams,
     >,
-    U: Interface<T = user::User> + Send + Sync + Clone + 'static,
+    U: WatchInterface<T = user::User> + Send + Sync + Clone + 'static,
 {
     pub async fn grant(
         &self,

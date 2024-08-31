@@ -3,14 +3,13 @@ use jsonwebkey::JsonWebKey;
 use sqlx::{types::Json, MySqlPool, Row};
 
 use cim_slo::{errors, Result};
-use cim_watch::{WatchGuard, Watcher};
 
 use crate::{
     key::{Keys, VerificationKey},
-    Event, Interface, List,
+    Interface, List,
 };
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct KeysImpl {
     pool: MySqlPool,
 }
@@ -25,6 +24,8 @@ impl KeysImpl {
 impl Interface for KeysImpl {
     type T = Keys;
     type L = ();
+
+    #[tracing::instrument]
     async fn put(&self, nk: &Self::T, _ttl: u64) -> Result<()> {
         sqlx::query(
             r#"REPLACE INTO `key`
@@ -43,7 +44,12 @@ impl Interface for KeysImpl {
         Ok(())
     }
 
-    async fn delete(&self, id: &str) -> Result<()> {
+    #[tracing::instrument]
+    async fn delete(&self, input: &Self::T) -> Result<()> {
+        let id = input
+            .id
+            .parse::<u64>()
+            .map_err(|err| errors::bad_request(&err))?;
         sqlx::query(
             r#"UPDATE `key` SET `deleted` = `id`,`deleted_at`= now()
             WHERE id = ? AND `deleted` = 0;"#,
@@ -54,7 +60,13 @@ impl Interface for KeysImpl {
         .map_err(errors::any)?;
         Ok(())
     }
-    async fn get(&self, id: &str, output: &mut Self::T) -> Result<()> {
+
+    #[tracing::instrument]
+    async fn get(&self, output: &mut Self::T) -> Result<()> {
+        let id = output
+            .id
+            .parse::<u64>()
+            .map_err(|err| errors::bad_request(&err))?;
         let row = match sqlx::query(
             r#"SELECT `id`,`verification_keys`,`signing_key`,`signing_key_pub`,`next_rotation`
             FROM `key`
@@ -92,6 +104,8 @@ impl Interface for KeysImpl {
 
         Ok(())
     }
+
+    #[tracing::instrument]
     async fn list(
         &self,
         _opts: &Self::L,
@@ -142,12 +156,7 @@ impl Interface for KeysImpl {
         }
         Ok(())
     }
-    fn watch<W: Watcher<Event<Self::T>>>(
-        &self,
-        _handler: W,
-    ) -> Box<dyn WatchGuard + Send> {
-        todo!()
-    }
+
     async fn count(&self, _opts: &Self::L, _unscoped: bool) -> Result<i64> {
         todo!()
     }
