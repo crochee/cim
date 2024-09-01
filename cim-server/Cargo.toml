@@ -54,8 +54,8 @@ utoipa-swagger-ui = { version = "7.1", features = ["axum"] }
 rsa = { version = "0.9" }
 constant_time_eq = { version = "0.3.0" }
 serde_urlencoded = { version = "0.7" }
-
-tokio-stream = { version = "0.1" }
+async-stream = { version = "0.3" }
+bytes = { version = "1.7" }
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 jemallocator = { version = "0.6", package = "tikv-jemallocator" }

@@ -1,11 +1,14 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, convert::Infallible};
 
+use async_stream::stream;
 use axum::{
+    body::Body,
     extract::{ws::Message, Path},
     response::{IntoResponse, Response},
     routing::get,
     Json, Router,
 };
+use bytes::{BufMut, BytesMut};
 use futures_util::{SinkExt, StreamExt};
 use http::StatusCode;
 
@@ -62,6 +65,34 @@ async fn list_policy(
             let mut list = List::default();
             app.store.policy.list(&filter, &mut list).await?;
             Ok(Json(list).into_response())
+        }
+        ListWatch::Watch(filter) => {
+            let (tx, rx) = std::sync::mpsc::channel::<Event<Policy>>();
+            let _remove =
+                app.store.policy.watch(0, move |event: Event<Policy>| {
+                    let result = event.get();
+                    if let Some(ref v) = filter.id {
+                        if result.id.ne(v) {
+                            return;
+                        }
+                    }
+                    if result.account_id != filter.account_id {
+                        return;
+                    }
+                    tx.send(event).unwrap();
+                });
+            let stream = stream! {
+                while let Ok(item) = rx.recv() {
+                    let mut buffer = BytesMut::default();
+                    if  serde_json::to_writer((&mut buffer).writer(), &item).is_ok(){
+                        yield buffer.freeze();
+                    }
+                }
+            };
+            Ok(Body::from_stream(
+                stream.map(|v| -> std::result::Result<_, Infallible> { Ok(v) }),
+            )
+            .into_response())
         }
         ListWatch::Ws((ws, filter)) => {
             Ok(ws.on_upgrade(move |socket| async move {

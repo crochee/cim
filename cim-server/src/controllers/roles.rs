@@ -1,11 +1,14 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, convert::Infallible};
 
+use async_stream::stream;
 use axum::{
+    body::Body,
     extract::{ws::Message, Path},
     response::{IntoResponse, Response},
     routing::get,
     Json, Router,
 };
+use bytes::{BufMut, BytesMut};
 use futures_util::{SinkExt, StreamExt};
 use http::StatusCode;
 use tracing::info;
@@ -63,6 +66,35 @@ async fn list_role(
             let mut list = List::default();
             app.store.role.list(&filter, &mut list).await?;
             Ok(Json(list).into_response())
+        }
+        ListWatch::Watch(filter) => {
+            let (tx, rx) = std::sync::mpsc::channel::<Event<Role>>();
+            let _remove = app.store.role.watch(0, move |event: Event<Role>| {
+                let result = event.get();
+                if let Some(ref v) = filter.id {
+                    if result.id.ne(v) {
+                        return;
+                    }
+                }
+                if let Some(ref v) = filter.account_id {
+                    if result.account_id.ne(v) {
+                        return;
+                    }
+                }
+                tx.send(event).unwrap();
+            });
+            let stream = stream! {
+                while let Ok(item) = rx.recv() {
+                    let mut buffer = BytesMut::default();
+                    if  serde_json::to_writer((&mut buffer).writer(), &item).is_ok(){
+                        yield buffer.freeze();
+                    }
+                }
+            };
+            Ok(Body::from_stream(
+                stream.map(|v| -> std::result::Result<_, Infallible> { Ok(v) }),
+            )
+            .into_response())
         }
         ListWatch::Ws((ws, filter)) => {
             Ok(ws.on_upgrade(move |socket| async move {

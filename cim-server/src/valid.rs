@@ -11,7 +11,7 @@ use axum::{
     Form, Json,
 };
 use http::{header, request::Parts, HeaderMap, HeaderName};
-use serde::de::DeserializeOwned;
+use serde::{de::DeserializeOwned, Deserialize};
 use validator::Validate;
 
 use cim_slo::errors::{self, Code, WithBacktrace};
@@ -75,8 +75,16 @@ where
     }
 }
 
+#[derive(Deserialize, Validate)]
+pub struct ListWatchParam<T> {
+    pub watch: Option<bool>,
+    #[serde(flatten)]
+    pub param: T,
+}
+
 pub enum ListWatch<T> {
     List(T),
+    Watch(T),
     Ws((WebSocketUpgrade, T)),
 }
 
@@ -92,16 +100,21 @@ where
         parts: &mut Parts,
         state: &S,
     ) -> Result<Self, Self::Rejection> {
-        let Valid(param) = Valid::<T>::from_request_parts(parts, state).await?;
+        let Valid(param) =
+            Valid::<ListWatchParam<T>>::from_request_parts(parts, state)
+                .await?;
         if header_eq(&parts.headers, header::UPGRADE, "websocket")
             && header_contains(&parts.headers, header::CONNECTION, "upgrade")
         {
             let ws = WebSocketUpgrade::from_request_parts(parts, state)
                 .await
                 .map_err(errors::any)?;
-            return Ok(Self::Ws((ws, param)));
+            return Ok(Self::Ws((ws, param.param)));
         }
-        Ok(Self::List(param))
+        if param.watch.unwrap_or_default() {
+            return Ok(Self::Watch(param.param));
+        }
+        Ok(Self::List(param.param))
     }
 }
 
