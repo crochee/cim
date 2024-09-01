@@ -3,7 +3,7 @@ use std::{env, net::SocketAddr, sync::Arc};
 use anyhow::{Context, Result};
 use clap::Parser;
 use tokio::net::TcpListener;
-use tracing::{error, info};
+use tracing::{debug, error, info};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use cim_storage::connection_manager;
@@ -27,11 +27,12 @@ async fn main() -> Result<()> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
+    debug!("{:#?}", &config);
     info!("{}", version());
-    async_run_server(config).await
+    run_server(config).await
 }
 
-async fn async_run_server(config: AppConfig) -> Result<()> {
+async fn run_server(config: AppConfig) -> Result<()> {
     info!("environment loaded and configuration parsed, initializing Mariadb connection and running migrations...");
     let store = connection_manager(
         &config.database_url,
@@ -51,11 +52,11 @@ async fn async_run_server(config: AppConfig) -> Result<()> {
     let router = AppRouter::build(AppState(app))
         .context("could not initialize application routes")?;
     let host = format!("{}:{}", config.endpoint, config.port);
-    info!("routes initialized, listening on {}", host);
-    let listener = TcpListener::bind(host)
+    let listener = TcpListener::bind(&host)
         .await
         .context("could not bind to endpoint")?;
 
+    info!("api server, listening on {}", host);
     axum::serve(
         listener,
         router.into_make_service_with_connect_info::<SocketAddr>(),

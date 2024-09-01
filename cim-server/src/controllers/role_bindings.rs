@@ -160,8 +160,10 @@ async fn get_role_binding(
     app: AppState,
     Path(id): Path<String>,
 ) -> Result<Json<RoleBinding>> {
-    let mut result = RoleBinding::default();
-    result.id = id;
+    let mut result = RoleBinding {
+        id: id.clone(),
+        ..Default::default()
+    };
     app.store.role_binding.get(&mut result).await?;
     Ok(result.into())
 }
@@ -171,8 +173,10 @@ async fn delete_role_binding(
     app: AppState,
     Path(id): Path<String>,
 ) -> Result<StatusCode> {
-    let mut result = RoleBinding::default();
-    result.id = id;
+    let result = RoleBinding {
+        id: id.clone(),
+        ..Default::default()
+    };
     app.store.role_binding.delete(&result).await?;
     Ok(StatusCode::NO_CONTENT)
 }
@@ -183,8 +187,10 @@ async fn put_role_binding(
     Path(id): Path<String>,
     Valid(Json(content)): Valid<Json<Content>>,
 ) -> Result<StatusCode> {
-    let mut result = RoleBinding::default();
-    result.id = id;
+    let mut result = RoleBinding {
+        id: id.clone(),
+        ..Default::default()
+    };
     app.store.role_binding.get(&mut result).await?;
 
     result.role_id = content.role_id;

@@ -150,19 +150,18 @@ async fn get_user(
     app: AppState,
     Path(id): Path<String>,
 ) -> Result<Json<User>> {
-    let mut user_result = User::default();
-    user_result.id = id;
-    app.store.user.get(&mut user_result).await?;
+    let mut result = User {
+        id: id.clone(),
+        ..Default::default()
+    };
+    app.store.user.get(&mut result).await?;
     info.is_allow(
         &app.matcher,
-        HashMap::from([(
-            "account_id".to_owned(),
-            user_result.account_id.clone(),
-        )]),
+        HashMap::from([("account_id".to_owned(), result.account_id.clone())]),
     )?;
-    user_result.secret = None;
-    user_result.password = None;
-    Ok(user_result.into())
+    result.secret = None;
+    result.password = None;
+    Ok(result.into())
 }
 
 async fn delete_user(
@@ -170,17 +169,16 @@ async fn delete_user(
     app: AppState,
     Path(id): Path<String>,
 ) -> Result<StatusCode> {
-    let mut user_result = User::default();
-    user_result.id = id;
-    app.store.user.get(&mut user_result).await?;
+    let mut result = User {
+        id: id.clone(),
+        ..Default::default()
+    };
+    app.store.user.get(&mut result).await?;
     info.is_allow(
         &app.matcher,
-        HashMap::from([(
-            "account_id".to_owned(),
-            user_result.account_id.clone(),
-        )]),
+        HashMap::from([("account_id".to_owned(), result.account_id.clone())]),
     )?;
-    app.store.user.delete(&user_result).await?;
+    app.store.user.delete(&result).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -190,8 +188,10 @@ async fn put_user(
     Path(id): Path<String>,
     Valid(Json(content)): Valid<Json<Content>>,
 ) -> Result<StatusCode> {
-    let mut user = User::default();
-    user.id = id;
+    let mut user = User {
+        id: id.clone(),
+        ..Default::default()
+    };
     app.store.user.get(&mut user).await?;
     info.is_allow(
         &app.matcher,

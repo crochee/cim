@@ -161,8 +161,10 @@ async fn get_role(
     app: AppState,
     Path(id): Path<String>,
 ) -> Result<Json<Role>> {
-    let mut result = Role::default();
-    result.id = id;
+    let mut result = Role {
+        id: id.clone(),
+        ..Default::default()
+    };
     app.store.role.get(&mut result).await?;
     info.is_allow(
         &app.matcher,
@@ -176,8 +178,10 @@ async fn delete_role(
     app: AppState,
     Path(id): Path<String>,
 ) -> Result<StatusCode> {
-    let mut result = Role::default();
-    result.id = id;
+    let mut result = Role {
+        id: id.clone(),
+        ..Default::default()
+    };
     app.store.role.get(&mut result).await?;
     info.is_allow(
         &app.matcher,
@@ -193,8 +197,10 @@ async fn put_role(
     Path(id): Path<String>,
     Valid(Json(content)): Valid<Json<Content>>,
 ) -> Result<StatusCode> {
-    let mut role = Role::default();
-    role.id = id;
+    let mut role = Role {
+        id: id.clone(),
+        ..Default::default()
+    };
     app.store.role.get(&mut role).await?;
     info.is_allow(
         &app.matcher,

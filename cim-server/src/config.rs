@@ -15,23 +15,33 @@ pub struct AppConfig {
     #[clap(long, env)]
     pub database_url: String,
     #[clap(long, env)]
+    #[arg(default_value_t = 50)]
+    #[serde(default = "default_max_size")]
     pub max_size: u32,
     #[clap(long, env)]
+    #[arg(default_value_t = 30)]
+    #[serde(default = "default_min_idle")]
     pub min_idle: u32,
     #[clap(long, env)]
+    #[arg(default_value_t = false)]
     #[serde(default)]
     pub run_migrations: bool,
     #[clap(long, env)]
+    #[arg(default_value_t = String::from("server=info"))]
+    #[serde(default = "default_rust_log")]
     pub rust_log: String,
     #[clap(long, env)]
-    #[arg(value_parser = port_in_range,short = 'p')]
+    #[arg(value_parser = port_in_range,short = 'p', default_value_t = 30050)]
+    #[serde(default = "default_port")]
     pub port: u16,
     #[clap(long, env)]
     pub cors_origin: String,
     #[clap(long, env)]
+    #[arg(default_value_t = 512)]
+    #[serde(default = "default_cache_size")]
     pub cache_size: usize,
     #[clap(long, env)]
-    #[arg(default_value_t = String::from("127.0.0.1"))]
+    #[arg(default_value_t = String::from("0.0.0.0"))]
     #[serde(default = "default_endpoint")]
     pub endpoint: String,
     #[clap(long, env)]
@@ -56,8 +66,28 @@ pub struct AppConfig {
     pub rotate_refresh_tokens: bool,
 }
 
+fn default_rust_log() -> String {
+    String::from("server=info")
+}
+
 fn default_endpoint() -> String {
-    String::from("127.0.0.1")
+    String::from("0.0.0.0")
+}
+
+fn default_port() -> u16 {
+    30050
+}
+
+fn default_max_size() -> u32 {
+    50
+}
+
+fn default_min_idle() -> u32 {
+    30
+}
+
+fn default_cache_size() -> usize {
+    512
 }
 
 fn default_expiration() -> i64 {

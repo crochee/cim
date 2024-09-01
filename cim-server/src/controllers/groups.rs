@@ -161,8 +161,10 @@ async fn get_group(
     app: AppState,
     Path(id): Path<String>,
 ) -> Result<Json<Group>> {
-    let mut result = Group::default();
-    result.id = id;
+    let mut result = Group {
+        id: id.clone(),
+        ..Default::default()
+    };
     app.store.group.get(&mut result).await?;
     info.is_allow(
         &app.matcher,
@@ -176,8 +178,10 @@ async fn delete_group(
     app: AppState,
     Path(id): Path<String>,
 ) -> Result<StatusCode> {
-    let mut result = Group::default();
-    result.id = id;
+    let mut result = Group {
+        id: id.clone(),
+        ..Default::default()
+    };
     app.store.group.get(&mut result).await?;
     info.is_allow(
         &app.matcher,
@@ -193,8 +197,10 @@ async fn put_group(
     Path(id): Path<String>,
     Valid(Json(content)): Valid<Json<Content>>,
 ) -> Result<StatusCode> {
-    let mut result = Group::default();
-    result.id = id;
+    let mut result = Group {
+        id: id.clone(),
+        ..Default::default()
+    };
     app.store.group.get(&mut result).await?;
     info.is_allow(
         &app.matcher,

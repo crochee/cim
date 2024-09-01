@@ -155,8 +155,10 @@ async fn get_group_user(
     app: AppState,
     Path(id): Path<String>,
 ) -> Result<Json<GroupUser>> {
-    let mut result = GroupUser::default();
-    result.id = id;
+    let mut result = GroupUser {
+        id: id.clone(),
+        ..Default::default()
+    };
     app.store.group_user.get(&mut result).await?;
     Ok(result.into())
 }
@@ -166,8 +168,10 @@ async fn delete_group_user(
     app: AppState,
     Path(id): Path<String>,
 ) -> Result<StatusCode> {
-    let mut result = GroupUser::default();
-    result.id = id;
+    let result = GroupUser {
+        id: id.clone(),
+        ..Default::default()
+    };
     app.store.group_user.delete(&result).await?;
     Ok(StatusCode::NO_CONTENT)
 }
@@ -178,8 +182,10 @@ async fn put_group_user(
     Path(id): Path<String>,
     Valid(Json(content)): Valid<Json<Content>>,
 ) -> Result<StatusCode> {
-    let mut result = GroupUser::default();
-    result.id = id;
+    let mut result = GroupUser {
+        id: id.clone(),
+        ..Default::default()
+    };
     app.store.group_user.get(&mut result).await?;
 
     result.user_id = content.user_id;

@@ -157,8 +157,10 @@ async fn get_policy(
     app: AppState,
     Path(id): Path<String>,
 ) -> Result<Json<Policy>> {
-    let mut result = Policy::default();
-    result.id = id;
+    let mut result = Policy {
+        id: id.clone(),
+        ..Default::default()
+    };
     app.store.policy.get(&mut result).await?;
     let mut opts = HashMap::new();
     if let Some(account_id) = &result.account_id {
@@ -173,8 +175,10 @@ async fn delete_policy(
     app: AppState,
     Path(id): Path<String>,
 ) -> Result<StatusCode> {
-    let mut result = Policy::default();
-    result.id = id;
+    let mut result = Policy {
+        id: id.clone(),
+        ..Default::default()
+    };
     app.store.policy.get(&mut result).await?;
     let mut opts = HashMap::new();
     if let Some(account_id) = &result.account_id {
@@ -192,8 +196,10 @@ async fn put_policy(
     Path(id): Path<String>,
     Valid(Json(content)): Valid<Json<Content>>,
 ) -> Result<StatusCode> {
-    let mut result = Policy::default();
-    result.id = id;
+    let mut result = Policy {
+        id: id.clone(),
+        ..Default::default()
+    };
     app.store.policy.get(&mut result).await?;
     let mut opts = HashMap::new();
     if let Some(account_id) = &result.account_id {

@@ -160,8 +160,10 @@ async fn get_policy_binding(
     app: AppState,
     Path(id): Path<String>,
 ) -> Result<Json<PolicyBinding>> {
-    let mut result = PolicyBinding::default();
-    result.id = id;
+    let mut result = PolicyBinding {
+        id: id.clone(),
+        ..Default::default()
+    };
     app.store.policy_binding.get(&mut result).await?;
     Ok(result.into())
 }
@@ -171,8 +173,10 @@ async fn delete_policy_binding(
     app: AppState,
     Path(id): Path<String>,
 ) -> Result<StatusCode> {
-    let mut result = PolicyBinding::default();
-    result.id = id;
+    let result = PolicyBinding {
+        id: id.clone(),
+        ..Default::default()
+    };
     app.store.policy_binding.delete(&result).await?;
     Ok(StatusCode::NO_CONTENT)
 }
@@ -183,8 +187,10 @@ async fn put_policy_binding(
     Path(id): Path<String>,
     Valid(Json(content)): Valid<Json<Content>>,
 ) -> Result<StatusCode> {
-    let mut result = PolicyBinding::default();
-    result.id = id;
+    let mut result = PolicyBinding {
+        id: id.clone(),
+        ..Default::default()
+    };
     app.store.policy_binding.get(&mut result).await?;
 
     result.policy_id = content.policy_id;
