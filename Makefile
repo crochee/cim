@@ -5,6 +5,10 @@
 build: ## Build cim binaries.
 	@cargo build --release
 
+.PHONY: dev
+dev: ## Build cim binaries.
+	@cargo build --release
+
 .PHONY: fmt
 fmt: ## fmt projects
 	# @cargo fmt -- --check
@@ -12,25 +16,8 @@ fmt: ## fmt projects
 
 ##@ Generate
 
-.PHONY: generate
-generate:
-
-.PHONY: migrate
-migrate: ## migrate database
-	@sqlx database create && sqlx migrate run
-
-.PHONY: rs
-rs: build ## run server
-	docker build -f server.Dockerfile -t server:latest . && \
-	docker run -itd -p 30050:30050 --restart=always --name server server:latest
-
-.PHONY: ds
-ds:
-	docker rm server -f && \
-	docker rmi server
-
-.PHONY: database
-database: ## install database cli
+.PHONY: cli
+cli: ## install database cli
 	@cargo install sqlx-cli --no-default-features --features rustls,mysql
 
 ##@ Test and Lint
@@ -47,10 +34,19 @@ check: ## check rust code
 clippy: ## run rust linter
 	@cargo clippy
 
+.PHONY: rs
+rs: build ## run server with docker
+	docker build -f server.Dockerfile -t server:latest . && \
+	docker run -itd -p 30050:30050 --restart=always --name server server:latest
+
 ##@ Clean
 clean: ## Delete all builds
 	@cargo clean
 
+.PHONY: ds
+ds: ## delete server from docker
+	docker rm server -f && \
+	docker rmi server
 
 FORMATTING_BEGIN_YELLOW = \033[0;33m
 FORMATTING_BEGIN_BLUE = \033[36m
