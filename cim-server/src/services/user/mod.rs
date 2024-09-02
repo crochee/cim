@@ -14,8 +14,10 @@ use crate::AppState;
 
 pub async fn create(app: AppState, input: user::Content) -> Result<u64> {
     if let Some(account_id) = &input.account_id {
-        let mut user = user::User::default();
-        user.id = account_id.to_owned();
+        let mut user = user::User {
+            id: account_id.to_owned(),
+            ..Default::default()
+        };
         app.store.user.get(&mut user).await?;
         let id = next_id().map_err(errors::any)?;
         app.store

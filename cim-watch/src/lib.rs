@@ -99,11 +99,7 @@ where
     }
 
     pub fn notify(&self, modify: usize, event: T) {
-        {
-            let mut event_history_ref =
-                self.inner.event_history.write().unwrap();
-            event_history_ref.push(modify, event.clone());
-        }
+        self.add(modify, event.clone());
         self.notify_watchers(modify, event);
     }
 
@@ -119,7 +115,7 @@ where
 }
 
 pub trait WatchGuard {
-    fn remove(&self) {}
+    fn noop(&self) {}
 }
 
 struct Remove<T> {
@@ -128,15 +124,14 @@ struct Remove<T> {
 }
 
 impl<T> WatchGuard for Remove<T> {
-    fn remove(&self) {
-        let mut watchers_ref = self.inner.watchers.write().unwrap();
-        watchers_ref.retain(|h| !Arc::ptr_eq(h, &self.watcher));
-    }
+    fn noop(&self) {}
 }
 
 impl<T> Drop for Remove<T> {
     fn drop(&mut self) {
-        self.remove();
+        let mut watchers_ref = self.inner.watchers.write().unwrap();
+        watchers_ref.retain(|h| !Arc::ptr_eq(h, &self.watcher));
+        println!("remove");
     }
 }
 

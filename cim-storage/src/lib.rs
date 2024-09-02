@@ -41,7 +41,7 @@ pub trait Interface: Sync {
         + Default
         + 'static;
 
-    type L: Sync;
+    type L: Sync + Send;
 
     async fn put(&self, input: &Self::T, ttl: u64) -> Result<()>;
     async fn delete(&self, input: &Self::T) -> Result<()>;

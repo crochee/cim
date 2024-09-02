@@ -19,6 +19,7 @@ async fn authorize(
     Valid(Json(input)): Valid<Json<Request>>,
 ) -> Result<StatusCode> {
     info!("list query {:#?}", input);
-    authorization::authorize(&app.store.statement, &app.matcher, &input).await?;
+    authorization::authorize(&app.store.statement, &app.matcher, &input)
+        .await?;
     Ok(StatusCode::NO_CONTENT)
 }

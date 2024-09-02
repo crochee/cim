@@ -1,30 +1,22 @@
-use std::{collections::HashMap, convert::Infallible};
+use std::collections::HashMap;
 
-use async_stream::stream;
-use axum::{
-    body::Body,
-    extract::{ws::Message, Path},
-    response::{IntoResponse, Response},
-    routing::get,
-    Json, Router,
-};
-use bytes::{BufMut, BytesMut};
-use futures_util::{SinkExt, StreamExt};
+use axum::{extract::Path, response::Response, routing::get, Json, Router};
 use http::StatusCode;
 use tracing::info;
 
 use cim_slo::{errors, next_id, Result};
 use cim_storage::{
     role::{Content, ListParams, Role},
-    Event, Interface, List, WatchInterface, ID,
+    Interface, WatchInterface, ID,
 };
 
 use crate::{
     auth::{Auth, Info},
-    shutdown_signal,
     valid::{ListWatch, Valid},
     AppState,
 };
+
+use super::list_watch;
 
 pub fn new_router(state: AppState) -> Router {
     Router::new()
@@ -59,101 +51,22 @@ async fn create_role(
 async fn list_role(
     _auth: Auth,
     app: AppState,
-    list_watch: ListWatch<ListParams>,
+    list_params: ListWatch<ListParams>,
 ) -> Result<Response> {
-    match list_watch {
-        ListWatch::List(filter) => {
-            let mut list = List::default();
-            app.store.role.list(&filter, &mut list).await?;
-            Ok(Json(list).into_response())
+    list_watch(app.store.role.clone(), list_params, |value, opts| {
+        if let Some(ref v) = opts.id {
+            if value.id.ne(v) {
+                return true;
+            }
         }
-        ListWatch::Watch(filter) => {
-            let (tx, rx) = std::sync::mpsc::channel::<Event<Role>>();
-            let _remove = app.store.role.watch(0, move |event: Event<Role>| {
-                let result = event.get();
-                if let Some(ref v) = filter.id {
-                    if result.id.ne(v) {
-                        return;
-                    }
-                }
-                if let Some(ref v) = filter.account_id {
-                    if result.account_id.ne(v) {
-                        return;
-                    }
-                }
-                tx.send(event).unwrap();
-            });
-            let stream = stream! {
-                while let Ok(item) = rx.recv() {
-                    let mut buffer = BytesMut::default();
-                    if  serde_json::to_writer((&mut buffer).writer(), &item).is_ok(){
-                        yield buffer.freeze();
-                    }
-                }
-            };
-            Ok(Body::from_stream(
-                stream.map(|v| -> std::result::Result<_, Infallible> { Ok(v) }),
-            )
-            .into_response())
+        if let Some(ref v) = opts.account_id {
+            if value.account_id.ne(v) {
+                return true;
+            }
         }
-        ListWatch::Ws((ws, filter)) => {
-            Ok(ws.on_upgrade(move |socket| async move {
-                let (wtx, wrx) = std::sync::mpsc::channel::<Event<Role>>();
-                let _remove =
-                    app.store.role.watch(0, move |event: Event<Role>| {
-                        let result = event.get();
-                        if let Some(ref v) = filter.id {
-                            if result.id.ne(v) {
-                                return;
-                            }
-                        }
-                        if let Some(ref v) = filter.account_id {
-                            if result.account_id.ne(v) {
-                                return;
-                            }
-                        }
-                        wtx.send(event).unwrap();
-                    });
-                let (mut sender, mut receiver) = socket.split();
-                let mut send_task = tokio::spawn(async move {
-                    while let Ok(item) = wrx.recv() {
-                        let data = serde_json::to_vec(&item).unwrap();
-                        if sender.send(Message::Binary(data)).await.is_err() {
-                            break;
-                        }
-                    }
-                });
-                let mut recv_task = tokio::spawn(async move {
-                    loop {
-                        tokio::select! {
-                        msg = receiver.next() => {
-                        if let Some(msg) = msg {
-                            if let Ok(msg) = msg {
-                                if let Message::Close(_) = msg {
-                                    break;
-                                }
-                            } else {
-                                break;
-                            }
-                        }
-                        },
-                        _ = shutdown_signal() => {
-                            break;
-                        }
-                        }
-                    }
-                });
-                tokio::select! {
-                    _ = (&mut send_task) => {
-                        recv_task.abort();
-                    },
-                    _ = (&mut recv_task) => {
-                        send_task.abort();
-                    }
-                }
-            }))
-        }
-    }
+        false
+    })
+    .await
 }
 
 async fn get_role(

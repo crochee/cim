@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use validator::Validate;
 
+use cim_pim::{Request, Statement};
 use cim_slo::Result;
-use cim_pim::{Statement,Request};
 
 use crate::Pagination;
 

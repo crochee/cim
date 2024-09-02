@@ -55,4 +55,3 @@ pub struct ListParams {
     #[validate(nested)]
     pub pagination: Pagination,
 }
-

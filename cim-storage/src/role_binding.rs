@@ -50,7 +50,6 @@ pub enum UserType {
     FederatedUser = 3,
 }
 
-
 impl From<&UserType> for u8 {
     fn from(user_type: &UserType) -> Self {
         match user_type {
