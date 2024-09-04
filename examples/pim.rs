@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde_json::json;
 
-use cim_pim::{Effect, JsonCondition, Pim, Regexp, Request, Statement};
+use cim::pim::{Effect, JsonCondition, Pim, Regexp, Request, Statement};
 
 fn main() -> anyhow::Result<()> {
     let sts = vec![Statement {

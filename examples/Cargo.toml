@@ -12,17 +12,15 @@ release = false
 [dev-dependencies]
 serde_json = { workspace = true }
 anyhow = { workspace = true }
-cim-pim = { path = "../cim-pim" }
-cim-watch = { path = "../cim-watch" }
-cim-uid = { path = "../cim-uid", features = ["derive"] }
+cim = { path = "../cim", features = ["derive"] }
 
 [[example]]
 name = "pim"
 path = "pim.rs"
 
 [[example]]
-name = "uid"
-path = "uid.rs"
+name = "macros"
+path = "macros.rs"
 
 [[example]]
 name = "watch"

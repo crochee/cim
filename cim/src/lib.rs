@@ -1,14 +1,23 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
+pub trait Uid {
+    fn uid(&self) -> String;
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+#[cfg(feature = "derive")]
+pub use cim_macros::Uid;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
+// #[cfg(feature = "derive")]
+// pub use cim_macros::Opt;
+
+pub mod pim {
+    pub use cim_pim::*;
 }
+
+pub mod watch {
+    pub use cim_watch::*;
+}
+
+pub mod storage {
+    pub use cim_storage::*;
+}
+
+pub use cim_slo::*;

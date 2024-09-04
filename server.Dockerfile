@@ -9,7 +9,6 @@ WORKDIR /app
 COPY --from=builder /workspace/gosu /usr/local/bin/
 COPY ./target/release/server /usr/local/bin
 COPY ./entrypoint.sh /usr/local/bin/
-COPY server.toml /app/
 # 赋予执行权限
 RUN chmod +x /usr/local/bin/server /usr/local/bin/entrypoint.sh &&\
     groupadd -g 10000 cloud &&\

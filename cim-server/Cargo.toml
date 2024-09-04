@@ -13,6 +13,7 @@ name = "server"
 path = "src/bin/main.rs"
 
 [dependencies]
+cim = { path = "../cim" }
 cim-pim = { path = "../cim-pim" }
 cim-storage = { path = "../cim-storage" }
 cim-watch = { path = "../cim-watch" }

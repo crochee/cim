@@ -1,4 +1,4 @@
-use cim_uid::Uid;
+use cim::Uid;
 
 #[derive(Debug, Uid)]
 pub struct User {
