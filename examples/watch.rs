@@ -1,6 +1,6 @@
 use std::{sync::mpsc, thread};
 
-use cim_watch::WatcherHub;
+use cim::watch::WatcherHub;
 
 #[derive(Clone, Debug)]
 enum Event<T> {

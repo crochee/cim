@@ -9,7 +9,6 @@ members = [
   "cim-storage",
   "cim-slo",
   "cim",
-  "cim-uid",
   "cim-macros",
   "cim-watch",
   "cim-job",

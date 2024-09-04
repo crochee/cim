@@ -8,7 +8,6 @@ edition.workspace = true
 [dependencies]
 cim-slo = { path = "../cim-slo" }
 cim-pim = { path = "../cim-pim" }
-cim-uid = { path = "../cim-uid" }
 cim-watch = { path = "../cim-watch" }
 
 anyhow = { workspace = true }
