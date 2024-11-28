@@ -52,8 +52,6 @@ impl AppRouter {
         let cors_origin = state.config.cors_origin.parse::<HeaderValue>()?;
 
         let router = Router::new()
-            .nest_service("/static", ServeDir::new("static"))
-            .nest_service("/theme", ServeDir::new("theme"))
             .merge(oidc::op::new_router(state.clone()))
             .merge(oidc::eu::new_router(state.clone()))
             .merge(
@@ -86,13 +84,10 @@ impl AppRouter {
                 ),
             )
             .layer(middleware::from_fn(Self::trace))
-            .fallback(Self::not_found)
             .layer(
                 CorsLayer::new()
                     .expose_headers(ExposeHeaders::list(vec![
                         HeaderName::from_static("x-auth-token"),
-                        HeaderName::from_static("x-account-id"),
-                        HeaderName::from_static("x-user-id"),
                         HeaderName::from_static("x-trace-id"),
                     ]))
                     .allow_headers(AllowHeaders::mirror_request())
@@ -102,7 +97,10 @@ impl AppRouter {
                     .max_age(Duration::from_secs(60) * 60 * 12),
             )
             .route_layer(middleware::from_fn(Self::track_metrics))
-            .route("/metrics", get(Self::metrics));
+            .route("/metrics", get(Self::metrics))
+            // web dir
+            .nest_service("/", ServeDir::new("dist"))
+            .fallback(Self::not_found);
 
         Ok(router)
     }

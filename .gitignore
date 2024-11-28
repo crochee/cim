@@ -16,3 +16,6 @@ Cargo.lock
 
 .env
 server.toml
+
+# Ignore all the installed packages
+node_modules
