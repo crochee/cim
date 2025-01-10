@@ -118,17 +118,14 @@ pub async fn create(app: AppState, input: user::Content) -> Result<u64> {
     let connector_id = next_id().map_err(errors::any)?;
     app.store
         .connector
-        .put(
-            &connector::Connector {
-                id: connector_id.to_string(),
-                connector_type: "password".to_owned(),
-                name: "owner".to_owned(),
-                response_version: "v1.0.0".to_owned(),
-                config: "{}".to_owned(),
-                connector_data: None,
-            },
-            0,
-        )
+        .put(&connector::Connector {
+            id: connector_id.to_string(),
+            connector_type: "password".to_owned(),
+            name: "owner".to_owned(),
+            response_version: "v1.0.0".to_owned(),
+            config: "{}".to_owned(),
+            connector_data: None,
+        })
         .await?;
 
     let client_id = next_id().map_err(errors::any)?;
@@ -139,17 +136,14 @@ pub async fn create(app: AppState, input: user::Content) -> Result<u64> {
         .collect::<String>();
     app.store
         .client
-        .put(
-            &client::Client {
-                id: client_id.to_string(),
-                secret,
-                name: "owner".to_owned(),
-                logo_url: "".to_owned(),
-                account_id: user_id.to_string(),
-                ..Default::default()
-            },
-            0,
-        )
+        .put(&client::Client {
+            id: client_id.to_string(),
+            secret,
+            name: "owner".to_owned(),
+            logo_url: "".to_owned(),
+            account_id: user_id.to_string(),
+            ..Default::default()
+        })
         .await?;
 
     Ok(user_id)

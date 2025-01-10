@@ -101,6 +101,6 @@ async fn put_group_user(
 
     result.user_id = content.user_id;
     result.group_id = content.group_id;
-    app.store.group_user.put(&result, 0).await?;
+    app.store.group_user.put(&result).await?;
     Ok(StatusCode::NO_CONTENT)
 }

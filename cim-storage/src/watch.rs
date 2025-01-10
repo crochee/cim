@@ -32,7 +32,7 @@ impl<I: Interface> WatchInterface for WatchStore<I> {
     }
 
     async fn create(&self, input: &Self::T) -> Result<()> {
-        self.store.put(input, 0).await?;
+        self.store.put(input).await?;
         self.watch_hub
             .notify(Utc::now().timestamp() as usize, Event::Add(input.clone()));
         Ok(())
@@ -43,8 +43,8 @@ impl<I: Interface> WatchInterface for WatchStore<I> {
 impl<I: Interface> Interface for WatchStore<I> {
     type T = I::T;
     type L = I::L;
-    async fn put(&self, input: &I::T, ttl: u64) -> Result<()> {
-        self.store.put(input, ttl).await?;
+    async fn put(&self, input: &I::T) -> Result<()> {
+        self.store.put(input).await?;
         self.watch_hub
             .notify(Utc::now().timestamp() as usize, Event::Put(input.clone()));
         Ok(())

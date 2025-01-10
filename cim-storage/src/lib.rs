@@ -43,7 +43,7 @@ pub trait Interface: Sync {
 
     type L: Sync + Send;
 
-    async fn put(&self, input: &Self::T, ttl: u64) -> Result<()>;
+    async fn put(&self, input: &Self::T) -> Result<()>;
     async fn delete(&self, input: &Self::T) -> Result<()>;
     async fn get(&self, output: &mut Self::T) -> Result<()>;
     async fn list(

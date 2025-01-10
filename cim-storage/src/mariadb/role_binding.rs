@@ -26,7 +26,7 @@ impl Interface for RoleBindingImpl {
     type L = ListParams;
 
     #[tracing::instrument]
-    async fn put(&self, input: &Self::T, _ttl: u64) -> Result<()> {
+    async fn put(&self, input: &Self::T) -> Result<()> {
         let user_type: u8 = (&input.user_type).into();
         sqlx::query(
             r#"REPLACE INTO `role_binding`

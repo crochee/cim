@@ -29,7 +29,7 @@ impl Interface for OfflineSessionImpl {
     type L = ListParams;
 
     #[tracing::instrument]
-    async fn put(&self, content: &Self::T, _ttl: u64) -> Result<()> {
+    async fn put(&self, content: &Self::T) -> Result<()> {
         sqlx::query(
             r#"REPLACE INTO `offline_session`
             (`id`,`user_id`,`conn_id`,`refresh`,`connector_data`)

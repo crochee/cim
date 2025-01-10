@@ -27,7 +27,7 @@ impl Interface for UserImpl {
     type L = ListParams;
 
     #[tracing::instrument]
-    async fn put(&self, input: &Self::T, _ttl: u64) -> Result<()> {
+    async fn put(&self, input: &Self::T) -> Result<()> {
         let mut address = None;
         if let Some(v) = &input.claim.address {
             address = Some(serde_json::to_string(&v).map_err(errors::any)?)

@@ -25,7 +25,7 @@ impl Interface for RoleImpl {
     type L = ListParams;
 
     #[tracing::instrument]
-    async fn put(&self, input: &Self::T, _ttl: u64) -> Result<()> {
+    async fn put(&self, input: &Self::T) -> Result<()> {
         sqlx::query(
             r#"REPLACE INTO `role`
             (`id`,`account_id`,`name`,`desc`)

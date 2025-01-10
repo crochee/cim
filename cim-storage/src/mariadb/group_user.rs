@@ -25,7 +25,7 @@ impl Interface for GroupUserImpl {
     type L = ListParams;
 
     #[tracing::instrument]
-    async fn put(&self, input: &Self::T, _ttl: u64) -> Result<()> {
+    async fn put(&self, input: &Self::T) -> Result<()> {
         sqlx::query(
             r#"REPLACE INTO `group_user`
             (`id`,`group_id`,`user_id`)

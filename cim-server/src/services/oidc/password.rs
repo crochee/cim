@@ -53,7 +53,7 @@ pub async fn finalize_login<
     auth_req.claim = identity.claim.clone();
     auth_req.connector_data = identity.connector_data.clone();
 
-    auth_request_store.put(auth_req, 0).await?;
+    auth_request_store.put(auth_req).await?;
     if !auth_req.force_approval_prompt {
         return Ok(("".to_string(), true));
     }
@@ -89,22 +89,19 @@ pub async fn finalize_login<
     if sessions.data.is_empty() {
         let id = next_id().map_err(errors::any)?;
         offline_session_store
-            .put(
-                &offlinesession::OfflineSession {
-                    id: id.to_string(),
-                    user_id: auth_req.claim.sub.clone(),
-                    conn_id: auth_req.connector_id.clone(),
-                    connector_data: auth_req.connector_data.clone(),
-                    ..Default::default()
-                },
-                0,
-            )
+            .put(&offlinesession::OfflineSession {
+                id: id.to_string(),
+                user_id: auth_req.claim.sub.clone(),
+                conn_id: auth_req.connector_id.clone(),
+                connector_data: auth_req.connector_data.clone(),
+                ..Default::default()
+            })
             .await?;
     } else {
         let mut session = sessions.data.remove(0);
         if let Some(connector_data) = &auth_req.connector_data {
             session.connector_data = Some(connector_data.clone());
-            offline_session_store.put(&session, 0).await?;
+            offline_session_store.put(&session).await?;
         }
     }
     Ok((return_url, false))
@@ -143,7 +140,7 @@ pub async fn send_code<
                     ..Default::default()
                 };
                 code = Some(code_val.clone());
-                authcode_store.put(&code_val, 0).await?;
+                authcode_store.put(&code_val).await?;
             }
             super::RESPONSE_TYPE_IDTOKEN => {
                 implicit_or_hybrid = true;

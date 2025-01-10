@@ -124,6 +124,6 @@ async fn put_policy(
     result.desc = content.desc;
     result.version = content.version;
     result.statement = content.statement;
-    app.store.policy.put(&result, 0).await?;
+    app.store.policy.put(&result).await?;
     Ok(StatusCode::NO_CONTENT)
 }

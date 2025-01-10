@@ -120,6 +120,6 @@ async fn put_group(
 
     result.name = content.name;
     result.desc = content.desc;
-    app.store.group.put(&result, 0).await?;
+    app.store.group.put(&result).await?;
     Ok(StatusCode::NO_CONTENT)
 }

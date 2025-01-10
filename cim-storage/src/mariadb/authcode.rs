@@ -23,7 +23,7 @@ impl Interface for AuthCodeImpl {
     type L = ();
 
     #[tracing::instrument]
-    async fn put(&self, content: &Self::T, _ttl: u64) -> Result<()> {
+    async fn put(&self, content: &Self::T) -> Result<()> {
         sqlx::query(
             r#"REPLACE INTO `auth_code`
             (`id`,`client_id`,`scopes`,`nonce`,`redirect_uri`,`code_challenge`,`code_challenge_method`,

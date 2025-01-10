@@ -27,7 +27,7 @@ impl Interface for PolicyImpl {
     type L = ListParams;
 
     #[tracing::instrument]
-    async fn put(&self, input: &Self::T, _ttl: u64) -> Result<()> {
+    async fn put(&self, input: &Self::T) -> Result<()> {
         sqlx::query(
             r#"REPLACE INTO `policy`
             (`id`,`account_id`,`desc`,`version`,`statement`)

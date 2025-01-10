@@ -22,7 +22,7 @@ impl Interface for ClientImpl {
     type L = ();
 
     #[tracing::instrument]
-    async fn put(&self, input: &Self::T, _ttl: u64) -> Result<()> {
+    async fn put(&self, input: &Self::T) -> Result<()> {
         let account_id = input
             .account_id
             .parse::<u64>()

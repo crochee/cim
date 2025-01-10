@@ -217,7 +217,7 @@ mod tests {
     impl Interface for MockKeyStore {
         type T = Keys;
         type L = ();
-        async fn put(&self, _input: &Self::T, _ttl: u64) -> Result<()> {
+        async fn put(&self, _input: &Self::T) -> Result<()> {
             unimplemented!()
         }
         async fn delete(&self, _input: &Self::T) -> Result<()> {

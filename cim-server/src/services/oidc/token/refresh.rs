@@ -238,7 +238,7 @@ where
             }
         }
         refresh_token.claim = ident.claim.clone();
-        self.refresh_store.put(refresh_token, 0).await?;
+        self.refresh_store.put(refresh_token).await?;
 
         if let Some(offline_session_value) =
             offline_session.refresh.get_mut(&refresh_token.client_id)
@@ -252,7 +252,7 @@ where
             }
         }
 
-        self.offline_session_store.put(offline_session, 0).await?;
+        self.offline_session_store.put(offline_session).await?;
         Ok(ident)
     }
 }

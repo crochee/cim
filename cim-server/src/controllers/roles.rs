@@ -121,6 +121,6 @@ async fn put_role(
     )?;
     role.name = content.name;
     role.desc = content.desc;
-    app.store.role.put(&role, 0).await?;
+    app.store.role.put(&role).await?;
     Ok(StatusCode::NO_CONTENT)
 }

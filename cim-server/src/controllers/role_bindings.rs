@@ -110,6 +110,6 @@ async fn put_role_binding(
     result.role_id = content.role_id;
     result.user_type = content.user_type;
     result.user_id = content.user_id;
-    app.store.role_binding.put(&result, 0).await?;
+    app.store.role_binding.put(&result).await?;
     Ok(StatusCode::NO_CONTENT)
 }

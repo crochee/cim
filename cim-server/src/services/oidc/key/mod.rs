@@ -51,24 +51,21 @@ where
                 return Ok(());
             }
             self.update_key(&mut keys)?;
-            return self.store.put(&keys, 0).await;
+            return self.store.put(&keys).await;
         }
         let (signing_key, signing_key_pub) = self.create_key()?;
         let now_time = Self::time_now();
         self.store
-            .put(
-                &Keys {
-                    id: next_id().map_err(errors::any)?.to_string(),
-                    signing_key,
-                    signing_key_pub: signing_key_pub.clone(),
-                    verification_keys: vec![VerificationKey {
-                        expiry: now_time + self.strategy.keep,
-                        public_key: signing_key_pub,
-                    }],
-                    next_rotation: now_time + self.strategy.rotation_frequency,
-                },
-                0,
-            )
+            .put(&Keys {
+                id: next_id().map_err(errors::any)?.to_string(),
+                signing_key,
+                signing_key_pub: signing_key_pub.clone(),
+                verification_keys: vec![VerificationKey {
+                    expiry: now_time + self.strategy.keep,
+                    public_key: signing_key_pub,
+                }],
+                next_rotation: now_time + self.strategy.rotation_frequency,
+            })
             .await
     }
 

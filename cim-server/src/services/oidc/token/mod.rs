@@ -119,7 +119,7 @@ where
                 .map_err(errors::any)?,
             );
 
-            self.refresh_token_store.put(&refresh_token, 0).await?;
+            self.refresh_token_store.put(&refresh_token).await?;
             match self.handle_offline(&refresh_token, &refresh_token.id).await {
                 Ok(Some(token_ref_id)) => {
                     let refresh_token = refresh_token::RefreshToken {
@@ -184,7 +184,7 @@ where
                 .refresh
                 .insert(token_ref.client_id.clone(), token_ref);
 
-            self.offline_session_store.put(&offline_session, 0).await?;
+            self.offline_session_store.put(&offline_session).await?;
         } else {
             let mut session = sessions.data.remove(0);
             if let Some(old_session) =
@@ -196,7 +196,7 @@ where
                 .refresh
                 .insert(token_ref.client_id.clone(), token_ref);
             session.connector_data = refresh_token.connector_data.clone();
-            self.offline_session_store.put(&session, 0).await?;
+            self.offline_session_store.put(&session).await?;
         }
 
         Ok(token_ref_id)

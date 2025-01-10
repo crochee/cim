@@ -26,7 +26,7 @@ impl Interface for KeysImpl {
     type L = ();
 
     #[tracing::instrument]
-    async fn put(&self, nk: &Self::T, _ttl: u64) -> Result<()> {
+    async fn put(&self, nk: &Self::T) -> Result<()> {
         sqlx::query(
             r#"REPLACE INTO `key`
             (`id`,`verification_keys`,`signing_key`,`signing_key_pub`,`next_rotation`)

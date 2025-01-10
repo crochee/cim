@@ -26,7 +26,7 @@ impl Interface for PolicyBindingImpl {
     type L = ListParams;
 
     #[tracing::instrument]
-    async fn put(&self, input: &Self::T, _ttl: u64) -> Result<()> {
+    async fn put(&self, input: &Self::T) -> Result<()> {
         let binding_type: u8 = (&input.bindings_type).into();
         sqlx::query(
             r#"REPLACE INTO `policy_binding`

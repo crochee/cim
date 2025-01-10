@@ -112,6 +112,6 @@ async fn put_user(
     user.desc = content.desc;
     user.claim = content.claim;
     user.password = Some(content.password);
-    app.store.user.put(&user, 0).await?;
+    app.store.user.put(&user).await?;
     Ok(StatusCode::NO_CONTENT)
 }

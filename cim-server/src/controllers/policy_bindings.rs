@@ -110,6 +110,6 @@ async fn put_policy_binding(
     result.policy_id = content.policy_id;
     result.bindings_type = content.bindings_type;
     result.bindings_id = content.bindings_id;
-    app.store.policy_binding.put(&result, 0).await?;
+    app.store.policy_binding.put(&result).await?;
     Ok(StatusCode::NO_CONTENT)
 }
