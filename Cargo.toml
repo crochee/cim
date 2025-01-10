@@ -5,7 +5,6 @@ members = [
   "cim-client",
   "cim-pim",
   "examples",
-  "cim-connect",
   "cim-storage",
   "cim-slo",
   "cim",

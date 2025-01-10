@@ -1,17 +1,21 @@
 pub mod auth;
 pub mod connect;
 pub mod key;
-pub mod password;
 pub mod token;
 
+use axum::extract::Request;
+use base64::{engine::general_purpose, Engine};
 use chrono::Utc;
+use connect::Identity;
 use http::Uri;
 use jsonwebkey as jwk;
 use rand::Rng;
+use sha2::{Digest, Sha256};
 
-use cim_slo::{errors, Result};
+use cim_slo::{errors, next_id, Result};
 use cim_storage::{
-    authrequest, client, connector, user, Interface, WatchInterface,
+    authcode, authrequest, client, connector, offlinesession, user, Interface,
+    List, WatchInterface,
 };
 
 use auth::AuthRequest;
@@ -43,39 +47,27 @@ pub async fn get_connector<C: Interface<T = connector::Connector>>(
     Ok(connector)
 }
 
-pub enum Connector {
-    Password(Box<dyn connect::PasswordConnector + Send>),
-    Callback(Box<dyn connect::CallbackConnector + Send>),
-    Saml(Box<dyn connect::SAMLConnector + Send>),
-}
-
 pub fn open_connector<
     U: WatchInterface<T = user::User> + Send + Sync + Clone + 'static,
 >(
     user_store: &U,
-    conn: &connector::Connector,
-) -> Result<Connector> {
-    match conn.connector_type.as_str() {
-        "cim" => {
-            // let us = user_store.to_owned();
-            Ok(Connector::Password(Box::new(connect::UserPassword::new(
-                user_store.clone(),
-            ))))
-        }
-        "mockCallback" => Ok(Connector::Callback(Box::new(
-            connect::MockCallbackConnector::new(),
-        ))),
-        "mockPassword" => Ok(Connector::Password(Box::new(
-            connect::MockPasswordConnector::new(),
-        ))),
-        "saml" => {
-            Ok(Connector::Saml(Box::new(connect::MockSAMLConnector::new())))
-        }
-        _ => Err(errors::bad_request("unsupported connector type")),
+    conn: Option<&connector::Connector>,
+) -> Result<Box<dyn connect::CallbackConnector + Send>> {
+    match conn {
+        Some(conn) => match conn.connector_type.as_str() {
+            "cim" | "local" => {
+                Ok(Box::new(connect::UserPassword::new(user_store.clone())))
+            }
+            "mockCallback" => {
+                Ok(Box::new(connect::MockCallbackConnector::new()))
+            }
+            _ => Err(errors::bad_request("unsupported connector type")),
+        },
+        None => Ok(Box::new(connect::UserPassword::new(user_store.clone()))),
     }
 }
 
-pub async fn run_connector<
+pub async fn redirect_auth_page<
     S: Interface<T = authrequest::AuthRequest>,
     U: WatchInterface<T = user::User> + Send + Sync + Clone + 'static,
 >(
@@ -86,25 +78,248 @@ pub async fn run_connector<
     auth_req: &mut authrequest::AuthRequest,
     expires_in: i64,
 ) -> Result<String> {
-    let connector_impl = open_connector(user_store, conn)?;
-
+    let connector_impl = open_connector(user_store, Some(conn))?;
     auth_req.id = uuid::Uuid::new_v4().to_string();
     auth_req.connector_id = connector_id.to_string();
+    auth_req.connector_data = conn.connector_data.clone();
     auth_req.expiry = Utc::now().timestamp() + expires_in;
     auth_request_store.put(auth_req).await?;
+    let scopes = connect::parse_scopes(&auth_req.scopes);
+    connector_impl
+        .login_url(&scopes, "/callback", &auth_req.id)
+        .await
+}
 
-    match connector_impl {
-        Connector::Password(_) => Ok(format!(
-            "/auth/{}/login?state={}",
-            connector_id, auth_req.id
-        )),
-        Connector::Callback(cc) => {
-            let scopes = connect::parse_scopes(&auth_req.scopes);
-            tracing::debug!("{:?}", scopes);
-            cc.login_url(&scopes, "/callback", &auth_req.id).await
-        }
-        Connector::Saml(_) => Ok("".to_string()),
+pub async fn auth_page_callback<
+    S: Interface<T = authrequest::AuthRequest>,
+    A: Interface<T = authcode::AuthCode>,
+    C: Interface<T = connector::Connector>,
+    O: Interface<
+        T = offlinesession::OfflineSession,
+        L = offlinesession::ListParams,
+    >,
+    T: token::Token,
+    U: WatchInterface<T = user::User> + Send + Sync + Clone + 'static,
+>(
+    auth_request_store: &S,
+    user_store: &U,
+    auth_code_store: &A,
+    connector_store: &C,
+    offline_session_store: &O,
+    token_creater: &T,
+    auth_request_state: &auth::AuthRequestState,
+    req: Request,
+) -> Result<String> {
+    let mut auth_req = authrequest::AuthRequest {
+        id: auth_request_state.state.clone(),
+        ..Default::default()
+    };
+    auth_request_store.get(&mut auth_req).await?;
+
+    let mut connector = connector::Connector {
+        id: auth_req.connector_id.clone(),
+        ..Default::default()
+    };
+    connector_store.get(&mut connector).await?;
+    let connector_impl = open_connector(user_store, Some(&connector))?;
+
+    let scopes = connect::parse_scopes(&auth_req.scopes);
+    let identity = connector_impl.handle_callback(&scopes, req).await?;
+
+    let (mut redirect_uri, can_skip_approval) = finalize_login(
+        auth_request_store,
+        offline_session_store,
+        &mut auth_req,
+        &identity,
+        connector_impl.support_refresh(),
+    )
+    .await?;
+
+    if can_skip_approval {
+        redirect_uri = send_code(
+            auth_request_store,
+            token_creater,
+            auth_code_store,
+            &auth_req,
+        )
+        .await?;
     }
+    Ok(redirect_uri)
+}
+
+pub async fn send_code<
+    S: Interface<T = authrequest::AuthRequest>,
+    T: token::Token,
+    C: Interface<T = authcode::AuthCode>,
+>(
+    auth_request_store: &S,
+    token_creater: &T,
+    authcode_store: &C,
+    auth_request: &authrequest::AuthRequest,
+) -> Result<String> {
+    if Utc::now().timestamp() > auth_request.expiry {
+        return Err(errors::bad_request("User session has expired."));
+    }
+    auth_request_store.delete(&auth_request).await?;
+    let u = auth_request.redirect_uri.parse::<Uri>().map_err(|err| {
+        errors::bad_request(format!("Invalid redirect_uri. {}", err).as_str())
+    })?;
+    let mut implicit_or_hybrid = false;
+    let mut id_token = String::new();
+    let mut id_token_expiry = 0;
+    let mut code = None;
+    let mut access_token = String::new();
+    for response_type in &auth_request.response_types {
+        match response_type.as_str() {
+            RESPONSE_TYPE_CODE => {
+                let auth_code = authcode::AuthCode {
+                    id: uuid::Uuid::new_v4().to_string(),
+                    client_id: auth_request.client_id.clone(),
+                    scopes: auth_request.scopes.clone(),
+                    nonce: auth_request.nonce.clone(),
+                    redirect_uri: auth_request.redirect_uri.clone(),
+                    code_challenge: auth_request.code_challenge.clone(),
+                    code_challenge_method: auth_request
+                        .code_challenge_method
+                        .clone(),
+                    claim: auth_request.claim.clone(),
+                    connector_id: auth_request.connector_id.clone(),
+                    connector_data: auth_request.connector_data.clone(),
+                    expiry: Utc::now().timestamp() + 30 * 60,
+                    ..Default::default()
+                };
+                code = Some(auth_code.id.clone());
+                authcode_store.put(&auth_code).await?;
+            }
+            RESPONSE_TYPE_IDTOKEN => {
+                implicit_or_hybrid = true;
+                // TODO:claims and token opts fill
+                let mut claims = token::Claims {
+                    claim: auth_request.claim.clone(),
+                    nonce: auth_request.nonce.clone(),
+                    ..Default::default()
+                };
+
+                let (access_token_val, _) =
+                    token_creater.token(&claims).await?;
+                claims.access_token = Some(access_token_val.clone());
+                access_token = access_token_val;
+
+                let (id_token_val, id_token_expiry_val) =
+                    token_creater.token(&claims).await?;
+                id_token = id_token_val;
+                id_token_expiry = id_token_expiry_val;
+            }
+            RESPONSE_TYPE_TOKEN => {
+                implicit_or_hybrid = true;
+            }
+            _ => {}
+        }
+    }
+    let mut query = String::new();
+    if implicit_or_hybrid {
+        query.push_str("access_token=");
+        query.push_str(&access_token);
+        query.push_str("&token_type=bearer&state=");
+        query.push_str(&auth_request.state);
+        if !id_token.is_empty() {
+            query.push_str("&id_token=");
+            query.push_str(&id_token);
+            if code.is_none() {
+                query.push_str("&expires_in=");
+                let expires_in = id_token_expiry - Utc::now().timestamp();
+                query.push_str(&expires_in.to_string());
+            }
+        }
+        if let Some(id) = code {
+            query.push_str("&code=");
+            query.push_str(&id);
+        }
+    } else if let Some(id) = code {
+        query.push_str("code=");
+        query.push_str(&id);
+        query.push_str("state=");
+        query.push_str(&auth_request.state);
+    }
+    let mut ru = auth_request.redirect_uri.clone();
+    if u.query().is_some() {
+        ru.push('&');
+    } else {
+        ru.push('?');
+    }
+    ru.push_str(query.as_str());
+    Ok(ru)
+}
+
+pub async fn finalize_login<
+    S: Interface<T = authrequest::AuthRequest>,
+    O: Interface<
+        T = offlinesession::OfflineSession,
+        L = offlinesession::ListParams,
+    >,
+>(
+    auth_request_store: &S,
+    offline_session_store: &O,
+    auth_req: &mut authrequest::AuthRequest,
+    identity: &Identity,
+    support_refresh: bool,
+) -> Result<(String, bool)> {
+    auth_req.logged_in = true;
+    auth_req.claim = identity.claim.clone();
+    auth_req.connector_data = identity.connector_data.clone();
+
+    auth_request_store.put(auth_req).await?;
+    if !auth_req.force_approval_prompt {
+        return Ok(("".to_string(), true));
+    }
+
+    let hmac = Sha256::new_with_prefix(&auth_req.hmac_key)
+        .chain_update(&auth_req.id)
+        .finalize();
+    let mut return_url = String::from("/approval?req=");
+    return_url.push_str(&auth_req.id);
+    return_url.push_str("&hmac=");
+    let hmac_str = general_purpose::URL_SAFE_NO_PAD.encode(hmac);
+    return_url.push_str(&hmac_str);
+    if !support_refresh {
+        return Ok((return_url, false));
+    }
+    if auth_req.scopes.contains(&String::from("offline_access")) {
+        return Ok((return_url, false));
+    }
+    let mut sessions = List::default();
+    offline_session_store
+        .list(
+            &offlinesession::ListParams {
+                user_id: Some(auth_req.claim.sub.clone()),
+                conn_id: Some(auth_req.connector_id.clone()),
+                pagination: cim_storage::Pagination {
+                    count_disable: true,
+                    ..Default::default()
+                },
+            },
+            &mut sessions,
+        )
+        .await?;
+    if sessions.data.is_empty() {
+        let id = next_id().map_err(errors::any)?;
+        offline_session_store
+            .put(&offlinesession::OfflineSession {
+                id: id.to_string(),
+                user_id: auth_req.claim.sub.clone(),
+                conn_id: auth_req.connector_id.clone(),
+                connector_data: auth_req.connector_data.clone(),
+                ..Default::default()
+            })
+            .await?;
+    } else {
+        let mut session = sessions.data.remove(0);
+        if let Some(connector_data) = &auth_req.connector_data {
+            session.connector_data = Some(connector_data.clone());
+            offline_session_store.put(&session).await?;
+        }
+    }
+    Ok((return_url, false))
 }
 
 pub async fn valid_scope<C: Interface<T = client::Client>>(
@@ -222,8 +437,7 @@ pub async fn parse_auth_request<C: Interface<T = client::Client>>(
             r#"response_type 'token' must be provided with ["code", "id_token"]."#,
         ));
     }
-    let nonce = req.nonce.clone().unwrap_or_default();
-    if !has_code && nonce.is_empty() {
+    if !has_code && req.nonce.is_empty() {
         return Err(errors::bad_request(
             r#"response_type 'token' requires a nonce."#,
         ));
@@ -263,7 +477,7 @@ pub async fn parse_auth_request<C: Interface<T = client::Client>>(
         redirect_uri: req.redirect_uri.clone(),
         code_challenge: req.code_challenge.clone(),
         code_challenge_method,
-        nonce,
+        nonce: req.nonce.clone(),
         state: req.state.clone(),
         hmac_key,
         force_approval_prompt: req.skip_approval.unwrap_or_default(),
@@ -374,7 +588,7 @@ mod tests {
             redirect_uri: "http://localhost:3000/callback".to_owned(),
             response_type: "code id_token token".to_owned(),
             scope: "openid".to_owned(),
-            nonce: Some("nonce".to_owned()),
+            nonce: "nonce".to_owned(),
             state: "state".to_owned(),
             code_challenge: "R".to_owned(),
             code_challenge_method: None,

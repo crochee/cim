@@ -55,16 +55,11 @@ impl Interface for AuthRequestImpl {
 
     #[tracing::instrument]
     async fn delete(&self, input: &Self::T) -> Result<()> {
-        let id = input
-            .id
-            .parse::<u64>()
-            .map_err(|err| errors::bad_request(&err))?;
-
         sqlx::query(
             r#"UPDATE `auth_request` SET `deleted` = `id`,`deleted_at`= now()
             WHERE id = ? AND `deleted` = 0;"#,
         )
-        .bind(id)
+        .bind(&input.id)
         .execute(&self.pool)
         .await
         .map_err(errors::any)?;
@@ -73,17 +68,12 @@ impl Interface for AuthRequestImpl {
 
     #[tracing::instrument]
     async fn get(&self, output: &mut Self::T) -> Result<()> {
-        let id = output
-            .id
-            .parse::<u64>()
-            .map_err(|err| errors::bad_request(&err))?;
-
         let row = match sqlx::query(
             r#"SELECT `id`,`client_id`,`response_types`,`scopes`,`redirect_uri`,`code_challenge`,`code_challenge_method`,
             `nonce`,`state`,`hmac_key`,`force_approval_prompt`,`logged_in`,`claim`,`connector_id`,`connector_data`,`expiry`
             FROM `auth_request`
             WHERE id = ? AND deleted = 0;"#)
-        .bind(id)
+        .bind(&output.id)
         .fetch_optional(&self.pool)
         .await
         {
@@ -94,10 +84,7 @@ impl Interface for AuthRequestImpl {
             Err(err) => Err(errors::any(err)),
         }?;
 
-        output.id = row
-            .try_get::<u64, _>("id")
-            .map_err(errors::any)?
-            .to_string();
+        output.id = row.try_get("id").map_err(errors::any)?;
         output.client_id = row.try_get("client_id").map_err(errors::any)?;
         output.response_types = row
             .try_get::<Json<Vec<String>>, _>("response_types")

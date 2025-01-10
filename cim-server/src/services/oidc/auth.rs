@@ -4,7 +4,7 @@ use validator::Validate;
 use cim_slo::{errors, Result};
 use cim_storage::{
     connector::{Connector, ListParams},
-    Interface, List, Pagination,
+    Interface,
 };
 
 #[derive(Debug, Deserialize, Serialize, Validate)]
@@ -19,7 +19,7 @@ pub struct AuthRequest {
     #[validate(length(min = 1, max = 255))]
     pub state: String,
     #[validate(length(min = 1, max = 255))]
-    pub nonce: Option<String>,
+    pub nonce: String,
 
     #[validate(length(min = 1))]
     pub code_challenge: String,
@@ -36,40 +36,26 @@ pub async fn auth<S: Interface<T = Connector, L = ListParams>>(
     connector_store: &S,
     req: &mut AuthRequest,
 ) -> Result<String> {
-    let mut connector = String::from("/auth/");
-    match &req.connector_id {
-        Some(connector_id) => {
-            let mut connector_data = Connector {
-                id: connector_id.to_owned(),
-                ..Default::default()
-            };
-            connector_store.get(&mut connector_data).await?;
-            connector.push_str(&connector_data.id);
-        }
-        None => {
-            let mut connector_data = List::default();
-            connector_store
-                .list(
-                    &ListParams {
-                        connector_type: None,
-                        pagination: Pagination {
-                            count_disable: true,
-                            ..Default::default()
-                        },
-                    },
-                    &mut connector_data,
-                )
-                .await?;
-            if connector_data.data.is_empty() {
-                return Err(errors::not_found("no connectors found"));
-            }
-            connector.push_str(&connector_data.data[0].id);
-        }
+    let mut connector = String::from("/connectors");
+    if let Some(connector_id) = &req.connector_id {
+        let mut connector_data = Connector {
+            id: connector_id.to_owned(),
+            ..Default::default()
+        };
+        connector_store.get(&mut connector_data).await?;
+        connector.push('/');
+        connector.push_str(&connector_data.id);
     }
     connector.push('&');
     req.connector_id = None;
     connector.push_str(&serde_urlencoded::to_string(req).map_err(errors::any)?);
     Ok(connector)
+}
+
+#[derive(Debug, Deserialize, Serialize, Validate)]
+pub struct AuthRequestState {
+    pub state: String,
+    pub callback: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Validate)]

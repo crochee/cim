@@ -103,25 +103,22 @@ where
                 .await?;
 
         let mut refresh_token_value = None;
-        if let oidc::Connector::Password(conn) =
-            open_connector(self.user_store, &connector)?
-        {
-            if conn.refresh_enabled() {
-                let rt = token::RefreshTokenHandler {
-                    refresh_token_store: self.refresh_token_store,
-                    offline_session_store: self.offline_session_store,
-                };
-                refresh_token_value = rt
-                    .handle(
-                        auth_code.scopes.clone(),
-                        &client_value.id,
-                        &auth_code.nonce,
-                        &auth_code.claim,
-                        &connector.id,
-                        auth_code.connector_data.clone(),
-                    )
-                    .await?;
-            }
+        let connector_impl = open_connector(self.user_store, Some(&connector))?;
+        if connector_impl.support_refresh() {
+            let rt = token::RefreshTokenHandler {
+                refresh_token_store: self.refresh_token_store,
+                offline_session_store: self.offline_session_store,
+            };
+            refresh_token_value = rt
+                .handle(
+                    auth_code.scopes.clone(),
+                    &client_value.id,
+                    &auth_code.nonce,
+                    &auth_code.claim,
+                    &connector.id,
+                    auth_code.connector_data.clone(),
+                )
+                .await?;
         }
         Ok(token::TokenResponse {
             access_token,

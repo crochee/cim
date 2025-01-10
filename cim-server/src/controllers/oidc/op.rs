@@ -30,7 +30,7 @@ pub fn new_router(state: AppState) -> Router {
         .route("/.well-known/openid-configuration", get(discovery_handler))
         .route("/jwks", get(jwk_handler))
         // auth api
-        .route("/auth", get(auth_handler))
+        .route("/authorize", get(auth_handler))
         .route("/token", post(token_handler))
         .route("/userinfo", get(userinfo))
         .with_state(state)
@@ -58,7 +58,7 @@ async fn discovery_handler(app: AppState) -> Json<OpenIDConfiguration> {
     let issuer = format!("http://{}:{}", app.config.endpoint, app.config.port);
     Json(OpenIDConfiguration {
         issuer: issuer.to_string(),
-        authorization_endpoint: format!("{issuer}/auth"),
+        authorization_endpoint: format!("{issuer}/authorize"),
         token_endpoint: format!("{issuer}/token"),
         jwks_uri: format!("{issuer}/jwks"),
         userinfo_endpoint: format!("{issuer}/userinfo"),

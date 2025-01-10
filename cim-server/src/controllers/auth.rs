@@ -10,7 +10,7 @@ use crate::{services::authorization, valid::Valid, AppState};
 
 pub fn new_router(state: AppState) -> Router {
     Router::new()
-        .route("/authorize", post(authorize))
+        .route("/authorize1", post(authorize))
         .with_state(state)
 }
 

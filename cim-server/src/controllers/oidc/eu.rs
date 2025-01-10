@@ -1,6 +1,6 @@
 use askama::Template;
 use axum::{
-    extract::Path,
+    extract::{Path, Request},
     response::{IntoResponse, Redirect, Response},
     routing::get,
     Form, Router,
@@ -11,11 +11,8 @@ use cim_slo::{errors, HtmlTemplate, Result};
 
 use crate::{
     services::oidc::{
-        self, auth, connect, get_connector, open_connector, parse_auth_request,
-        password::{
-            self, finalize_login, get_auth_request, send_code, LoginData,
-        },
-        run_connector,
+        auth, auth_page_callback, get_connector, parse_auth_request,
+        redirect_auth_page,
     },
     valid::Valid,
     AppState,
@@ -23,28 +20,31 @@ use crate::{
 
 pub fn new_router(state: AppState) -> Router {
     Router::new()
-        .route("/auth/:connector_id", get(auth_html))
+        .route("connectors/:connector_id", get(connector_handle))
+        .route("/callback", get(callback_handle))
+        // cim impl callback
         .route(
-            "/auth/:connector_id/login",
+            "/login",
             get(password_login_html).post(password_login_handle),
         )
         .route("/approval", get(approval_html).post(post_approval))
         .with_state(state)
 }
 
-async fn auth_html(
+/// redirect to user auth page,example password_login_html or server auth page
+async fn connector_handle(
     app: AppState,
     Path(connector_id): Path<String>,
     Valid(auth_request): Valid<auth::AuthRequest>,
 ) -> core::result::Result<Redirect, Redirect> {
     let mut auth_req = parse_auth_request(&app.store.client, &auth_request)
         .await
-        .map_err(|err| redirect(&auth_request, err))?;
+        .map_err(|err| redirect(&auth_request.redirect_uri, err))?;
     let connector = get_connector(&app.store.connector, &connector_id)
         .await
-        .map_err(|err| redirect(&auth_request, err))?;
+        .map_err(|err| redirect(&auth_request.redirect_uri, err))?;
 
-    let redirect_uri = run_connector(
+    let redirect_uri = redirect_auth_page(
         &app.store.auth_request,
         &connector,
         &app.store.user,
@@ -53,19 +53,13 @@ async fn auth_html(
         app.config.expiration,
     )
     .await
-    .map_err(|err| redirect(&auth_request, err))?;
+    .map_err(|err| redirect(&auth_request.redirect_uri, err))?;
     Ok(Redirect::to(&redirect_uri))
 }
 
-fn redirect<E: ToString>(auth_request: &auth::AuthRequest, err: E) -> Redirect {
-    let mut redirect_uri = auth_request.redirect_uri.clone();
-    if auth_request
-        .redirect_uri
-        .parse::<Uri>()
-        .unwrap()
-        .query()
-        .is_none()
-    {
+fn redirect<E: ToString>(url: &str, err: E) -> Redirect {
+    let mut redirect_uri = url.to_string();
+    if url.parse::<Uri>().unwrap().query().is_none() {
         redirect_uri.push_str("?err=");
         redirect_uri.push_str(&err.to_string());
     } else {
@@ -73,6 +67,26 @@ fn redirect<E: ToString>(auth_request: &auth::AuthRequest, err: E) -> Redirect {
         redirect_uri.push_str(&err.to_string());
     };
     Redirect::to(&redirect_uri)
+}
+
+/// auth handle finish login,should request by server which auth_handle redirect
+async fn callback_handle(
+    app: AppState,
+    Valid(state): Valid<auth::AuthRequestState>,
+    req: Request,
+) -> Result<Redirect> {
+    let redirect_uri = auth_page_callback(
+        &app.store.auth_request,
+        &app.store.user,
+        &app.store.auth_code,
+        &app.store.connector,
+        &app.store.offline_session,
+        &app.access_token,
+        &state,
+        req,
+    )
+    .await?;
+    Ok(Redirect::to(&redirect_uri))
 }
 
 #[derive(Template, Default)]
@@ -86,170 +100,54 @@ pub struct Password {
 }
 
 async fn password_login_html(
-    app: AppState,
-    Path(connector_id): Path<String>,
-    Valid(mut auth_req_id): Valid<password::AuthReqID>,
+    Valid(state): Valid<auth::AuthRequestState>,
 ) -> Result<HtmlTemplate<Password>> {
-    let auth_request =
-        get_auth_request(&app.store.auth_request, &auth_req_id).await?;
-    if !auth_request.connector_id.eq(&connector_id) {
-        return Err(errors::bad_request("Requested resource does not exist."));
-    }
-    let connector = get_connector(&app.store.connector, &connector_id).await?;
-    match open_connector(&app.store.user, &connector)? {
-        oidc::Connector::Password(conn) => {
-            auth_req_id.prompt = Some(conn.prompt().to_owned());
-            Ok(HtmlTemplate(Password {
-                post_url: format!(
-                    "/auth/{}/login?{}",
-                    connector_id,
-                    serde_urlencoded::to_string(auth_req_id)
-                        .map_err(errors::any)?
-                ),
-                username_prompt: format!("Enter your {}", conn.prompt()),
-                ..Default::default()
-            }))
-        }
-        _ => Err(errors::bad_request("unsupported connector type")),
-    }
+    Ok(HtmlTemplate(Password {
+        post_url: format!(
+            "/auth/login?{}",
+            serde_urlencoded::to_string(state).map_err(errors::any)?
+        ),
+        username_prompt: "Enter your username".to_string(),
+        ..Default::default()
+    }))
 }
 
-fn relogin_html<E: ToString>(
-    connector_id: &str,
-    auth_req_id: &password::AuthReqID,
-    name: &str,
-    err: E,
-) -> HtmlTemplate<Password> {
-    HtmlTemplate(Password {
-        post_url: format!(
-            "/auth/{}/login?{}",
-            connector_id,
-            serde_urlencoded::to_string(auth_req_id)
-                .map_err(errors::any)
-                .unwrap()
-        ),
-        username: name.to_string(),
-        username_prompt: format!(
-            "Enter your {}",
-            auth_req_id.prompt.as_deref().unwrap_or("Username")
-        ),
-        invalid: err.to_string(),
-        ..Default::default()
-    })
-}
+// fn relogin_html<E: ToString>(
+//     state: &auth::AuthRequestState,
+//     name: &str,
+//     err: E,
+// ) -> HtmlTemplate<Password> {
+//     HtmlTemplate(Password {
+//         post_url: format!(
+//             "/auth/login?{}",
+//             serde_urlencoded::to_string(state)
+//                 .map_err(errors::any)
+//                 .unwrap()
+//         ),
+//         username: name.to_string(),
+//         username_prompt: "Enter your username".to_string(),
+//         invalid: err.to_string(),
+//         ..Default::default()
+//     })
+// }
 
 async fn password_login_handle(
     app: AppState,
-    Path(connector_id): Path<String>,
-    Valid(auth_req_code): Valid<password::AuthReqID>,
-    Valid(Form(login_data)): Valid<Form<LoginData>>,
-) -> core::result::Result<Response, HtmlTemplate<Password>> {
-    let mut auth_request =
-        get_auth_request(&app.store.auth_request, &auth_req_code)
-            .await
-            .map_err(|err| {
-                relogin_html(
-                    &connector_id,
-                    &auth_req_code,
-                    &login_data.login,
-                    err,
-                )
-            })?;
-    if !auth_request.connector_id.eq(&connector_id) {
-        return Err(relogin_html(
-            &connector_id,
-            &auth_req_code,
-            &login_data.login,
-            "Requested resource does not exist.",
-        ));
-    };
-    let connector = get_connector(&app.store.connector, &connector_id)
-        .await
-        .map_err(|err| {
-            relogin_html(&connector_id, &auth_req_code, &login_data.login, err)
-        })?;
-    let conn_impl =
-        open_connector(&app.store.user, &connector).map_err(|err| {
-            relogin_html(&connector_id, &auth_req_code, &login_data.login, err)
-        })?;
-    match conn_impl {
-        oidc::Connector::Password(conn) => {
-            let scopes = connect::parse_scopes(&auth_request.scopes);
-            let identity = conn
-                .login(
-                    &scopes,
-                    &connect::Info {
-                        subject: login_data.login.clone(),
-                        password: login_data.password,
-                    },
-                )
-                .await
-                .map_err(|err| {
-                    relogin_html(
-                        &connector_id,
-                        &auth_req_code,
-                        &login_data.login,
-                        err,
-                    )
-                })?;
-
-            let (mut redirect_uri, can_skip_approval) = finalize_login(
-                &app.store.auth_request,
-                &app.store.offline_session,
-                &mut auth_request,
-                &identity,
-                conn.refresh_enabled(),
-            )
-            .await
-            .map_err(|err| {
-                relogin_html(
-                    &connector_id,
-                    &auth_req_code,
-                    &login_data.login,
-                    err,
-                )
-            })?;
-
-            if can_skip_approval {
-                auth_request =
-                    get_auth_request(&app.store.auth_request, &auth_req_code)
-                        .await
-                        .map_err(|err| {
-                            relogin_html(
-                                &connector_id,
-                                &auth_req_code,
-                                &login_data.login,
-                                err,
-                            )
-                        })?;
-
-                redirect_uri = send_code(
-                    &app.store.auth_request,
-                    &app.access_token,
-                    &app.store.auth_code,
-                    &auth_request,
-                )
-                .await
-                .map_err(|err| {
-                    relogin_html(
-                        &connector_id,
-                        &auth_req_code,
-                        &login_data.login,
-                        err,
-                    )
-                })?;
-            }
-            let mut headers = HeaderMap::new();
-            headers.insert(header::LOCATION, redirect_uri.parse().unwrap());
-            Ok((StatusCode::SEE_OTHER, headers).into_response())
-        }
-        _ => Err(relogin_html(
-            &connector_id,
-            &auth_req_code,
-            &login_data.login,
-            "unsupported connector type",
-        )),
-    }
+    Valid(state): Valid<auth::AuthRequestState>,
+    req: Request,
+) -> Result<Redirect> {
+    let redirect_uri = auth_page_callback(
+        &app.store.auth_request,
+        &app.store.user,
+        &app.store.auth_code,
+        &app.store.connector,
+        &app.store.offline_session,
+        &app.access_token,
+        &state,
+        req,
+    )
+    .await?;
+    Ok(Redirect::to(&redirect_uri))
 }
 
 #[derive(Template)]

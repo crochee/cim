@@ -50,15 +50,11 @@ impl Interface for AuthCodeImpl {
 
     #[tracing::instrument]
     async fn delete(&self, input: &Self::T) -> Result<()> {
-        let id = input
-            .id
-            .parse::<u64>()
-            .map_err(|err| errors::bad_request(&err))?;
         sqlx::query(
             r#"UPDATE `auth_code` SET `deleted` = `id`,`deleted_at`= now()
             WHERE id = ? AND `deleted` = 0;"#,
         )
-        .bind(id)
+        .bind(&input.id)
         .execute(&self.pool)
         .await
         .map_err(errors::any)?;
@@ -67,17 +63,12 @@ impl Interface for AuthCodeImpl {
 
     #[tracing::instrument]
     async fn get(&self, output: &mut Self::T) -> Result<()> {
-        let id = output
-            .id
-            .parse::<u64>()
-            .map_err(|err| errors::bad_request(&err))?;
-
         let row = match sqlx::query(
             r#"SELECT `id`,`client_id`,`scopes`,`nonce`,`state`,`redirect_uri`,`code_challenge`,`code_challenge_method`,
             `claim`,`connector_id`,`connector_data`,`expiry`
             FROM `auth_code`
             WHERE id = ? AND deleted = 0;"#)
-        .bind(id)
+        .bind(&output.id)
         .fetch_optional(&self.pool)
         .await
         {
@@ -88,10 +79,7 @@ impl Interface for AuthCodeImpl {
             Err(err) => Err(errors::any(err)),
         }?;
 
-        output.id = row
-            .try_get::<u64, _>("id")
-            .map_err(errors::any)?
-            .to_string();
+        output.id = row.try_get("id").map_err(errors::any)?;
         output.client_id = row.try_get("client_id").map_err(errors::any)?;
         output.scopes = row
             .try_get::<Json<Vec<String>>, _>("scopes")

@@ -1,9 +1,11 @@
 use async_trait::async_trait;
-
+use axum::extract::Request;
+use axum_extra::headers::authorization::{Basic, Credentials};
 use cim_slo::{crypto::password::verify, errors, Result};
 use cim_storage::{user::User, Claim, WatchInterface};
+use http::header;
 
-use super::{Identity, Info, PasswordConnector, Scopes};
+use super::{CallbackConnector, Identity, Scopes};
 
 pub struct UserPassword<S> {
     store: S,
@@ -16,23 +18,37 @@ impl<S> UserPassword<S> {
 }
 
 #[async_trait]
-impl<S> PasswordConnector for UserPassword<S>
+impl<S> CallbackConnector for UserPassword<S>
 where
     S: WatchInterface<T = User> + Send + Sync,
 {
-    fn prompt(&self) -> &'static str {
-        "User"
+    async fn login_url(
+        &self,
+        _s: &Scopes,
+        callback_url: &str,
+        state: &str,
+    ) -> Result<String> {
+        Ok(format!("/login?callback={}&state={}", callback_url, state))
     }
-    fn refresh_enabled(&self) -> bool {
-        true
-    }
-    async fn login(&self, _s: &Scopes, info: &Info) -> Result<Identity> {
+
+    /// Handle the callback to the server and return an identity.
+    async fn handle_callback(
+        &self,
+        _s: &Scopes,
+        req: Request,
+    ) -> Result<Identity> {
+        let hv = req
+            .headers()
+            .get(header::AUTHORIZATION)
+            .ok_or(errors::unauthorized())?;
+        let info = Basic::decode(hv).ok_or(errors::unauthorized())?;
+
         let mut user = User::default();
-        user.id = info.subject.clone();
+        user.id = info.username().to_string();
         self.store.get(&mut user).await?;
         if !verify(
             &user.password.unwrap_or_default(),
-            &info.password,
+            info.password(),
             &user.secret.unwrap_or_default(),
         )? {
             return Err(errors::not_found("user"));

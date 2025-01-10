@@ -1,3 +1,6 @@
+use axum::extract::Request;
+use axum_extra::headers::{authorization::Credentials, Authorization};
+use http::header;
 use serde::Deserialize;
 
 use cim_slo::{errors, Result};
@@ -6,10 +9,7 @@ use cim_storage::{
     Pagination, WatchInterface,
 };
 
-use crate::services::oidc::{
-    connect::{self, PasswordConnector},
-    token, valid_scope,
-};
+use crate::services::oidc::{connect, open_connector, token, valid_scope};
 
 #[derive(Debug, Deserialize)]
 pub struct PasswordGrantOpts {
@@ -60,15 +60,15 @@ where
             1 => audience[0].clone(),
             _ => serde_json::to_string(&audience).map_err(errors::any)?,
         };
-        let conn = connect::UserPassword::new(self.user_store.clone());
-        let identity = conn
-            .login(
-                &connect::parse_scopes(&scopes),
-                &connect::Info {
-                    subject: opts.username.clone(),
-                    password: opts.password.clone(),
-                },
-            )
+        let connector_impl = open_connector(self.user_store, None)?;
+
+        let mut req = Request::default();
+        let headers = req.headers_mut();
+        let Authorization(ab) =
+            Authorization::basic(&opts.username, &opts.password);
+        headers.insert(header::AUTHORIZATION, ab.encode());
+        let identity = connector_impl
+            .handle_callback(&connect::parse_scopes(&scopes), req)
             .await?;
 
         let mut claims = token::Claims {
@@ -82,7 +82,7 @@ where
         let (id_token, expires_in) = self.token_creator.token(&claims).await?;
 
         let mut refresh_token_value = None;
-        if conn.refresh_enabled() {
+        if connector_impl.support_refresh() {
             let rt = token::RefreshTokenHandler {
                 refresh_token_store: self.refresh_token_store,
                 offline_session_store: self.offline_session_store,

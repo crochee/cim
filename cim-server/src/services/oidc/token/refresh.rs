@@ -9,7 +9,7 @@ use cim_storage::{
 
 use crate::services::oidc::{
     connect::{self, parse_scopes},
-    open_connector, token, valid_scope, Connector,
+    open_connector, token, valid_scope,
 };
 
 #[derive(Debug, Deserialize)]
@@ -230,12 +230,12 @@ where
         refresh_token.token = claim_refresh_token.token.clone();
         refresh_token.last_used_at = last_used.naive_utc();
         refresh_token.connector_data = None;
-        if let Connector::Password(conn) =
-            open_connector(self.user_store, connector_value)?
-        {
-            if conn.refresh_enabled() {
-                ident = conn.refresh(&parse_scopes(scopes), &ident).await?;
-            }
+        let connector_impl =
+            open_connector(self.user_store, Some(connector_value))?;
+        if connector_impl.support_refresh() {
+            ident = connector_impl
+                .refresh(&parse_scopes(scopes), &ident)
+                .await?;
         }
         refresh_token.claim = ident.claim.clone();
         self.refresh_store.put(refresh_token).await?;

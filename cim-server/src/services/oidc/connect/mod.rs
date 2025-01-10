@@ -5,25 +5,11 @@ use axum::extract::Request;
 use mockall::automock;
 use serde::Deserialize;
 use serde_json::value::RawValue;
-use validator::Validate;
 
-use cim_slo::{regexp::check_password, Result};
+use cim_slo::Result;
 use cim_storage::Claim;
 
 pub use userpassword::UserPassword;
-
-#[automock]
-#[async_trait]
-pub trait PasswordConnector: Send + Sync {
-    fn prompt(&self) -> &'static str;
-    fn refresh_enabled(&self) -> bool;
-    async fn login(&self, s: &Scopes, info: &Info) -> Result<Identity>;
-    async fn refresh(
-        &self,
-        s: &Scopes,
-        identity: &Identity,
-    ) -> Result<Identity>;
-}
 
 /// CallbackConnector is an interface implemented by connectors which use an OAuth
 /// style redirect flow to determine user information.
@@ -56,39 +42,15 @@ pub trait CallbackConnector: Send + Sync {
         s: &Scopes,
         req: Request,
     ) -> Result<Identity>;
-}
 
-/// SAMLConnector represents SAML connectors which implement the HTTP POST binding.
-///
-///	RelayState is handled by the server.
-///
-/// See: https://docs.oasis-open.org/security/saml/v2.0/saml-bindings-2.0-os.pdf
-/// "3.5 HTTP POST Binding"
-#[automock]
-#[async_trait]
-pub trait SAMLConnector: Send + Sync {
-    /// POSTData returns an encoded SAML request and SSO URL for the server to
-    /// render a POST form with.
-    ///
-    /// POSTData should encode the provided request ID in the returned serialized
-    /// SAML request.
-    async fn post_data(
+    fn support_refresh(&self) -> bool {
+        true
+    }
+
+    async fn refresh(
         &self,
         s: &Scopes,
-        request_id: &str,
-    ) -> Result<(String, String)>;
-
-    /// HandlePOST decodes, verifies, and maps attributes from the SAML response.
-    /// It passes the expected value of the "InResponseTo" response field, which
-    /// the connector must ensure matches the response value.
-    ///
-    /// See: https://www.oasis-open.org/committees/download.php/35711/sstc-saml-core-errata-2.0-wd-06-diff.pdf
-    /// "3.2.2 Complex Type StatusResponseType"
-    async fn handle_post(
-        &self,
-        s: &Scopes,
-        saml_response: &str,
-        in_response_to: &str,
+        identity: &Identity,
     ) -> Result<Identity>;
 }
 
@@ -99,14 +61,6 @@ pub struct Scopes {
     pub offline_access: bool,
     /// The client has requested group information about the end user.
     pub groups: bool,
-}
-
-#[derive(Debug, Deserialize, Validate)]
-pub struct Info {
-    #[validate(length(min = 1))]
-    pub subject: String,
-    #[validate(custom(function = "check_password"))]
-    pub password: String,
 }
 
 /// Identity represents the ID Token claims supported by the server.
