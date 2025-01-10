@@ -22,8 +22,6 @@ use tower_http::{
     LatencyUnit,
 };
 use tracing::Level;
-use utoipa::OpenApi;
-use utoipa_swagger_ui::SwaggerUi;
 
 use cim_slo::errors;
 
@@ -37,14 +35,6 @@ use crate::{
     AppState,
 };
 
-#[derive(OpenApi)]
-#[openapi(
-    servers(
-        (url = "/v1", description = "Local server"),
-    ),
-)]
-struct ApiDoc;
-
 pub struct AppRouter;
 
 impl AppRouter {
@@ -54,10 +44,6 @@ impl AppRouter {
         let router = Router::new()
             .merge(oidc::op::new_router(state.clone()))
             .merge(oidc::eu::new_router(state.clone()))
-            .merge(
-                SwaggerUi::new("/swagger-ui")
-                    .url("/v1/api-docs/openapi.json", ApiDoc::openapi()),
-            )
             .nest(
                 "/v1",
                 Router::new()

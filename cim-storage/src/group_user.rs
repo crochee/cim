@@ -1,13 +1,10 @@
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
 use validator::Validate;
 
 use crate::Pagination;
 
-#[derive(
-    Debug, Default, Deserialize, Serialize, ToSchema, PartialEq, Clone,
-)]
+#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Clone)]
 pub struct GroupUser {
     pub id: String,
     pub group_id: String,
@@ -16,7 +13,7 @@ pub struct GroupUser {
     pub updated_at: NaiveDateTime,
 }
 
-#[derive(Debug, Deserialize, Validate, ToSchema)]
+#[derive(Debug, Deserialize, Validate)]
 pub struct Content {
     #[validate(length(min = 1, max = 255))]
     pub group_id: String,
@@ -24,7 +21,7 @@ pub struct Content {
     pub user_id: String,
 }
 
-#[derive(Debug, Deserialize, Validate, ToSchema)]
+#[derive(Debug, Deserialize, Validate)]
 pub struct ListParams {
     #[validate(length(min = 1))]
     pub id: Option<String>,

@@ -1,11 +1,10 @@
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
-use utoipa::ToSchema;
 
 use crate::Claim;
 
-#[derive(Debug, Default, Deserialize, Serialize, ToSchema, Clone)]
+#[derive(Debug, Default, Deserialize, Serialize, Clone)]
 pub struct AuthRequest {
     pub id: String,
     pub client_id: String,

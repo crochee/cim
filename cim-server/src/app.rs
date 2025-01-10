@@ -1,7 +1,6 @@
 use std::{collections::HashSet, ops::Deref, sync::Arc};
 
 use anyhow::Result;
-use async_trait::async_trait;
 use axum::{
     extract::{FromRef, FromRequestParts},
     http::request::Parts,
@@ -142,7 +141,6 @@ impl Deref for AppState {
     }
 }
 
-#[async_trait]
 impl<S> FromRequestParts<S> for AppState
 where
     Self: FromRef<S>,

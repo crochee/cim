@@ -10,7 +10,6 @@ use axum_extra::{
 use chrono::{Duration, Utc};
 use http::{header, HeaderMap, StatusCode};
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
 
 use cim_slo::{errors, Result};
 use cim_storage::{Interface, List};
@@ -37,7 +36,7 @@ pub fn new_router(state: AppState) -> Router {
         .with_state(state)
 }
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Serialize)]
 pub struct OpenIDConfiguration {
     pub issuer: String,
     pub authorization_endpoint: String,

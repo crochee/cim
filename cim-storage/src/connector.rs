@@ -1,11 +1,10 @@
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
-use utoipa::ToSchema;
 use validator::Validate;
 
 use crate::Pagination;
 
-#[derive(Debug, Default, Deserialize, Serialize, ToSchema, Clone)]
+#[derive(Debug, Default, Deserialize, Serialize, Clone)]
 pub struct Connector {
     pub id: String,
     #[serde(rename = "type")]
@@ -34,7 +33,7 @@ impl PartialEq for Connector {
     }
 }
 
-#[derive(Debug, Deserialize, Validate, ToSchema)]
+#[derive(Debug, Deserialize, Validate)]
 pub struct ListParams {
     #[validate(length(min = 1))]
     #[serde(rename = "type")]

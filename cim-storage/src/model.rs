@@ -4,12 +4,11 @@ use serde::de::{
     self, Deserialize, Deserializer, MapAccess, SeqAccess, Visitor,
 };
 use serde::Serialize;
-use utoipa::ToSchema;
 use validator::Validate;
 
 use cim_slo::regexp::check_order_by;
 
-#[derive(Debug, Serialize, ToSchema, Default)]
+#[derive(Debug, Serialize, Default)]
 pub struct List<T> {
     pub data: Vec<T>,
     pub limit: u64,
@@ -17,12 +16,12 @@ pub struct List<T> {
     pub total: i64,
 }
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Serialize)]
 pub struct ID {
     pub id: String,
 }
 
-#[derive(Debug, Default, Validate, ToSchema)]
+#[derive(Debug, Default, Validate)]
 pub struct Pagination {
     pub limit: u64,
     pub offset: u64,
@@ -244,7 +243,6 @@ impl Pagination {
     serde::Deserialize,
     Default,
     Serialize,
-    ToSchema,
     PartialEq,
     Eq,
 )]
@@ -262,7 +260,6 @@ pub struct Claim {
     serde::Deserialize,
     Default,
     Serialize,
-    ToSchema,
     PartialEq,
     Eq,
 )]
@@ -326,7 +323,6 @@ pub struct ClaimOpts {
     Serialize,
     PartialEq,
     Eq,
-    ToSchema,
 )]
 pub struct AddressClaim {
     /// Full mailing address, formatted for display or use on a mailing label.

@@ -1,13 +1,10 @@
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
 use validator::Validate;
 
 use crate::Pagination;
 
-#[derive(
-    Debug, Default, Deserialize, Serialize, ToSchema, PartialEq, Clone,
-)]
+#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Clone)]
 pub struct RoleBinding {
     pub id: String,
     pub role_id: String,
@@ -17,7 +14,7 @@ pub struct RoleBinding {
     pub updated_at: NaiveDateTime,
 }
 
-#[derive(Debug, Deserialize, Validate, ToSchema)]
+#[derive(Debug, Deserialize, Validate)]
 pub struct Content {
     #[validate(length(min = 1, max = 255))]
     pub role_id: String,
@@ -26,7 +23,7 @@ pub struct Content {
     pub user_id: String,
 }
 
-#[derive(Debug, Deserialize, Validate, ToSchema)]
+#[derive(Debug, Deserialize, Validate)]
 pub struct ListParams {
     #[validate(length(min = 1))]
     pub id: Option<String>,
@@ -40,9 +37,7 @@ pub struct ListParams {
     pub pagination: Pagination,
 }
 
-#[derive(
-    Debug, Default, Deserialize, Serialize, ToSchema, Clone, PartialEq,
-)]
+#[derive(Debug, Default, Deserialize, Serialize, Clone, PartialEq)]
 pub enum UserType {
     #[default]
     User = 1,

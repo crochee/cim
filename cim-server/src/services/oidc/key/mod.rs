@@ -4,7 +4,6 @@ use rand::Rng;
 use rsa::traits::{PrivateKeyParts, PublicKeyParts};
 use serde::Serialize;
 use tracing::info;
-use utoipa::ToSchema;
 
 use cim_slo::{errors, next_id, Result};
 use cim_storage::{
@@ -14,7 +13,7 @@ use cim_storage::{
 
 use super::jwk_to_public;
 
-#[derive(Debug, Serialize, ToSchema)]
+#[derive(Debug, Serialize)]
 pub struct JsonWebKeySet {
     pub keys: Vec<jwk::JsonWebKey>,
 }

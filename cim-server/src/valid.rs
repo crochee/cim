@@ -3,7 +3,6 @@ use std::{
     ops::Deref,
 };
 
-use async_trait::async_trait;
 use axum::{
     extract::{
         ConnectInfo, FromRequest, FromRequestParts, Request, WebSocketUpgrade,
@@ -18,7 +17,6 @@ use cim_slo::errors::{self, Code, WithBacktrace};
 
 pub struct Valid<T>(pub T);
 
-#[async_trait]
 impl<S, T> FromRequestParts<S> for Valid<T>
 where
     S: Send + Sync,
@@ -37,7 +35,6 @@ where
     }
 }
 
-#[async_trait]
 impl<S, T> FromRequest<S> for Valid<Json<T>>
 where
     S: Send + Sync,
@@ -56,7 +53,6 @@ where
     }
 }
 
-#[async_trait]
 impl<S, T> FromRequest<S> for Valid<Form<T>>
 where
     S: Send + Sync,
@@ -88,7 +84,6 @@ pub enum ListWatch<T> {
     Ws((WebSocketUpgrade, T)),
 }
 
-#[async_trait]
 impl<S, T> FromRequestParts<S> for ListWatch<T>
 where
     S: Send + Sync,
@@ -152,7 +147,6 @@ pub struct Host {
     pub host: String,
 }
 
-#[async_trait]
 impl<S> FromRequestParts<S> for Host
 where
     S: Send + Sync,
@@ -188,7 +182,6 @@ pub struct ClientIp {
     pub ip: IpAddr,
 }
 
-#[async_trait]
 impl<S> FromRequestParts<S> for ClientIp
 where
     S: Send + Sync,

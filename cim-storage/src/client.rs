@@ -1,10 +1,7 @@
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
 
-#[derive(
-    Debug, Default, Deserialize, Serialize, ToSchema, PartialEq, Clone,
-)]
+#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Clone)]
 pub struct Client {
     pub id: String,
     pub secret: String,

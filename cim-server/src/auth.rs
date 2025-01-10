@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use async_trait::async_trait;
 use axum::extract::{FromRef, FromRequestParts};
 use http::{request::Parts, Method};
 use validator::Validate;
@@ -24,7 +23,6 @@ pub struct Info {
     req: cim_pim::Request,
 }
 
-#[async_trait]
 impl<S> FromRequestParts<S> for Info
 where
     AppState: FromRef<S>,
@@ -124,7 +122,6 @@ pub struct Auth {
     pub user: User,
 }
 
-#[async_trait]
 impl<S> FromRequestParts<S> for Auth
 where
     AppState: FromRef<S>,

@@ -21,5 +21,3 @@ tracing = { workspace = true }
 jsonwebkey = { workspace = true }
 sqlx = { workspace = true }
 rand = { workspace = true }
-
-utoipa = { version = "4.2", features = ["axum_extras", "chrono"] }

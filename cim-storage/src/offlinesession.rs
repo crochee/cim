@@ -3,12 +3,11 @@ use std::collections::HashMap;
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
-use utoipa::ToSchema;
 use validator::Validate;
 
 use crate::Pagination;
 
-#[derive(Debug, Default, Deserialize, Serialize, ToSchema, Clone)]
+#[derive(Debug, Default, Deserialize, Serialize, Clone)]
 pub struct OfflineSession {
     pub id: String,
     pub user_id: String,
@@ -35,9 +34,7 @@ impl PartialEq for OfflineSession {
     }
 }
 
-#[derive(
-    Debug, Default, Deserialize, Serialize, ToSchema, PartialEq, Clone,
-)]
+#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Clone)]
 pub struct RefreshTokenRef {
     pub id: String,
     pub client_id: String,
@@ -45,7 +42,7 @@ pub struct RefreshTokenRef {
     pub last_used_at: NaiveDateTime,
 }
 
-#[derive(Debug, Deserialize, Validate, ToSchema)]
+#[derive(Debug, Deserialize, Validate)]
 pub struct ListParams {
     #[validate(length(min = 1))]
     pub user_id: Option<String>,

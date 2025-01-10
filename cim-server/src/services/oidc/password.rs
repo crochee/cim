@@ -3,7 +3,6 @@ use chrono::Utc;
 use http::Uri;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use utoipa::ToSchema;
 use validator::Validate;
 
 use cim_slo::{errors, next_id, Result};
@@ -17,7 +16,7 @@ pub struct LoginData {
     pub password: String,
 }
 
-#[derive(Debug, Deserialize, Serialize, Validate, ToSchema)]
+#[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct AuthReqID {
     #[validate(length(min = 1))]
     pub state: String,

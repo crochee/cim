@@ -1,8 +1,7 @@
 use jsonwebkey as jwk;
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
 
-#[derive(Debug, Deserialize, Serialize, ToSchema, PartialEq, Clone)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
 pub struct Keys {
     pub id: String,
     pub signing_key: jwk::JsonWebKey,
@@ -23,7 +22,7 @@ impl Default for Keys {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, ToSchema, PartialEq, Clone)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
 pub struct VerificationKey {
     pub public_key: jwk::JsonWebKey,
     pub expiry: i64,

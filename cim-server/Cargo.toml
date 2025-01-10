@@ -41,17 +41,15 @@ lru = { workspace = true }
 toml = { workspace = true }
 
 tokio = { version = "1.36", features = ["full"] }
-axum-extra = { version = "0.9", features = ["typed-header"] }
+axum-extra = { version = "0.10", features = ["typed-header"] }
 tower = { version = "0.5", features = ["full"] }
-tower-http = { version = "0.5", features = ["trace", "cors", "fs"] }
+tower-http = { version = "0.6", features = ["trace", "cors", "fs"] }
 uuid = { version = "1.6", features = ["v4"] }
 prometheus = { version = "0.13", default-features = false }
 lazy_static = "1.4"
 base64 = "0.22"
 jsonwebtoken = "9.2"
 sha2 = "0.10"
-utoipa = { version = "4.2", features = ["axum_extras", "chrono"] }
-utoipa-swagger-ui = { version = "7.1", features = ["axum"] }
 rsa = { version = "0.9" }
 constant_time_eq = { version = "0.3.0" }
 serde_urlencoded = { version = "0.7" }

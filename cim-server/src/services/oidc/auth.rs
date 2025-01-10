@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
 use validator::Validate;
 
 use cim_slo::{errors, Result};
@@ -8,7 +7,7 @@ use cim_storage::{
     Interface, List, Pagination,
 };
 
-#[derive(Debug, Deserialize, Serialize, Validate, ToSchema)]
+#[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct AuthRequest {
     #[validate(length(min = 1, max = 255))]
     pub response_type: String,
@@ -73,7 +72,7 @@ pub async fn auth<S: Interface<T = Connector, L = ListParams>>(
     Ok(connector)
 }
 
-#[derive(Debug, Deserialize, Serialize, Validate, ToSchema)]
+#[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct ReqHmac {
     pub req: String,
     pub hmac: String,

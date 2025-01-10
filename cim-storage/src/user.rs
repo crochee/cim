@@ -1,15 +1,12 @@
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
 use validator::Validate;
 
 use cim_slo::regexp::check_password;
 
 use crate::{ClaimOpts, Pagination};
 
-#[derive(
-    Debug, Default, Deserialize, Serialize, ToSchema, PartialEq, Clone,
-)]
+#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Clone)]
 pub struct User {
     pub id: String,
     pub account_id: String,
@@ -24,7 +21,7 @@ pub struct User {
     pub updated_at: NaiveDateTime,
 }
 
-#[derive(Debug, Deserialize, Validate, ToSchema)]
+#[derive(Debug, Deserialize, Validate)]
 pub struct Content {
     #[validate(length(min = 1))]
     pub account_id: Option<String>,
@@ -36,7 +33,7 @@ pub struct Content {
     pub password: String,
 }
 
-#[derive(Debug, Deserialize, Validate, ToSchema)]
+#[derive(Debug, Deserialize, Validate)]
 pub struct ListParams {
     #[validate(length(min = 1))]
     pub id: Option<String>,

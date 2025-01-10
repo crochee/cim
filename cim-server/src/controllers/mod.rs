@@ -83,7 +83,11 @@ where
                 let mut send_task = tokio::spawn(async move {
                     while let Ok(item) = wrx.recv() {
                         let data = serde_json::to_vec(&item).unwrap();
-                        if sender.send(Message::Binary(data)).await.is_err() {
+                        if sender
+                            .send(Message::Binary(data.into()))
+                            .await
+                            .is_err()
+                        {
                             break;
                         }
                     }
