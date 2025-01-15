@@ -47,7 +47,6 @@ impl App {
             cim_storage::KeysImpl::new(pool),
             config.expiration,
             HashSet::new(),
-            config.endpoint.clone(),
         );
         info!("feature services successfully initialized!");
         Ok(Self {

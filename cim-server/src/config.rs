@@ -42,8 +42,8 @@ pub struct AppConfig {
     pub cache_size: usize,
     #[clap(long, env)]
     #[arg(default_value_t = String::from("0.0.0.0"))]
-    #[serde(default = "default_endpoint")]
-    pub endpoint: String,
+    #[serde(default = "default_issuer")]
+    pub issuer: String,
     #[clap(long, env)]
     #[arg(default_value_t = 3600)]
     #[serde(default = "default_expiration")]
@@ -70,7 +70,7 @@ fn default_rust_log() -> String {
     String::from("server=info")
 }
 
-fn default_endpoint() -> String {
+fn default_issuer() -> String {
     String::from("0.0.0.0")
 }
 

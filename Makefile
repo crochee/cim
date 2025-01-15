@@ -36,7 +36,7 @@ clippy: ## run rust linter
 
 .PHONY: rs
 rs: build ## run server with docker
-	docker build -f server.Dockerfile -t server:latest . && \
+	docker build -f Dockerfile.server -t server:latest . && \
 	docker run -itd -p 30050:30050 --restart=always --name server server:latest
 
 ##@ Clean

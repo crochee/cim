@@ -55,7 +55,7 @@ pub struct OpenIDConfiguration {
 }
 
 async fn discovery_handler(app: AppState) -> Json<OpenIDConfiguration> {
-    let issuer = format!("http://{}:{}", app.config.endpoint, app.config.port);
+    let issuer = format!("http://{}:{}", app.config.issuer, app.config.port);
     Json(OpenIDConfiguration {
         issuer: issuer.to_string(),
         authorization_endpoint: format!("{issuer}/authorize"),

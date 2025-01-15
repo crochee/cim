@@ -12,7 +12,7 @@ use cim_slo::{errors, HtmlTemplate, Result};
 use crate::{
     services::oidc::{
         auth, auth_page_callback, get_connector, parse_auth_request,
-        redirect_auth_page,
+        redirect_auth_page, send_code, verify_auth_request,
     },
     valid::Valid,
     AppState,
@@ -132,22 +132,9 @@ async fn password_login_html(
 // }
 
 async fn password_login_handle(
-    app: AppState,
     Valid(state): Valid<auth::AuthRequestState>,
-    req: Request,
-) -> Result<Redirect> {
-    let redirect_uri = auth_page_callback(
-        &app.store.auth_request,
-        &app.store.user,
-        &app.store.auth_code,
-        &app.store.connector,
-        &app.store.offline_session,
-        &app.access_token,
-        &state,
-        req,
-    )
-    .await?;
-    Ok(Redirect::to(&redirect_uri))
+) -> Redirect {
+    Redirect::to(state.callback.unwrap_or("/callback".to_string()).as_str())
 }
 
 #[derive(Template)]
@@ -162,9 +149,11 @@ pub struct Approval {
 }
 
 async fn approval_html(
-    _app: AppState,
+    app: AppState,
     Valid(req_hmac): Valid<auth::ReqHmac>,
 ) -> Result<HtmlTemplate<Approval>> {
+    verify_auth_request(&app.store.auth_request, &req_hmac).await?;
+
     Ok(HtmlTemplate(Approval {
         issuer: "Cim".to_string(),
         scopes: vec![
@@ -180,18 +169,27 @@ async fn approval_html(
 }
 
 async fn post_approval(
-    _app: AppState,
+    app: AppState,
     Valid(Form(req_hmac)): Valid<Form<auth::ReqHmac>>,
-) -> Response {
-    tracing::debug!("{:?}", req_hmac);
+) -> Result<Response> {
     if let Some(approval) = &req_hmac.approval {
         if approval.eq("approve") {
+            let auth_req =
+                verify_auth_request(&app.store.auth_request, &req_hmac).await?;
+
+            let url = send_code(
+                &app.store.auth_request,
+                &app.access_token,
+                &app.store.auth_code,
+                &auth_req,
+            )
+            .await?;
             let mut headers = HeaderMap::new();
-            headers.insert(header::LOCATION, "/".parse().unwrap());
-            return (StatusCode::SEE_OTHER, headers).into_response();
+            headers.insert(header::LOCATION, url.parse().unwrap());
+            return Ok((StatusCode::SEE_OTHER, headers).into_response());
         }
     }
-    HtmlTemplate(Approval {
+    Ok(HtmlTemplate(Approval {
         issuer: "Cim".to_string(),
         scopes: vec![
             "openid".to_string(),
@@ -201,7 +199,7 @@ async fn post_approval(
         client: "cim".to_string(),
         req: req_hmac.req,
         hmac: req_hmac.hmac,
-        approval: Some("approval".to_string()),
+        approval: req_hmac.approval,
     })
-    .into_response()
+    .into_response())
 }

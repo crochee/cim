@@ -17,7 +17,6 @@ pub struct AccessToken<T> {
     key_store: T,
     expire_sec: i64,
     aud: HashSet<String>,
-    issuer_url: String,
 }
 
 impl<T> AccessToken<T> {
@@ -25,13 +24,11 @@ impl<T> AccessToken<T> {
         key_store: T,
         expire_sec: i64,
         aud: HashSet<String>,
-        issuer_url: String,
     ) -> Self {
         Self {
             key_store,
             expire_sec,
             aud,
-            issuer_url,
         }
     }
 
@@ -58,7 +55,6 @@ where
         let mut token_claims = claims.clone();
         token_claims.exp = now + self.expire_sec;
         token_claims.nbf = now;
-        token_claims.iss = self.issuer_url.clone();
 
         if let Some(access_token) = &claims.access_token {
             token_claims.access_token = Some(
@@ -301,7 +297,6 @@ mod tests {
             key_store,
             30,
             HashSet::from(["IO".to_owned()]),
-            "http://127.0.0.1:80".to_owned(),
         );
         let access_token = rand::thread_rng()
             .sample_iter(&rand::distributions::Alphanumeric)

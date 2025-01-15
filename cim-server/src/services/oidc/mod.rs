@@ -197,6 +197,7 @@ pub async fn send_code<
                 let mut claims = token::Claims {
                     claim: auth_request.claim.clone(),
                     nonce: auth_request.nonce.clone(),
+                    aud: auth_request.client_id.clone(),
                     ..Default::default()
                 };
 
@@ -320,6 +321,26 @@ pub async fn finalize_login<
         }
     }
     Ok((return_url, false))
+}
+
+pub async fn verify_auth_request<S: Interface<T = authrequest::AuthRequest>>(
+    auth_request_store: &S,
+    req_hmac: &auth::ReqHmac,
+) -> Result<authrequest::AuthRequest> {
+    let mut auth_req = authrequest::AuthRequest {
+        id: req_hmac.req.clone(),
+        ..Default::default()
+    };
+    auth_request_store.get(&mut auth_req).await?;
+    let hmac = Sha256::new_with_prefix(&auth_req.hmac_key)
+        .chain_update(&auth_req.id)
+        .finalize();
+    let hmac_str = general_purpose::URL_SAFE_NO_PAD.encode(hmac);
+
+    if !hmac_str.eq(&req_hmac.hmac) {
+        return Err(errors::unauthorized());
+    }
+    Ok(auth_req)
 }
 
 pub async fn valid_scope<C: Interface<T = client::Client>>(

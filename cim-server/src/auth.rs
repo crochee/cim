@@ -1,6 +1,10 @@
 use std::collections::HashMap;
 
 use axum::extract::{FromRef, FromRequestParts};
+use axum_extra::{
+    headers::{authorization::Bearer, Authorization},
+    TypedHeader,
+};
 use http::{request::Parts, Method};
 use validator::Validate;
 
@@ -12,6 +16,7 @@ use cim_slo::{
 use cim_storage::{policy::StatementStore, user::User, Interface};
 
 use crate::{
+    services::oidc::token::Token,
     valid::{ClientIp, Host},
     AppState,
 };
@@ -33,18 +38,19 @@ where
         parts: &mut Parts,
         state: &S,
     ) -> Result<Self, Self::Rejection> {
-        // TODO: check token  and parse token  replace x-user-id
+        let TypedHeader(token) =
+            TypedHeader::<Authorization<Bearer>>::from_request_parts(
+                parts, state,
+            )
+            .await
+            .map_err(|err| errors::forbidden(err.to_string().as_str()))?;
+
         let app = AppState::from_ref(state);
 
-        let user_id = parts
-            .headers
-            .get("X-User-ID")
-            .ok_or_else(|| errors::forbidden("missing X-User-ID"))?
-            .to_str()
-            .unwrap_or_default();
+        let claims = app.access_token.verify(token.token()).await?;
 
         let mut user = User {
-            id: user_id.to_owned(),
+            id: claims.claim.sub.to_owned(),
             ..Default::default()
         };
         app.store.user.get(&mut user).await?;

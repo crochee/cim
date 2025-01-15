@@ -2,6 +2,7 @@ mod userpassword;
 
 use async_trait::async_trait;
 use axum::extract::Request;
+use cim::errors;
 use mockall::automock;
 use serde::Deserialize;
 use serde_json::value::RawValue;
@@ -44,14 +45,16 @@ pub trait CallbackConnector: Send + Sync {
     ) -> Result<Identity>;
 
     fn support_refresh(&self) -> bool {
-        true
+        false
     }
 
     async fn refresh(
         &self,
-        s: &Scopes,
-        identity: &Identity,
-    ) -> Result<Identity>;
+        _s: &Scopes,
+        _identity: &Identity,
+    ) -> Result<Identity> {
+        Err(errors::unauthorized())
+    }
 }
 
 /// Scopes represents additional data requested by the clients about the end user.

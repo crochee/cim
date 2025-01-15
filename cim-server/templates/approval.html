@@ -31,7 +31,7 @@
 
       <div>
         <div class="theme-form-row">
-          <form method="post">
+          <form method="post" action="/approval">
             <input type="hidden" name="req" value="{{ req }}" />
             <input type="hidden" name="approval" value="approve">
             <input type="hidden" name="hmac" value={{ hmac }}>
@@ -41,7 +41,7 @@
           </form>
         </div>
         <div class="theme-form-row">
-          <form method="post">
+          <form method="post" action="/approval">
             <input type="hidden" name="req" value="{{ req }}" />
             <input type="hidden" name="approval" value="rejected">
             <input type="hidden" name="hmac" value={{ hmac }}>

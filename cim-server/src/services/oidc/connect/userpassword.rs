@@ -61,6 +61,9 @@ where
             ..Default::default()
         })
     }
+    fn support_refresh(&self) -> bool {
+        true
+    }
     async fn refresh(
         &self,
         _s: &Scopes,

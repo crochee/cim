@@ -51,7 +51,7 @@ async fn run_server(config: AppConfig) -> Result<()> {
 
     let router = AppRouter::build(AppState(app))
         .context("could not initialize application routes")?;
-    let host = format!("{}:{}", config.endpoint, config.port);
+    let host = format!("0.0.0.0:{}", config.port);
     let listener = TcpListener::bind(&host)
         .await
         .context("could not bind to endpoint")?;
