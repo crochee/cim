@@ -85,7 +85,7 @@ impl AppRouter {
             .route_layer(middleware::from_fn(Self::track_metrics))
             .route("/metrics", get(Self::metrics))
             // web dir
-            .nest_service("/", ServeDir::new("dist"))
+            .nest_service("/cim", ServeDir::new("dist"))
             .fallback(Self::not_found);
 
         Ok(router)

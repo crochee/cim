@@ -22,7 +22,7 @@ pub fn new_router(state: AppState) -> Router {
             get(list_role_binding).post(create_role_binding),
         )
         .route(
-            "/role_bindings/:id",
+            "/role_bindings/{id}",
             get(get_role_binding)
                 .delete(delete_role_binding)
                 .put(put_role_binding),

@@ -19,7 +19,7 @@ pub fn new_router(state: AppState) -> Router {
     Router::new()
         .route("/group_users", get(list_group_user).post(create_group_user))
         .route(
-            "/group_users/:id",
+            "/group_users/{id}",
             get(get_group_user)
                 .delete(delete_group_user)
                 .put(put_group_user),

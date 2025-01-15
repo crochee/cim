@@ -22,7 +22,7 @@ pub fn new_router(state: AppState) -> Router {
     Router::new()
         .route("/roles", get(list_role).post(create_role))
         .route(
-            "/roles/:id",
+            "/roles/{id}",
             get(get_role).delete(delete_role).put(put_role),
         )
         .with_state(state)

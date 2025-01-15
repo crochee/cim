@@ -22,7 +22,7 @@ pub fn new_router(state: AppState) -> Router {
     Router::new()
         .route("/users", get(list_user).post(create_user))
         .route(
-            "/users/:id",
+            "/users/{id}",
             get(get_user).delete(delete_user).put(put_user),
         )
         .with_state(state)

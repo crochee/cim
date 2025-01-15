@@ -22,7 +22,7 @@ pub fn new_router(state: AppState) -> Router {
             get(list_policy_binding).post(create_policy_binding),
         )
         .route(
-            "/policy_bindings/:id",
+            "/policy_bindings/{id}",
             get(get_policy_binding)
                 .delete(delete_policy_binding)
                 .put(put_policy_binding),

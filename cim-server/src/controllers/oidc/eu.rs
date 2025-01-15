@@ -20,7 +20,7 @@ use crate::{
 
 pub fn new_router(state: AppState) -> Router {
     Router::new()
-        .route("connectors/:connector_id", get(connector_handle))
+        .route("/connectors/{connector_id}", get(connector_handle))
         .route("/callback", get(callback_handle))
         // cim impl callback
         .route(

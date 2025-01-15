@@ -21,7 +21,7 @@ pub fn new_router(state: AppState) -> Router {
     Router::new()
         .route("/policies", get(list_policy).post(create_policy))
         .route(
-            "/policies/:id",
+            "/policies/{id}",
             get(get_policy).delete(delete_policy).put(put_policy),
         )
         .with_state(state)
