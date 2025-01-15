@@ -120,7 +120,7 @@ CREATE TABLE `client` (
     `trusted_peers` LONGTEXT NOT NULL CHECK (json_valid(`trusted_peers`)),
     `name` VARCHAR(255) NOT NULL COMMENT 'client name',
     `logo_url` TEXT NOT NULL COMMENT 'client logo url',
-    `account_id` BIGINT(20) UNSIGNED NOT NULL DEFAULT '0' COMMENT 'account id',
+    `account_id` VARCHAR(255) NOT NULL DEFAULT '' COMMENT 'account id',
     `deleted` BIGINT(20) UNSIGNED NOT NULL DEFAULT '0' COMMENT 'soft delete flag',
     `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT 'create time',
     `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT 'update time',

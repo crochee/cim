@@ -120,7 +120,7 @@ pub async fn create(app: AppState, input: user::Content) -> Result<u64> {
         .connector
         .put(&connector::Connector {
             id: connector_id.to_string(),
-            connector_type: "password".to_owned(),
+            connector_type: "cim".to_owned(),
             name: "owner".to_owned(),
             response_version: "v1.0.0".to_owned(),
             config: "{}".to_owned(),
@@ -138,6 +138,7 @@ pub async fn create(app: AppState, input: user::Content) -> Result<u64> {
         .client
         .put(&client::Client {
             id: client_id.to_string(),
+            redirect_uris: vec!["http://localhost:30050/redirect".to_owned()],
             secret,
             name: "owner".to_owned(),
             logo_url: "".to_owned(),

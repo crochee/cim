@@ -23,11 +23,6 @@ impl Interface for ClientImpl {
 
     #[tracing::instrument]
     async fn put(&self, input: &Self::T) -> Result<()> {
-        let account_id = input
-            .account_id
-            .parse::<u64>()
-            .map_err(|err| errors::bad_request(&err))?;
-
         sqlx::query(
             r#"REPLACE INTO `client`
             (`id`,`secret`,`redirect_uris`,`trusted_peers`,`name`,`logo_url`,`account_id`)
@@ -39,7 +34,7 @@ impl Interface for ClientImpl {
         .bind(Json(&input.trusted_peers))
         .bind(&input.name)
         .bind(&input.logo_url)
-        .bind(account_id)
+        .bind(&input.account_id)
         .execute(&self.pool)
         .await
         .map_err(errors::any)?;
@@ -102,10 +97,7 @@ impl Interface for ClientImpl {
             .0;
         output.name = row.try_get("name").map_err(errors::any)?;
         output.logo_url = row.try_get("logo_url").map_err(errors::any)?;
-        output.account_id = row
-            .try_get::<u64, _>("account_id")
-            .map_err(errors::any)?
-            .to_string();
+        output.account_id = row.try_get("account_id").map_err(errors::any)?;
         output.created_at = row.try_get("created_at").map_err(errors::any)?;
         output.updated_at = row.try_get("updated_at").map_err(errors::any)?;
         Ok(())
@@ -131,10 +123,7 @@ impl Interface for ClientImpl {
                     .try_get::<u64, _>("id")
                     .map_err(errors::any)?
                     .to_string(),
-                account_id: row
-                    .try_get::<u64, _>("account_id")
-                    .map_err(errors::any)?
-                    .to_string(),
+                account_id: row.try_get("account_id").map_err(errors::any)?,
                 secret: row.try_get("secret").map_err(errors::any)?,
                 logo_url: row.try_get("logo_url").map_err(errors::any)?,
                 redirect_uris: row

@@ -332,6 +332,9 @@ pub async fn verify_auth_request<S: Interface<T = authrequest::AuthRequest>>(
         ..Default::default()
     };
     auth_request_store.get(&mut auth_req).await?;
+    if !auth_req.logged_in {
+        return Err(errors::unauthorized());
+    }
     let hmac = Sha256::new_with_prefix(&auth_req.hmac_key)
         .chain_update(&auth_req.id)
         .finalize();

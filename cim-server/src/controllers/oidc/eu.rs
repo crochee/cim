@@ -7,7 +7,7 @@ use axum::{
     routing::get,
     Form, Json, Router,
 };
-use http::{header, HeaderMap, StatusCode};
+use http::{header, HeaderMap, StatusCode, Uri};
 
 use cim_slo::{errors, HtmlTemplate, Result};
 
@@ -25,17 +25,14 @@ pub fn new_router(state: AppState) -> Router {
         .route("/connectors/{connector_id}", get(connector_handle))
         .route("/callback", get(callback_handle))
         // cim impl callback
-        .route(
-            "/login",
-            get(password_login_html).post(password_login_handle),
-        )
+        .route("/login", get(password_login_html))
         .route("/approval", get(approval_html).post(post_approval))
         // example redirect_uri api
-        .route("/code", get(code))
+        .route("/redirect", get(redirect_callback))
         .with_state(state)
 }
 
-async fn code(
+async fn redirect_callback(
     Query(hm): Query<HashMap<String, String>>,
 ) -> Json<HashMap<String, String>> {
     Json(hm)
@@ -87,29 +84,26 @@ async fn callback_handle(
 #[template(path = "password.html")]
 pub struct Password {
     pub post_url: String,
-    pub username: String,
     pub username_prompt: String,
-    pub invalid: String,
-    pub back_link: String,
 }
 
 async fn password_login_html(
     Valid(state): Valid<auth::AuthRequestState>,
 ) -> Result<HtmlTemplate<Password>> {
-    Ok(HtmlTemplate(Password {
-        post_url: format!(
-            "/auth/login?{}",
-            serde_urlencoded::to_string(state).map_err(errors::any)?
-        ),
-        username_prompt: "Enter your username".to_string(),
-        ..Default::default()
-    }))
-}
+    let mut u = state.callback.unwrap_or("/callback".to_string());
+    let url = u.parse::<Uri>().map_err(|err| errors::bad_request(&err))?;
+    if url.query().is_none() {
+        u.push('?');
+    } else {
+        u.push('&');
+    }
+    u.push_str("state=");
+    u.push_str(&state.state);
 
-async fn password_login_handle(
-    Valid(state): Valid<auth::AuthRequestState>,
-) -> Redirect {
-    Redirect::to(state.callback.unwrap_or("/callback".to_string()).as_str())
+    Ok(HtmlTemplate(Password {
+        post_url: u,
+        username_prompt: "Enter your username".to_string(),
+    }))
 }
 
 #[derive(Template)]
