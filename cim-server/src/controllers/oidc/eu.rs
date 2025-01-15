@@ -1,11 +1,13 @@
+use std::collections::HashMap;
+
 use askama::Template;
 use axum::{
-    extract::{Path, Request},
+    extract::{Path, Query, Request},
     response::{IntoResponse, Redirect, Response},
     routing::get,
-    Form, Router,
+    Form, Json, Router,
 };
-use http::{header, HeaderMap, StatusCode, Uri};
+use http::{header, HeaderMap, StatusCode};
 
 use cim_slo::{errors, HtmlTemplate, Result};
 
@@ -28,7 +30,15 @@ pub fn new_router(state: AppState) -> Router {
             get(password_login_html).post(password_login_handle),
         )
         .route("/approval", get(approval_html).post(post_approval))
+        // example redirect_uri api
+        .route("/code", get(code))
         .with_state(state)
+}
+
+async fn code(
+    Query(hm): Query<HashMap<String, String>>,
+) -> Json<HashMap<String, String>> {
+    Json(hm)
 }
 
 /// redirect to user auth page,example password_login_html or server auth page
@@ -36,13 +46,10 @@ async fn connector_handle(
     app: AppState,
     Path(connector_id): Path<String>,
     Valid(auth_request): Valid<auth::AuthRequest>,
-) -> core::result::Result<Redirect, Redirect> {
-    let mut auth_req = parse_auth_request(&app.store.client, &auth_request)
-        .await
-        .map_err(|err| redirect(&auth_request.redirect_uri, err))?;
-    let connector = get_connector(&app.store.connector, &connector_id)
-        .await
-        .map_err(|err| redirect(&auth_request.redirect_uri, err))?;
+) -> Result<Redirect> {
+    let mut auth_req =
+        parse_auth_request(&app.store.client, &auth_request).await?;
+    let connector = get_connector(&app.store.connector, &connector_id).await?;
 
     let redirect_uri = redirect_auth_page(
         &app.store.auth_request,
@@ -52,21 +59,8 @@ async fn connector_handle(
         &mut auth_req,
         app.config.expiration,
     )
-    .await
-    .map_err(|err| redirect(&auth_request.redirect_uri, err))?;
+    .await?;
     Ok(Redirect::to(&redirect_uri))
-}
-
-fn redirect<E: ToString>(url: &str, err: E) -> Redirect {
-    let mut redirect_uri = url.to_string();
-    if url.parse::<Uri>().unwrap().query().is_none() {
-        redirect_uri.push_str("?err=");
-        redirect_uri.push_str(&err.to_string());
-    } else {
-        redirect_uri.push_str("&err=");
-        redirect_uri.push_str(&err.to_string());
-    };
-    Redirect::to(&redirect_uri)
 }
 
 /// auth handle finish login,should request by server which auth_handle redirect
@@ -111,25 +105,6 @@ async fn password_login_html(
         ..Default::default()
     }))
 }
-
-// fn relogin_html<E: ToString>(
-//     state: &auth::AuthRequestState,
-//     name: &str,
-//     err: E,
-// ) -> HtmlTemplate<Password> {
-//     HtmlTemplate(Password {
-//         post_url: format!(
-//             "/auth/login?{}",
-//             serde_urlencoded::to_string(state)
-//                 .map_err(errors::any)
-//                 .unwrap()
-//         ),
-//         username: name.to_string(),
-//         username_prompt: "Enter your username".to_string(),
-//         invalid: err.to_string(),
-//         ..Default::default()
-//     })
-// }
 
 async fn password_login_handle(
     Valid(state): Valid<auth::AuthRequestState>,

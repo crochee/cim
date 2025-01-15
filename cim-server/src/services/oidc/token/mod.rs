@@ -80,7 +80,7 @@ pub struct RefreshTokenHandler<'a, R, O> {
     pub offline_session_store: &'a O,
 }
 
-impl<'a, R, O> RefreshTokenHandler<'a, R, O>
+impl<R, O> RefreshTokenHandler<'_, R, O>
 where
     R: Interface<T = refresh_token::RefreshToken>,
     O: Interface<

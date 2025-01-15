@@ -160,7 +160,7 @@ pub async fn send_code<
     if Utc::now().timestamp() > auth_request.expiry {
         return Err(errors::bad_request("User session has expired."));
     }
-    auth_request_store.delete(&auth_request).await?;
+    auth_request_store.delete(auth_request).await?;
     let u = auth_request.redirect_uri.parse::<Uri>().map_err(|err| {
         errors::bad_request(format!("Invalid redirect_uri. {}", err).as_str())
     })?;

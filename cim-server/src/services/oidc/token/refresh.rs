@@ -34,7 +34,7 @@ pub struct RefreshGrant<'a, S, R, C, T, O, U> {
     pub rotate_refresh_tokens: bool,
 }
 
-impl<'a, S, R, C, T, O, U> RefreshGrant<'a, S, R, C, T, O, U>
+impl<S, R, C, T, O, U> RefreshGrant<'_, S, R, C, T, O, U>
 where
     S: Interface<T = client::Client>,
     R: Interface<T = refresh_token::RefreshToken>,

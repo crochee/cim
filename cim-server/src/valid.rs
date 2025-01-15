@@ -5,7 +5,8 @@ use std::{
 
 use axum::{
     extract::{
-        ConnectInfo, FromRequest, FromRequestParts, Request, WebSocketUpgrade,
+        ConnectInfo, FromRequest, FromRequestParts, Query, Request,
+        WebSocketUpgrade,
     },
     Form, Json,
 };
@@ -25,10 +26,10 @@ where
     type Rejection = WithBacktrace;
     async fn from_request_parts(
         parts: &mut Parts,
-        _state: &S,
+        state: &S,
     ) -> Result<Self, Self::Rejection> {
-        let query = parts.uri.query().unwrap_or_default();
-        let value: T = serde_urlencoded::from_str(query)
+        let Query(value) = Query::<T>::from_request_parts(parts, state)
+            .await
             .map_err(|err| errors::bad_request(&err))?;
         value.validate().map_err(Code::Validates)?;
         Ok(Self(value))

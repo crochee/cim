@@ -31,7 +31,7 @@ pub struct PasswordGrant<'a, C, S, T, R, O, U> {
     pub user_store: &'a U,
 }
 
-impl<'a, C, S, T, R, O, U> PasswordGrant<'a, C, S, T, R, O, U>
+impl<C, S, T, R, O, U> PasswordGrant<'_, C, S, T, R, O, U>
 where
     C: Interface<T = client::Client>,
     S: Interface<T = connector::Connector, L = connector::ListParams>,

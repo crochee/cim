@@ -20,11 +20,7 @@ pub struct AccessToken<T> {
 }
 
 impl<T> AccessToken<T> {
-    pub fn new(
-        key_store: T,
-        expire_sec: i64,
-        aud: HashSet<String>,
-    ) -> Self {
+    pub fn new(key_store: T, expire_sec: i64, aud: HashSet<String>) -> Self {
         Self {
             key_store,
             expire_sec,
@@ -293,11 +289,8 @@ mod tests {
             });
             Ok(())
         });
-        let t = AccessToken::new(
-            key_store,
-            30,
-            HashSet::from(["IO".to_owned()]),
-        );
+        let t =
+            AccessToken::new(key_store, 30, HashSet::from(["IO".to_owned()]));
         let access_token = rand::thread_rng()
             .sample_iter(&rand::distributions::Alphanumeric)
             .take(255)

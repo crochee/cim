@@ -46,7 +46,7 @@ pub async fn auth<S: Interface<T = Connector, L = ListParams>>(
         connector.push('/');
         connector.push_str(&connector_data.id);
     }
-    connector.push('&');
+    connector.push('?');
     req.connector_id = None;
     connector.push_str(&serde_urlencoded::to_string(req).map_err(errors::any)?);
     Ok(connector)

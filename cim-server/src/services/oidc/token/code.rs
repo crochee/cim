@@ -30,7 +30,7 @@ pub struct CodeGrant<'a, A, S, T, R, O, U> {
     pub user_store: &'a U,
 }
 
-impl<'a, A, S, T, R, O, U> CodeGrant<'a, A, S, T, R, O, U>
+impl<A, S, T, R, O, U> CodeGrant<'_, A, S, T, R, O, U>
 where
     A: Interface<T = authcode::AuthCode>,
     S: Interface<T = connector::Connector>,

@@ -43,8 +43,10 @@ where
             .ok_or(errors::unauthorized())?;
         let info = Basic::decode(hv).ok_or(errors::unauthorized())?;
 
-        let mut user = User::default();
-        user.id = info.username().to_string();
+        let mut user = User {
+            id: info.username().to_string(),
+            ..Default::default()
+        };
         self.store.get(&mut user).await?;
         if !verify(
             &user.password.unwrap_or_default(),
@@ -69,8 +71,10 @@ where
         _s: &Scopes,
         identity: &Identity,
     ) -> Result<Identity> {
-        let mut user = User::default();
-        user.id = identity.claim.sub.clone();
+        let mut user = User {
+            id: identity.claim.sub.clone(),
+            ..Default::default()
+        };
         self.store.get(&mut user).await?;
 
         if user.id != identity.claim.sub {
