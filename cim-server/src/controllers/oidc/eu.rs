@@ -4,17 +4,21 @@ use askama::Template;
 use axum::{
     extract::{Path, Query, Request},
     response::{IntoResponse, Redirect, Response},
-    routing::get,
+    routing::{get, post},
     Form, Json, Router,
 };
 use http::{header, HeaderMap, StatusCode, Uri};
 
 use cim_slo::{errors, HtmlTemplate, Result};
+use tracing::info;
 
 use crate::{
-    services::oidc::{
-        auth, auth_page_callback, get_connector, parse_auth_request,
-        redirect_auth_page, send_code, verify_auth_request,
+    services::{
+        authorization,
+        oidc::{
+            auth, auth_page_callback, get_connector, parse_auth_request,
+            redirect_auth_page, send_code, verify_auth_request,
+        },
     },
     valid::Valid,
     AppState,
@@ -29,7 +33,18 @@ pub fn new_router(state: AppState) -> Router {
         .route("/approval", get(approval_html).post(post_approval))
         // example redirect_uri api
         .route("/redirect", get(redirect_callback))
+        .route("/autth", post(authorize))
         .with_state(state)
+}
+
+async fn authorize(
+    app: AppState,
+    Valid(Json(input)): Valid<Json<cim_pim::Request>>,
+) -> Result<StatusCode> {
+    info!("list query {:#?}", input);
+    authorization::authorize(&app.store.statement, &app.matcher, &input)
+        .await?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 async fn redirect_callback(

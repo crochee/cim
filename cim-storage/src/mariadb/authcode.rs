@@ -24,6 +24,11 @@ impl Interface for AuthCodeImpl {
 
     #[tracing::instrument]
     async fn put(&self, content: &Self::T) -> Result<()> {
+        let client_id = content
+            .client_id
+            .parse::<u64>()
+            .map_err(|err| errors::bad_request(&err))?;
+
         sqlx::query(
             r#"REPLACE INTO `auth_code`
             (`id`,`client_id`,`scopes`,`nonce`,`redirect_uri`,`code_challenge`,`code_challenge_method`,
@@ -31,7 +36,7 @@ impl Interface for AuthCodeImpl {
             VALUES(?,?,?,?,?,?,?,?,?,?,?);"#,
         )
         .bind(&content.id)
-        .bind(&content.client_id)
+        .bind(client_id)
         .bind(Json(&content.scopes))
         .bind(&content.nonce)
         .bind(&content.redirect_uri)
@@ -51,8 +56,8 @@ impl Interface for AuthCodeImpl {
     #[tracing::instrument]
     async fn delete(&self, input: &Self::T) -> Result<()> {
         sqlx::query(
-            r#"UPDATE `auth_code` SET `deleted` = `id`,`deleted_at`= now()
-            WHERE id = ? AND `deleted` = 0;"#,
+            r#"DELETE FROM `auth_code`
+            WHERE id = ?;"#,
         )
         .bind(&input.id)
         .execute(&self.pool)
@@ -64,10 +69,10 @@ impl Interface for AuthCodeImpl {
     #[tracing::instrument]
     async fn get(&self, output: &mut Self::T) -> Result<()> {
         let row = match sqlx::query(
-            r#"SELECT `id`,`client_id`,`scopes`,`nonce`,`state`,`redirect_uri`,`code_challenge`,`code_challenge_method`,
-            `claim`,`connector_id`,`connector_data`,`expiry`
+            r#"SELECT `id`,`client_id`,`scopes`,`nonce`,`redirect_uri`,`code_challenge`,`code_challenge_method`,
+            `claim`,`connector_id`,`connector_data`,`expiry`,`created_at`,`updated_at`
             FROM `auth_code`
-            WHERE id = ? AND deleted = 0;"#)
+            WHERE id = ?;"#)
         .bind(&output.id)
         .fetch_optional(&self.pool)
         .await
@@ -80,7 +85,10 @@ impl Interface for AuthCodeImpl {
         }?;
 
         output.id = row.try_get("id").map_err(errors::any)?;
-        output.client_id = row.try_get("client_id").map_err(errors::any)?;
+        output.client_id = row
+            .try_get::<u64, _>("client_id")
+            .map_err(errors::any)?
+            .to_string();
         output.scopes = row
             .try_get::<Json<Vec<String>>, _>("scopes")
             .map_err(errors::any)?

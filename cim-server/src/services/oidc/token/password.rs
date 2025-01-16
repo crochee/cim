@@ -9,7 +9,7 @@ use cim_storage::{
     Pagination, WatchInterface,
 };
 
-use crate::services::oidc::{connect, open_connector, token, valid_scope};
+use crate::services::oidc::{open_connector, token, valid_scope};
 
 #[derive(Debug, Deserialize)]
 pub struct PasswordGrantOpts {
@@ -67,9 +67,7 @@ where
         let Authorization(ab) =
             Authorization::basic(&opts.username, &opts.password);
         headers.insert(header::AUTHORIZATION, ab.encode());
-        let identity = connector_impl
-            .handle_callback(&connect::parse_scopes(&scopes), req)
-            .await?;
+        let identity = connector_impl.handle_callback(&scopes, req).await?;
 
         let mut claims = token::Claims {
             claim: identity.claim.clone(),
@@ -82,7 +80,9 @@ where
         let (id_token, expires_in) = self.token_creator.token(&claims).await?;
 
         let mut refresh_token_value = None;
-        if connector_impl.support_refresh() {
+        if connector_impl.support_refresh()
+            && scopes.contains(&"offline_access".to_string())
+        {
             let rt = token::RefreshTokenHandler {
                 refresh_token_store: self.refresh_token_store,
                 offline_session_store: self.offline_session_store,
@@ -91,7 +91,7 @@ where
             self.connector_store
                 .list(
                     &connector::ListParams {
-                        connector_type: Some("password".to_string()),
+                        connector_type: Some("local".to_string()),
                         pagination: Pagination {
                             count_disable: true,
                             ..Default::default()
@@ -103,8 +103,8 @@ where
             if connectors.data.is_empty() {
                 return Err(errors::not_found("no connectors"));
             }
-            refresh_token_value = rt
-                .handle(
+            refresh_token_value = Some(
+                rt.handle(
                     scopes.clone(),
                     &client_value.id,
                     &opts.nonce,
@@ -112,7 +112,8 @@ where
                     &connectors.data[0].id,
                     identity.connector_data.clone(),
                 )
-                .await?;
+                .await?,
+            );
         }
         Ok(token::TokenResponse {
             access_token,

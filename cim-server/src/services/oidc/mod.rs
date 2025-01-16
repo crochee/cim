@@ -84,9 +84,8 @@ pub async fn redirect_auth_page<
     auth_req.connector_data = conn.connector_data.clone();
     auth_req.expiry = Utc::now().timestamp() + expires_in;
     auth_request_store.put(auth_req).await?;
-    let scopes = connect::parse_scopes(&auth_req.scopes);
     connector_impl
-        .login_url(&scopes, "/callback", &auth_req.id)
+        .login_url(&auth_req.scopes, "/callback", &auth_req.id)
         .await
 }
 
@@ -123,8 +122,9 @@ pub async fn auth_page_callback<
     connector_store.get(&mut connector).await?;
     let connector_impl = open_connector(user_store, Some(&connector))?;
 
-    let scopes = connect::parse_scopes(&auth_req.scopes);
-    let identity = connector_impl.handle_callback(&scopes, req).await?;
+    let identity = connector_impl
+        .handle_callback(&auth_req.scopes, req)
+        .await?;
 
     let (mut redirect_uri, can_skip_approval) = finalize_login(
         auth_request_store,
@@ -239,7 +239,7 @@ pub async fn send_code<
     } else if let Some(id) = code {
         query.push_str("code=");
         query.push_str(&id);
-        query.push_str("state=");
+        query.push_str("&state=");
         query.push_str(&auth_request.state);
     }
     let mut ru = auth_request.redirect_uri.clone();

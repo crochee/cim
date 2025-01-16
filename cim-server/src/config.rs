@@ -49,15 +49,15 @@ pub struct AppConfig {
     #[serde(default = "default_expiration")]
     pub expiration: i64,
     #[clap(long, env)]
-    #[arg(default_value_t = 10)]
+    #[arg(default_value_t = 0)]
     #[serde(default = "default_time")]
     pub absolute_lifetime: i64,
     #[clap(long, env)]
-    #[arg(default_value_t = 10)]
-    #[serde(default = "default_time")]
+    #[arg(default_value_t = 60*60*24*30*2)]
+    #[serde(default = "default_not_used")]
     pub valid_if_not_used_for: i64,
     #[clap(long, env)]
-    #[arg(default_value_t = 10)]
+    #[arg(default_value_t = 0)]
     #[serde(default = "default_time")]
     pub reuse_interval: i64,
     #[clap(long, env)]
@@ -95,7 +95,11 @@ fn default_expiration() -> i64 {
 }
 
 fn default_time() -> i64 {
-    10
+    0
+}
+
+fn default_not_used() -> i64 {
+    60 * 60 * 24 * 30 * 2
 }
 
 fn default_rotate() -> bool {

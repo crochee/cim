@@ -96,54 +96,45 @@ where
         claim: &Claim,
         connector_id: &str,
         connector_data: Option<Box<RawValue>>,
-    ) -> Result<Option<String>> {
-        let mut refresh_token_value = None;
-        if scopes.contains(&String::from("offline_access")) {
-            let refresh_token = refresh_token::RefreshToken {
-                id: next_id().map_err(errors::any)?.to_string(),
-                client_id: client_id.to_string(),
-                scopes: scopes.clone(),
-                nonce: nonce.to_string(),
-                token: uuid::Uuid::new_v4().to_string(),
-                claim: claim.clone(),
-                connector_id: connector_id.to_string(),
-                connector_data: connector_data.clone(),
-                last_used_at: Utc::now().naive_utc(),
-                ..Default::default()
-            };
-            refresh_token_value = Some(
-                serde_json::to_string(&ClaimRefreshToken {
-                    refresh_id: refresh_token.id.clone(),
-                    token: refresh_token.token.clone(),
-                })
-                .map_err(errors::any)?,
-            );
+    ) -> Result<String> {
+        let refresh_token = refresh_token::RefreshToken {
+            id: next_id().map_err(errors::any)?.to_string(),
+            client_id: client_id.to_string(),
+            scopes: scopes.clone(),
+            nonce: nonce.to_string(),
+            token: uuid::Uuid::new_v4().to_string(),
+            claim: claim.clone(),
+            connector_id: connector_id.to_string(),
+            connector_data: connector_data.clone(),
+            last_used_at: Utc::now().naive_utc(),
+            ..Default::default()
+        };
+        let refresh_token_value = serde_json::to_string(&ClaimRefreshToken {
+            refresh_id: refresh_token.id.clone(),
+            token: refresh_token.token.clone(),
+        })
+        .map_err(errors::any)?;
 
-            self.refresh_token_store.put(&refresh_token).await?;
-            match self.handle_offline(&refresh_token, &refresh_token.id).await {
-                Ok(Some(token_ref_id)) => {
-                    let refresh_token = refresh_token::RefreshToken {
-                        id: token_ref_id,
-                        ..Default::default()
-                    };
-                    self.refresh_token_store.delete(&refresh_token).await?;
-                }
-                Err(err) => {
-                    tracing::error!(
-                        "failed to handle offline session: {}",
-                        err
-                    );
-                    let refresh_token = refresh_token::RefreshToken {
-                        id: refresh_token.id.clone(),
-                        ..Default::default()
-                    };
-                    self.refresh_token_store.delete(&refresh_token).await?;
-                    return Err(err);
-                }
-                _ => {}
+        self.refresh_token_store.put(&refresh_token).await?;
+        match self.handle_offline(&refresh_token, &refresh_token.id).await {
+            Ok(Some(token_ref_id)) => {
+                let refresh_token = refresh_token::RefreshToken {
+                    id: token_ref_id,
+                    ..Default::default()
+                };
+                self.refresh_token_store.delete(&refresh_token).await?;
             }
+            Err(err) => {
+                tracing::error!("failed to handle offline session: {}", err);
+                let refresh_token = refresh_token::RefreshToken {
+                    id: refresh_token.id.clone(),
+                    ..Default::default()
+                };
+                self.refresh_token_store.delete(&refresh_token).await?;
+                return Err(err);
+            }
+            _ => {}
         }
-
         Ok(refresh_token_value)
     }
     async fn handle_offline(

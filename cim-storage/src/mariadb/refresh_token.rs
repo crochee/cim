@@ -24,6 +24,11 @@ impl Interface for RefreshTokenImpl {
 
     #[tracing::instrument]
     async fn put(&self, content: &Self::T) -> Result<()> {
+        let client_id = content
+            .client_id
+            .parse::<u64>()
+            .map_err(|err| errors::bad_request(&err))?;
+
         sqlx::query(
             r#"REPLACE INTO `refresh_token`
             (`id`,`client_id`,`scopes`,`nonce`,`token`,`obsolete_token`,
@@ -31,7 +36,7 @@ impl Interface for RefreshTokenImpl {
             VALUES(?,?,?,?,?,?,?,?,?,?);"#,
         )
         .bind(&content.id)
-        .bind(&content.client_id)
+        .bind(client_id)
         .bind(Json(&content.scopes))
         .bind(&content.nonce)
         .bind(&content.token)
@@ -72,7 +77,7 @@ impl Interface for RefreshTokenImpl {
 
         let row = match sqlx::query(
             r#"SELECT `id`,`client_id`,`scopes`,`nonce`,`token`,`obsolete_token`,
-            `claim`,`connector_id`,`connector_data`,`last_used_at`
+            `claim`,`connector_id`,`connector_data`,`last_used_at`,`created_at`,`updated_at`
             FROM `refresh_token`
             WHERE id = ? AND deleted = 0;"#,
         )
@@ -91,7 +96,10 @@ impl Interface for RefreshTokenImpl {
             .try_get::<u64, _>("id")
             .map_err(errors::any)?
             .to_string();
-        output.client_id = row.try_get("client_id").map_err(errors::any)?;
+        output.client_id = row
+            .try_get::<u64, _>("client_id")
+            .map_err(errors::any)?
+            .to_string();
         output.scopes = row
             .try_get::<Json<Vec<String>>, _>("scopes")
             .map_err(errors::any)?

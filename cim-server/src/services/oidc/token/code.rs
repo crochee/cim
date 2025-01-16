@@ -104,13 +104,15 @@ where
 
         let mut refresh_token_value = None;
         let connector_impl = open_connector(self.user_store, Some(&connector))?;
-        if connector_impl.support_refresh() {
+        if connector_impl.support_refresh()
+            && auth_code.scopes.contains(&"offline_access".to_string())
+        {
             let rt = token::RefreshTokenHandler {
                 refresh_token_store: self.refresh_token_store,
                 offline_session_store: self.offline_session_store,
             };
-            refresh_token_value = rt
-                .handle(
+            refresh_token_value = Some(
+                rt.handle(
                     auth_code.scopes.clone(),
                     &client_value.id,
                     &auth_code.nonce,
@@ -118,7 +120,8 @@ where
                     &connector.id,
                     auth_code.connector_data.clone(),
                 )
-                .await?;
+                .await?,
+            );
         }
         Ok(token::TokenResponse {
             access_token,

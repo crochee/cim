@@ -1,4 +1,3 @@
-pub mod auth;
 pub mod group_users;
 pub mod groups;
 pub mod oidc;

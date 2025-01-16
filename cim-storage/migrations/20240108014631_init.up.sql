@@ -151,12 +151,10 @@ CREATE TABLE `auth_request` (
 
 	`expiry` BIGINT(20) NOT NULL,
 
-    `deleted` BIGINT(20) UNSIGNED NOT NULL DEFAULT '0' COMMENT 'soft delete flag',
     `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT 'create time',
     `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT 'update time',
     `deleted_at` DATETIME(3) NULL DEFAULT NULL COMMENT 'delete time',
-    PRIMARY KEY (`id`),
-    INDEX `idx_deleted` (`deleted`) USING BTREE
+    PRIMARY KEY (`id`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = 'auth_request info';
 
 CREATE TABLE `auth_code` (
@@ -175,12 +173,10 @@ CREATE TABLE `auth_code` (
 
 	`expiry` BIGINT(20) NOT NULL,
 
-    `deleted` BIGINT(20) UNSIGNED NOT NULL DEFAULT '0' COMMENT 'soft delete flag',
     `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT 'create time',
     `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT 'update time',
     `deleted_at` DATETIME(3) NULL DEFAULT NULL COMMENT 'delete time',
-    PRIMARY KEY (`id`),
-    INDEX `idx_deleted` (`deleted`) USING BTREE
+    PRIMARY KEY (`id`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT = 'auth_code info';
 
 CREATE TABLE `refresh_token` (

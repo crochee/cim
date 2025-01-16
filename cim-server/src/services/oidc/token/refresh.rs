@@ -7,10 +7,7 @@ use cim_storage::{
     WatchInterface,
 };
 
-use crate::services::oidc::{
-    connect::{self, parse_scopes},
-    open_connector, token, valid_scope,
-};
+use crate::services::oidc::{connect, open_connector, token, valid_scope};
 
 #[derive(Debug, Deserialize)]
 pub struct RefreshGrantOpts {
@@ -139,7 +136,7 @@ where
                 unauthorized_scopes.push(scope.to_string());
             }
         }
-        if unauthorized_scopes.is_empty() {
+        if !unauthorized_scopes.is_empty() {
             return Err(errors::bad_request(
                 format!(
                     "Requested scopes contain unauthorized scope(s): {:?}",
@@ -233,9 +230,7 @@ where
         let connector_impl =
             open_connector(self.user_store, Some(connector_value))?;
         if connector_impl.support_refresh() {
-            ident = connector_impl
-                .refresh(&parse_scopes(scopes), &ident)
-                .await?;
+            ident = connector_impl.refresh(&scopes, &ident).await?;
         }
         refresh_token.claim = ident.claim.clone();
         self.refresh_store.put(refresh_token).await?;

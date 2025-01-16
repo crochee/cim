@@ -5,7 +5,7 @@ use cim_slo::{crypto::password::verify, errors, Result};
 use cim_storage::{user::User, Claim, WatchInterface};
 use http::header;
 
-use super::{CallbackConnector, Identity, Scopes};
+use super::{CallbackConnector, Identity};
 
 pub struct UserPassword<S> {
     store: S,
@@ -24,7 +24,7 @@ where
 {
     async fn login_url(
         &self,
-        _s: &Scopes,
+        _scopes: &Vec<String>,
         callback_url: &str,
         state: &str,
     ) -> Result<String> {
@@ -34,7 +34,7 @@ where
     /// Handle the callback to the server and return an identity.
     async fn handle_callback(
         &self,
-        _s: &Scopes,
+        _scopes: &Vec<String>,
         req: Request,
     ) -> Result<Identity> {
         let hv = req
@@ -68,7 +68,7 @@ where
     }
     async fn refresh(
         &self,
-        _s: &Scopes,
+        _scopes: &Vec<String>,
         identity: &Identity,
     ) -> Result<Identity> {
         let mut user = User {

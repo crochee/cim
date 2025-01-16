@@ -59,13 +59,11 @@ impl Interface for AuthRequestImpl {
 
     #[tracing::instrument]
     async fn delete(&self, input: &Self::T) -> Result<()> {
-        sqlx::query(
-            r#"DELETE FROM `auth_request` WHERE id = ?;"#,
-        )
-        .bind(&input.id)
-        .execute(&self.pool)
-        .await
-        .map_err(errors::any)?;
+        sqlx::query(r#"DELETE FROM `auth_request` WHERE id = ?;"#)
+            .bind(&input.id)
+            .execute(&self.pool)
+            .await
+            .map_err(errors::any)?;
         Ok(())
     }
 
