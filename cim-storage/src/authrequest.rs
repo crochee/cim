@@ -15,9 +15,6 @@ pub struct AuthRequest {
     pub code_challenge_method: String,
     pub nonce: String,
     pub state: String,
-    pub hmac_key: String,
-    pub force_approval_prompt: bool,
-    pub logged_in: bool,
 
     #[serde(flatten)]
     pub claim: Claim,
@@ -42,9 +39,6 @@ impl PartialEq for AuthRequest {
             && self.code_challenge_method == other.code_challenge_method
             && self.nonce == other.nonce
             && self.state == other.state
-            && self.hmac_key == other.hmac_key
-            && self.force_approval_prompt == other.force_approval_prompt
-            && self.logged_in == other.logged_in
             && self.claim == other.claim
             && self.connector_id == other.connector_id
             && self.expiry == other.expiry

@@ -4,13 +4,9 @@ pub mod key;
 pub mod token;
 
 use axum::extract::Request;
-use base64::{engine::general_purpose, Engine};
 use chrono::Utc;
-use connect::Identity;
 use http::Uri;
 use jsonwebkey as jwk;
-use rand::Rng;
-use sha2::{Digest, Sha256};
 
 use cim_slo::{errors, next_id, Result};
 use cim_storage::{
@@ -45,6 +41,18 @@ pub async fn get_connector<C: Interface<T = connector::Connector>>(
     };
     connector_store.get(&mut connector).await?;
     Ok(connector)
+}
+
+pub async fn get_auth_request<C: Interface<T = authrequest::AuthRequest>>(
+    auth_request_store: &C,
+    id: &str,
+) -> Result<authrequest::AuthRequest> {
+    let mut auth_req = authrequest::AuthRequest {
+        id: id.to_string(),
+        ..Default::default()
+    };
+    auth_request_store.get(&mut auth_req).await?;
+    Ok(auth_req)
 }
 
 pub fn open_connector<
@@ -126,25 +134,54 @@ pub async fn auth_page_callback<
         .handle_callback(&auth_req.scopes, req)
         .await?;
 
-    let (mut redirect_uri, can_skip_approval) = finalize_login(
-        auth_request_store,
-        offline_session_store,
-        &mut auth_req,
-        &identity,
-        connector_impl.support_refresh(),
-    )
-    .await?;
+    auth_req.claim = identity.claim.clone();
+    auth_req.connector_data = identity.connector_data.clone();
 
-    if can_skip_approval {
-        redirect_uri = send_code(
-            auth_request_store,
-            token_creater,
-            auth_code_store,
-            &auth_req,
-        )
-        .await?;
+    auth_request_store.put(&auth_req).await?;
+
+    if auth_req.scopes.contains(&String::from("offline_access"))
+        && connector_impl.support_refresh()
+    {
+        let mut sessions = List::default();
+        offline_session_store
+            .list(
+                &offlinesession::ListParams {
+                    user_id: Some(auth_req.claim.sub.clone()),
+                    conn_id: Some(auth_req.connector_id.clone()),
+                    pagination: cim_storage::Pagination {
+                        count_disable: true,
+                        ..Default::default()
+                    },
+                },
+                &mut sessions,
+            )
+            .await?;
+        if sessions.data.is_empty() {
+            let id = next_id().map_err(errors::any)?;
+            offline_session_store
+                .put(&offlinesession::OfflineSession {
+                    id: id.to_string(),
+                    user_id: auth_req.claim.sub.clone(),
+                    conn_id: auth_req.connector_id.clone(),
+                    connector_data: auth_req.connector_data.clone(),
+                    ..Default::default()
+                })
+                .await?;
+        } else {
+            let mut session = sessions.data.remove(0);
+            if let Some(connector_data) = &auth_req.connector_data {
+                session.connector_data = Some(connector_data.clone());
+                offline_session_store.put(&session).await?;
+            }
+        }
     }
-    Ok(redirect_uri)
+    send_code(
+        auth_request_store,
+        token_creater,
+        auth_code_store,
+        &auth_req,
+    )
+    .await
 }
 
 pub async fn send_code<
@@ -250,100 +287,6 @@ pub async fn send_code<
     }
     ru.push_str(query.as_str());
     Ok(ru)
-}
-
-pub async fn finalize_login<
-    S: Interface<T = authrequest::AuthRequest>,
-    O: Interface<
-        T = offlinesession::OfflineSession,
-        L = offlinesession::ListParams,
-    >,
->(
-    auth_request_store: &S,
-    offline_session_store: &O,
-    auth_req: &mut authrequest::AuthRequest,
-    identity: &Identity,
-    support_refresh: bool,
-) -> Result<(String, bool)> {
-    auth_req.logged_in = true;
-    auth_req.claim = identity.claim.clone();
-    auth_req.connector_data = identity.connector_data.clone();
-
-    auth_request_store.put(auth_req).await?;
-    if !auth_req.force_approval_prompt {
-        return Ok(("".to_string(), true));
-    }
-
-    let hmac = Sha256::new_with_prefix(&auth_req.hmac_key)
-        .chain_update(&auth_req.id)
-        .finalize();
-    let mut return_url = String::from("/approval?req=");
-    return_url.push_str(&auth_req.id);
-    return_url.push_str("&hmac=");
-    let hmac_str = general_purpose::URL_SAFE_NO_PAD.encode(hmac);
-    return_url.push_str(&hmac_str);
-    if !support_refresh {
-        return Ok((return_url, false));
-    }
-    if auth_req.scopes.contains(&String::from("offline_access")) {
-        return Ok((return_url, false));
-    }
-    let mut sessions = List::default();
-    offline_session_store
-        .list(
-            &offlinesession::ListParams {
-                user_id: Some(auth_req.claim.sub.clone()),
-                conn_id: Some(auth_req.connector_id.clone()),
-                pagination: cim_storage::Pagination {
-                    count_disable: true,
-                    ..Default::default()
-                },
-            },
-            &mut sessions,
-        )
-        .await?;
-    if sessions.data.is_empty() {
-        let id = next_id().map_err(errors::any)?;
-        offline_session_store
-            .put(&offlinesession::OfflineSession {
-                id: id.to_string(),
-                user_id: auth_req.claim.sub.clone(),
-                conn_id: auth_req.connector_id.clone(),
-                connector_data: auth_req.connector_data.clone(),
-                ..Default::default()
-            })
-            .await?;
-    } else {
-        let mut session = sessions.data.remove(0);
-        if let Some(connector_data) = &auth_req.connector_data {
-            session.connector_data = Some(connector_data.clone());
-            offline_session_store.put(&session).await?;
-        }
-    }
-    Ok((return_url, false))
-}
-
-pub async fn verify_auth_request<S: Interface<T = authrequest::AuthRequest>>(
-    auth_request_store: &S,
-    req_hmac: &auth::ReqHmac,
-) -> Result<authrequest::AuthRequest> {
-    let mut auth_req = authrequest::AuthRequest {
-        id: req_hmac.req.clone(),
-        ..Default::default()
-    };
-    auth_request_store.get(&mut auth_req).await?;
-    if !auth_req.logged_in {
-        return Err(errors::unauthorized());
-    }
-    let hmac = Sha256::new_with_prefix(&auth_req.hmac_key)
-        .chain_update(&auth_req.id)
-        .finalize();
-    let hmac_str = general_purpose::URL_SAFE_NO_PAD.encode(hmac);
-
-    if !hmac_str.eq(&req_hmac.hmac) {
-        return Err(errors::unauthorized());
-    }
-    Ok(auth_req)
 }
 
 pub async fn valid_scope<C: Interface<T = client::Client>>(
@@ -488,11 +431,6 @@ pub async fn parse_auth_request<C: Interface<T = client::Client>>(
     if !validate_redirect_uri(&client, &req.redirect_uri) {
         return Err(errors::bad_request("Invalid redirect_uri"));
     }
-    let hmac_key = rand::thread_rng()
-        .sample_iter(&rand::distributions::Alphanumeric)
-        .take(32)
-        .map(char::from)
-        .collect::<String>();
 
     Ok(authrequest::AuthRequest {
         client_id: req.client_id.clone(),
@@ -503,8 +441,6 @@ pub async fn parse_auth_request<C: Interface<T = client::Client>>(
         code_challenge_method,
         nonce: req.nonce.clone(),
         state: req.state.clone(),
-        hmac_key,
-        force_approval_prompt: req.skip_approval.unwrap_or_default(),
         ..Default::default()
     })
 }
@@ -625,7 +561,6 @@ mod tests {
         assert_eq!(auth_req.redirect_uri, "http://localhost:3000/callback");
         assert_eq!(auth_req.nonce, "nonce");
         assert_eq!(auth_req.state, "state");
-        assert!(!auth_req.force_approval_prompt);
         assert_eq!(auth_req.code_challenge, "R");
         assert_eq!(auth_req.code_challenge_method, "plain");
     }

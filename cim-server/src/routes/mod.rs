@@ -85,6 +85,7 @@ impl AppRouter {
             .route("/metrics", get(Self::metrics))
             // web dir
             .nest_service("/cim", ServeDir::new("dist"))
+            .nest_service("/static", ServeDir::new("static"))
             .fallback(Self::not_found);
 
         Ok(router)

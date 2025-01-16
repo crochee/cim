@@ -3,11 +3,11 @@ use std::collections::HashMap;
 use askama::Template;
 use axum::{
     extract::{Path, Query, Request},
-    response::{IntoResponse, Redirect, Response},
+    response::Redirect,
     routing::{get, post},
-    Form, Json, Router,
+    Json, Router,
 };
-use http::{header, HeaderMap, StatusCode, Uri};
+use http::{StatusCode, Uri};
 
 use cim_slo::{errors, HtmlTemplate, Result};
 use tracing::info;
@@ -16,8 +16,8 @@ use crate::{
     services::{
         authorization,
         oidc::{
-            auth, auth_page_callback, get_connector, parse_auth_request,
-            redirect_auth_page, send_code, verify_auth_request,
+            auth, auth_page_callback, get_auth_request, get_connector,
+            parse_auth_request, redirect_auth_page,
         },
     },
     valid::Valid,
@@ -30,7 +30,6 @@ pub fn new_router(state: AppState) -> Router {
         .route("/callback", get(callback_handle))
         // cim impl callback
         .route("/login", get(password_login_html))
-        .route("/approval", get(approval_html).post(post_approval))
         // example redirect_uri api
         .route("/redirect", get(redirect_callback))
         .route("/autth", post(authorize))
@@ -99,12 +98,17 @@ async fn callback_handle(
 #[template(path = "password.html")]
 pub struct Password {
     pub post_url: String,
+    pub scopes: Vec<String>,
     pub username_prompt: String,
 }
 
 async fn password_login_html(
+    app: AppState,
     Valid(state): Valid<auth::AuthRequestState>,
 ) -> Result<HtmlTemplate<Password>> {
+    let auth_req =
+        get_auth_request(&app.store.auth_request, &state.state).await?;
+
     let mut u = state.callback.unwrap_or("/callback".to_string());
     let url = u.parse::<Uri>().map_err(|err| errors::bad_request(&err))?;
     if url.query().is_none() {
@@ -117,73 +121,7 @@ async fn password_login_html(
 
     Ok(HtmlTemplate(Password {
         post_url: u,
+        scopes: auth_req.scopes,
         username_prompt: "Enter your username".to_string(),
     }))
-}
-
-#[derive(Template)]
-#[template(path = "approval.html")]
-pub struct Approval {
-    pub issuer: String,
-    pub scopes: Vec<String>,
-    pub client: String,
-    pub req: String,
-    pub hmac: String,
-    pub approval: Option<String>,
-}
-
-async fn approval_html(
-    app: AppState,
-    Valid(req_hmac): Valid<auth::ReqHmac>,
-) -> Result<HtmlTemplate<Approval>> {
-    verify_auth_request(&app.store.auth_request, &req_hmac).await?;
-
-    Ok(HtmlTemplate(Approval {
-        issuer: "Cim".to_string(),
-        scopes: vec![
-            "openid".to_string(),
-            "profile".to_string(),
-            "email".to_string(),
-        ],
-        client: "cim".to_string(),
-        req: req_hmac.req,
-        hmac: req_hmac.hmac,
-        approval: req_hmac.approval,
-    }))
-}
-
-async fn post_approval(
-    app: AppState,
-    Valid(Form(req_hmac)): Valid<Form<auth::ReqHmac>>,
-) -> Result<Response> {
-    if let Some(approval) = &req_hmac.approval {
-        if approval.eq("approve") {
-            let auth_req =
-                verify_auth_request(&app.store.auth_request, &req_hmac).await?;
-
-            let url = send_code(
-                &app.store.auth_request,
-                &app.access_token,
-                &app.store.auth_code,
-                &auth_req,
-            )
-            .await?;
-            let mut headers = HeaderMap::new();
-            headers.insert(header::LOCATION, url.parse().unwrap());
-            return Ok((StatusCode::SEE_OTHER, headers).into_response());
-        }
-    }
-    Ok(HtmlTemplate(Approval {
-        issuer: "Cim".to_string(),
-        scopes: vec![
-            "openid".to_string(),
-            "profile".to_string(),
-            "email".to_string(),
-        ],
-        client: "cim".to_string(),
-        req: req_hmac.req,
-        hmac: req_hmac.hmac,
-        approval: req_hmac.approval,
-    })
-    .into_response())
 }

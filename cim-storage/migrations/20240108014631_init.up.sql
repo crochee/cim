@@ -140,9 +140,6 @@ CREATE TABLE `auth_request` (
     `code_challenge_method` TEXT NOT NULL DEFAULT '',
 	`nonce` TEXT NOT NULL,
 	`state` VARCHAR(4096),
-    `hmac_key` TEXT,
-	`force_approval_prompt` BOOLEAN NOT NULL,
-	`logged_in` BOOLEAN NOT NULL,
 
 	`claim` LONGTEXT NOT NULL CHECK (json_valid(`claim`)),
 
