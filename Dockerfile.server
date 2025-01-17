@@ -1,22 +1,37 @@
+# Builder stage: Use a minimal Alpine-based Go image to build gosu
 FROM golang:1.21.5-alpine AS builder
 ARG GOSU_VERSION=1.17
 WORKDIR /workspace
-RUN go install github.com/tianon/gosu@${GOSU_VERSION} && cp ${GOPATH}/bin/gosu /workspace/gosu
 
-FROM ubuntu
+# Install gosu and copy it to the workspace
+RUN go install github.com/tianon/gosu@${GOSU_VERSION} && \
+    cp ${GOPATH}/bin/gosu /workspace/gosu
+
+# Runtime stage: Use a minimal Ubuntu base image
+FROM ubuntu:22.04
 WORKDIR /app
-# 资源拷贝
-COPY --from=builder /workspace/gosu /usr/local/bin/
-COPY target/release/server /usr/local/bin
-COPY entrypoint.sh /usr/local/bin/
-COPY server.toml .
-# 赋予执行权限
-RUN chmod +x /usr/local/bin/server /usr/local/bin/entrypoint.sh &&\
-    groupadd -g 10000 cloud &&\
-    useradd -u 5000 -g cloud -m dev
 
+# Copy gosu from the builder stage
+COPY --from=builder /workspace/gosu /usr/local/bin/gosu
+
+# Copy the server binary, entrypoint script, and configuration file
+COPY target/release/server /usr/local/bin/server
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+
+# Set execute permissions on the server binary and entrypoint script
+RUN chmod +x /usr/local/bin/server /usr/local/bin/entrypoint.sh && \
+    # Create a non-root user and group for running the application
+    groupadd -g 10000 cloud && \
+    useradd -u 5000 -g cloud -m dev && \
+    # Ensure gosu is executable
+    chmod +x /usr/local/bin/gosu
+
+# Expose the port the application will run on
 EXPOSE 30050
-STOPSIGNAL 2
 
+# Set the stop signal
+STOPSIGNAL SIGINT
+
+# Set the entrypoint and default command
 ENTRYPOINT ["entrypoint.sh"]
-CMD ["-c", "/app/server.toml"]
+CMD ["-c", "/data/server.toml"]

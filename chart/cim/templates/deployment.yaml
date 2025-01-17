@@ -20,7 +20,7 @@ spec:
             - containerPort: {{ .Values.service.port }}
           volumeMounts:
             - name: config-volume
-              mountPath: /app/
+              mountPath: /data
       volumes:
         - name: config-volume
           configMap:

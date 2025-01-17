@@ -2,9 +2,6 @@
 # alpine不支持bash
 set -e
 
-# docker build --no-cache -t caty .
-# docker run -itd -p 8120:8120 --restart=always --name catysrv caty
-
 # first arg is `-f`
 # 删掉第一个变量的左边第一个-与原输入不一致的时候表示第一个元素以-开始
 if [ "${1#-}" != "$1" ] ; then
