@@ -39,6 +39,14 @@ rs: build ## run server with docker
 	docker build -f Dockerfile.server -t server:latest . && \
 	docker run -itd -p 30050:30050 --restart=always --name server server:latest
 
+.PHONY: image
+image: build ## run server with docker
+	docker build -f Dockerfile.server -t server:latest . && \
+	slim build --http-probe=false --image-build-engine docker --target server:latest && \
+	docker tag server.slim:latest server:latest && \
+	docker run -itd -p 30050:30050 --restart=always --name server server:latest
+
+
 ##@ Clean
 clean: ## Delete all builds
 	@cargo clean
