@@ -4,17 +4,31 @@
   "private": true,
   "license": "MIT",
   "scripts": {
-    "build": "webpack",
-    "start": "webpack serve --open --mode=development"
+    "start": "webpack serve --open --config webpack.config.js --mode development",
+    "build": "webpack --config webpack.config.js --mode production"
   },
   "devDependencies": {
-    "webpack": "^5.4.0",
-    "webpack-cli": "^4.2.0",
-    "webpack-dev-server": "^5.1.0"
+    "@babel/core": "^7.26.7",
+    "@babel/preset-env": "^7.26.7",
+    "@babel/preset-react": "^7.26.3",
+    "babel-loader": "^9.2.1",
+    "css-loader": "^7.1.2",
+    "html-webpack-plugin": "^5.6.3",
+    "mini-css-extract-plugin": "^2.9.2",
+    "webpack": "^5.97.1",
+    "webpack-cli": "^6.0.1",
+    "webpack-dev-server": "^5.2.0"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
+    "@mui/icons-material": "^6.4.3",
+    "@mui/material": "^6.4.3",
+    "@types/react": "^19.0.8",
+    "axios": "^1.7.9",
     "lodash": "^4.17.21",
-    "@babel/preset-env": "^7.26.0",
-    "babel-loader": "^9.2.1"
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-router-dom": "^7.1.5"
   }
 }

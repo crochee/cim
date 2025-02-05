@@ -1,13 +1,17 @@
 const path = require("path");
+const MiniCssExtractPlugin = require("mini-css-extract-plugin");
+const HtmlWebpackPlugin = require("html-webpack-plugin");
+const webpack = require("webpack");
 
 module.exports = (env) => {
   return {
-    target: "web",
-    mode: "production",
-    entry: "./src/index.js", // 入口文件
+    mode: "development", // 设置为 'production' 以启用压缩
+    entry: {
+      index: "./src/index.js",
+    },
     output: {
-      filename: "main.js", // 输出文件
-      path: path.resolve(__dirname, "dist"), // 输出目录
+      filename: "[name].[contenthash].bundle.js",
+      path: path.resolve(__dirname, "dist"),
     },
     module: {
       rules: [
@@ -17,14 +21,46 @@ module.exports = (env) => {
           use: {
             loader: "babel-loader",
             options: {
-              presets: ["@babel/preset-env"],
+              presets: ["@babel/preset-react", "@babel/preset-env"],
             },
+          },
+        },
+        {
+          test: /\.css$/,
+          use: [MiniCssExtractPlugin.loader, "css-loader"],
+        },
+        {
+          test: /\.(png|jpe?g|gif|svg)$/i,
+          type: "asset/resource",
+          generator: {
+            filename: "[path][name].[ext]",
           },
         },
       ],
     },
+    resolve: {
+      extensions: [".js", ".jsx", ".css"],
+    },
+    optimization: {
+      splitChunks: {
+        chunks: "all",
+      },
+    },
+    plugins: [
+      new webpack.DefinePlugin({
+        // 定义 process.env
+        "process.env": JSON.stringify({ ...process.env }),
+      }),
+      new HtmlWebpackPlugin({
+        template: "./public/index.html", // 指定模板文件
+        filename: "index.html", // 输出文件名
+      }),
+      new MiniCssExtractPlugin({
+        filename: "[name].[contenthash].css",
+      }),
+    ],
     devServer: {
-      compress: false,
+      compress: true,
       host: "localhost",
       client: {
         overlay: false,
@@ -42,10 +78,7 @@ module.exports = (env) => {
       },
       proxy: [
         {
-          context: (param) =>
-            param.match(
-              /\/api\/.*|analytics\/.*|static\/.*|admin(?:\/(.*))?.*|profiler(?:\/(.*))?.*|documentation\/.*|django-rq(?:\/(.*))?/gm,
-            ),
+          context: ["/api"],
           target: env && env.API_URL,
           secure: false,
           changeOrigin: true,
