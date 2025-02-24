@@ -21,3 +21,4 @@ tracing = { workspace = true }
 jsonwebkey = { workspace = true }
 sqlx = { workspace = true }
 rand = { workspace = true }
+utoipa = { workspace = true }

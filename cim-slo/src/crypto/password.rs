@@ -4,8 +4,8 @@ use rand::Rng;
 use crate::{errors, Result};
 
 pub fn encrypt(password: &str, secret: &str) -> Result<String> {
-    let password_salt = rand::thread_rng()
-        .sample_iter(&rand::distributions::Alphanumeric)
+    let password_salt = rand::rng()
+        .sample_iter(&rand::distr::Alphanumeric)
         .take(255)
         .map(char::from)
         .collect::<String>();
@@ -29,8 +29,8 @@ mod tests {
     #[test]
     fn encrypt_verify() {
         let password = String::from("ag1234567890123456789");
-        let secret = rand::thread_rng()
-            .sample_iter(&rand::distributions::Alphanumeric)
+        let secret = rand::rng()
+            .sample_iter(&rand::distr::Alphanumeric)
             .take(64)
             .map(char::from)
             .collect::<String>();

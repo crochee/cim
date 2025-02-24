@@ -4,7 +4,9 @@ use validator::Validate;
 
 use crate::Pagination;
 
-#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Clone)]
+#[derive(
+    Debug, Default, Deserialize, Serialize, PartialEq, Clone, utoipa::ToSchema,
+)]
 pub struct PolicyBinding {
     pub id: String,
     pub policy_id: String,
@@ -37,7 +39,9 @@ pub struct ListParams {
     pub pagination: Pagination,
 }
 
-#[derive(Debug, Default, Deserialize, Serialize, Clone, PartialEq)]
+#[derive(
+    Debug, Default, Deserialize, Serialize, Clone, PartialEq, utoipa::ToSchema,
+)]
 pub enum BindingsType {
     #[default]
     User = 1,

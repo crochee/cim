@@ -12,10 +12,11 @@ use serde_json::value::RawValue;
 
 use crate::req::Request;
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, utoipa::ToSchema)]
 pub struct JsonCondition {
     #[serde(rename = "type")]
     pub jtype: String,
+    #[schema(format = Binary, value_type = String)]
     pub options: Box<RawValue>,
 }
 

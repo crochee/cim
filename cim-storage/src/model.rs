@@ -8,7 +8,7 @@ use validator::Validate;
 
 use cim_slo::regexp::check_order_by;
 
-#[derive(Debug, Serialize, Default)]
+#[derive(Debug, Serialize, Default, utoipa::ToSchema)]
 pub struct List<T> {
     pub data: Vec<T>,
     pub limit: u64,
@@ -16,12 +16,12 @@ pub struct List<T> {
     pub total: i64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct ID {
     pub id: String,
 }
 
-#[derive(Debug, Default, Validate)]
+#[derive(Debug, Default, Validate, utoipa::ToSchema)]
 pub struct Pagination {
     pub limit: u64,
     pub offset: u64,
@@ -245,6 +245,7 @@ impl Pagination {
     Serialize,
     PartialEq,
     Eq,
+    utoipa::ToSchema,
 )]
 pub struct Claim {
     #[validate(length(min = 1, max = 255))]
@@ -262,6 +263,7 @@ pub struct Claim {
     Serialize,
     PartialEq,
     Eq,
+    utoipa::ToSchema,
 )]
 pub struct ClaimOpts {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -323,6 +325,7 @@ pub struct ClaimOpts {
     Serialize,
     PartialEq,
     Eq,
+    utoipa::ToSchema,
 )]
 pub struct AddressClaim {
     /// Full mailing address, formatted for display or use on a mailing label.

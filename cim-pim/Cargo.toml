@@ -14,5 +14,6 @@ regex = { workspace = true }
 validator = { workspace = true }
 tracing = { workspace = true }
 lru = { workspace = true }
+utoipa = { workspace = true }
 
 cidr-utils = "0.6"

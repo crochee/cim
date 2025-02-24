@@ -4,7 +4,7 @@ use validator::Validate;
 
 use crate::Pagination;
 
-#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Clone)]
+#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Clone, utoipa::ToSchema)]
 pub struct Role {
     pub id: String,
     pub account_id: String,

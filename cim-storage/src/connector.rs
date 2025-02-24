@@ -4,7 +4,7 @@ use validator::Validate;
 
 use crate::Pagination;
 
-#[derive(Debug, Default, Deserialize, Serialize, Clone)]
+#[derive(Debug, Default, Deserialize, Serialize, Clone, utoipa::ToSchema)]
 pub struct Connector {
     pub id: String,
     #[serde(rename = "type")]
@@ -12,6 +12,7 @@ pub struct Connector {
     pub name: String,
     pub response_version: String,
     pub config: String,
+    #[schema(format = Binary, value_type = String)]
     pub connector_data: Option<Box<RawValue>>,
 }
 

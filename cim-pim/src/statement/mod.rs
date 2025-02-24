@@ -6,13 +6,14 @@ use validator::Validate;
 
 use crate::condition::JsonCondition;
 
-#[derive(Debug, Deserialize, Serialize, Validate, Clone)]
+#[derive(Debug, Deserialize, Serialize, Validate, Clone, utoipa::ToSchema)]
 pub struct Statement {
     pub effect: Effect,
     pub subjects: Vec<String>,
     pub actions: Vec<String>,
     pub resources: Vec<String>,
     pub conditions: Option<HashMap<String, JsonCondition>>,
+    #[schema(format = Binary, value_type = String)]
     pub meta: Option<Box<RawValue>>,
 }
 
@@ -42,7 +43,7 @@ impl PartialEq for Statement {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Clone, utoipa::ToSchema)]
 pub enum Effect {
     Allow,
     Deny,

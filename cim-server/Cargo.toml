@@ -39,6 +39,7 @@ http = { workspace = true }
 rand = { workspace = true }
 lru = { workspace = true }
 toml = { workspace = true }
+utoipa = { workspace = true }
 
 tokio = { version = "1.36", features = ["full"] }
 axum-extra = { version = "0.10", features = ["typed-header"] }

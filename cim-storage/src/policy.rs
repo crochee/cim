@@ -9,7 +9,7 @@ use cim_slo::Result;
 
 use crate::Pagination;
 
-#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Clone)]
+#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Clone, utoipa::ToSchema)]
 pub struct Policy {
     pub id: String,
     pub account_id: Option<String>,

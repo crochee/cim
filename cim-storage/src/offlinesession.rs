@@ -7,13 +7,14 @@ use validator::Validate;
 
 use crate::Pagination;
 
-#[derive(Debug, Default, Deserialize, Serialize, Clone)]
+#[derive(Debug, Default, Deserialize, Serialize, Clone, utoipa::ToSchema)]
 pub struct OfflineSession {
     pub id: String,
     pub user_id: String,
     pub conn_id: String,
     pub refresh: HashMap<String, RefreshTokenRef>,
 
+    #[schema(format = Binary, value_type = String)]
     pub connector_data: Option<Box<RawValue>>,
 }
 
@@ -34,7 +35,9 @@ impl PartialEq for OfflineSession {
     }
 }
 
-#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Clone)]
+#[derive(
+    Debug, Default, Deserialize, Serialize, PartialEq, Clone, utoipa::ToSchema,
+)]
 pub struct RefreshTokenRef {
     pub id: String,
     pub client_id: String,

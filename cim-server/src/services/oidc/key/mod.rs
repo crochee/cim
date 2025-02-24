@@ -74,15 +74,15 @@ where
     }
 
     fn key_generator(take: usize) -> String {
-        rand::thread_rng()
-            .sample_iter(&rand::distributions::Alphanumeric)
+        rand::rng()
+            .sample_iter(&rand::distr::Alphanumeric)
             .take(take)
             .map(char::from)
             .collect::<String>()
     }
 
     fn create_key(&self) -> Result<(jwk::JsonWebKey, jwk::JsonWebKey)> {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let private_key =
             rsa::RsaPrivateKey::new(&mut rng, 2048).map_err(errors::any)?;
 

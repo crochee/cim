@@ -33,8 +33,8 @@ impl Interface for UserImpl {
             address = Some(serde_json::to_string(&v).map_err(errors::any)?)
         }
 
-        let secret = rand::thread_rng()
-            .sample_iter(&rand::distributions::Alphanumeric)
+        let secret = rand::rng()
+            .sample_iter(&rand::distr::Alphanumeric)
             .take(64)
             .map(char::from)
             .collect::<String>();

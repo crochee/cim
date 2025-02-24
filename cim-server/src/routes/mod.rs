@@ -35,6 +35,22 @@ use crate::{
     AppState,
 };
 
+#[derive(utoipa::OpenApi)]
+#[openapi(paths(openapi))]
+struct ApiDoc;
+
+/// Return JSON version of an OpenAPI schema
+#[utoipa::path(
+    get,
+    path = "/apis/openapi.json",
+    responses(
+        (status = 200, description = "JSON file", body = ())
+    )
+)]
+async fn openapi() -> Json<utoipa::openapi::OpenApi> {
+    Json(ApiDoc::openapi())
+}
+
 pub struct AppRouter;
 
 impl AppRouter {
@@ -42,10 +58,11 @@ impl AppRouter {
         let cors_origin = state.config.cors_origin.parse::<HeaderValue>()?;
 
         let router = Router::new()
+            .route("/apis/openapi.json", get(openapi))
             .merge(oidc::op::new_router(state.clone()))
             .merge(oidc::eu::new_router(state.clone()))
             .nest(
-                "/v1",
+                "apis/v1",
                 Router::new()
                     .merge(policies::new_router(state.clone()))
                     .merge(users::new_router(state.clone()))
@@ -84,7 +101,7 @@ impl AppRouter {
             .route_layer(middleware::from_fn(Self::track_metrics))
             .route("/metrics", get(Self::metrics))
             // web dir
-            .nest_service("/cim", ServeDir::new("dist"))
+            .nest_service("/v1", ServeDir::new("dist"))
             .nest_service("/static", ServeDir::new("static"))
             .fallback(Self::not_found);
 

@@ -6,7 +6,7 @@ use cim_slo::regexp::check_password;
 
 use crate::{ClaimOpts, Pagination};
 
-#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Clone)]
+#[derive(Debug, Default, Deserialize, Serialize, PartialEq, Clone, utoipa::ToSchema)]
 pub struct User {
     pub id: String,
     pub account_id: String,

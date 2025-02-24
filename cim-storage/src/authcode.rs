@@ -4,7 +4,7 @@ use serde_json::value::RawValue;
 
 use crate::Claim;
 
-#[derive(Debug, Default, Deserialize, Serialize, Clone)]
+#[derive(Debug, Default, Deserialize, Serialize, Clone, utoipa::ToSchema)]
 pub struct AuthCode {
     pub id: String,
     pub client_id: String,
@@ -18,6 +18,7 @@ pub struct AuthCode {
     pub claim: Claim,
 
     pub connector_id: String,
+    #[schema(format = Binary, value_type = String)]
     pub connector_data: Option<Box<RawValue>>,
 
     pub expiry: i64,
