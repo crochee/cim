@@ -11,6 +11,7 @@ members = [
   "cim-macros",
   "cim-watch",
   "cim-job",
+  "cim-operator",
 ]
 default-members = ["cim-server"]
 
